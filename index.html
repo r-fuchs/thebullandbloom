@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="The Bull and Bloom — hand-tied seasonal bouquets from floral designer Anthony Demonia, Upstate New York. Weekly bouquet subscriptions and made-to-order arrangements.">
+<link rel="icon" href="assets/logo.jpg">
+<meta property="og:title" content="The Bull and Bloom — Floral Design">
+<meta property="og:description" content="Fresh, hand-tied bouquets, delivered weekly. Made in Upstate New York.">
+<meta property="og:image" content="https://thebullandbloom.com/assets/logo.jpg">
+<title>The Bull and Bloom</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap">
+<style>
+  :root{
+    --paper:#F6F0E5; --paper-deep:#EFE6D7; --ink:#3A2E24; --sepia:#8B7662;
+    --blush:#D9A3A5; --blush-deep:#B9797C; --rule:#CDBFAD;
+    --display:"Cormorant Garamond",Garamond,"Times New Roman",serif;
+    --body:"EB Garamond",Garamond,Georgia,serif;
+  }
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:1.125rem;line-height:1.6;
+    -webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  a:focus-visible,button:focus-visible{outline:2px solid var(--blush-deep);outline-offset:3px}
+  .wrap{max-width:60rem;margin:0 auto;padding:0 1.5rem}
+
+  /* nav */
+  nav{display:flex;justify-content:center;gap:2.5rem;padding:1.5rem 1rem;font-family:var(--display);
+    font-size:.95rem;letter-spacing:.22em;text-transform:uppercase}
+  nav a{text-decoration:none;color:var(--sepia)}
+  nav a:hover{color:var(--ink)}
+
+  /* hero */
+  header{text-align:center;padding:2rem 1.5rem 3.5rem}
+  .mark{width:min(22rem,70vw);aspect-ratio:1;border-radius:50%;object-fit:cover;display:block;margin:0 auto 1.5rem;
+    mix-blend-mode:multiply}
+  h1{font-family:var(--display);font-weight:500;font-size:clamp(2.4rem,7vw,4.4rem);line-height:1.05;margin:0;
+    letter-spacing:.02em;text-wrap:balance}
+  h1 .sc{font-variant:small-caps;letter-spacing:.04em}
+  h1 em{font-style:italic;font-weight:400;font-size:.72em;margin:0 .1em;color:var(--sepia)}
+  .divider{display:flex;align-items:center;gap:1rem;max-width:26rem;margin:1.25rem auto;color:var(--sepia)}
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--ink);opacity:.7}
+  .tag{font-family:var(--display);letter-spacing:.38em;text-transform:uppercase;font-size:.95rem;margin:0}
+  .lede{max-width:34rem;margin:1.75rem auto 0;font-size:1.2rem;font-style:italic;color:var(--sepia);text-wrap:balance}
+
+  /* sections */
+  section{padding:3.5rem 0;border-top:1px solid var(--rule)}
+  h2{font-family:var(--display);font-weight:500;font-size:2rem;margin:0 0 .35rem;letter-spacing:.02em}
+  .eyebrow{font-family:var(--display);letter-spacing:.3em;text-transform:uppercase;font-size:.8rem;color:var(--sepia);margin:0 0 .5rem}
+  .intro{max-width:36rem;margin:0 0 2rem}
+
+  .services{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));
+    gap:0 3rem}
+  .services li{padding:1.4rem 0;border-top:1px solid var(--rule)}
+  .services h3{font-family:var(--display);font-weight:600;font-size:1.45rem;margin:0 0 .3rem;letter-spacing:.01em}
+  .services p{margin:0;color:#5A4A3C;font-size:1.05rem}
+
+
+  .plan{display:grid;grid-template-columns:1.6fr 1fr;gap:2.5rem;padding:2rem;border:1px solid var(--ink);margin:0 0 2.5rem;
+    background:var(--paper-deep)}
+  .plan h3{font-family:var(--display);font-weight:600;font-size:1.7rem;margin:0 0 .5rem}
+  .plan p{margin:0 0 1rem}
+  .plan-list{margin:0;padding:0 0 0 1.1rem;color:#5A4A3C;font-size:1.05rem}
+  .plan-list li{margin:.2rem 0}
+  .plan-side{border-left:1px solid var(--rule);padding-left:2rem;display:flex;flex-direction:column;justify-content:center}
+  .plan-note{font-size:1.05rem;color:#5A4A3C;margin:0}
+  .plan .btn{margin-top:1.25rem;align-self:flex-start}
+  @media (max-width:40rem){.plan{grid-template-columns:1fr;padding:1.5rem}.plan-side{border-left:0;padding-left:0;border-top:1px solid var(--rule);padding-top:1.5rem}}
+  .portrait{margin:0}
+  .portrait img{width:100%;aspect-ratio:4/5;object-fit:cover;display:block;filter:sepia(.25) contrast(.95);border:1px solid var(--rule)}
+  .portrait figcaption{font-size:.9rem;color:var(--sepia);font-style:italic;margin-top:.5rem;text-align:center}
+  .about{display:grid;grid-template-columns:2fr 3fr;gap:3rem;align-items:start}
+  @media (max-width:40rem){.about{grid-template-columns:1fr}}
+
+  .how{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(12rem,1fr));gap:2rem}
+  .how li strong{display:block;font-family:var(--display);font-size:1.3rem;font-weight:600;margin-bottom:.25rem}
+  .how li{font-size:1.05rem;color:#5A4A3C}
+
+  /* contact */
+  .contact{background:var(--paper-deep)}
+  .contact .wrap{text-align:center}
+  .contact dl{margin:1.75rem auto 0;display:inline-grid;grid-template-columns:auto auto;gap:.6rem 1.25rem;text-align:left;
+    font-size:1.15rem}
+  .contact dt{font-family:var(--display);letter-spacing:.25em;text-transform:uppercase;font-size:.75rem;color:var(--sepia);
+    align-self:center}
+  .contact dd{margin:0}
+  .contact dd a{text-decoration:none;border-bottom:1px solid var(--rule)}
+  .contact dd a:hover{border-color:var(--ink)}
+  .btn{display:inline-block;margin-top:2rem;padding:.8rem 2rem;border:1px solid var(--ink);text-decoration:none;
+    font-family:var(--display);letter-spacing:.25em;text-transform:uppercase;font-size:.9rem;transition:background .2s,color .2s}
+  .btn:hover{background:var(--ink);color:var(--paper)}
+
+  footer{text-align:center;padding:2rem 1.5rem 3rem;font-size:.9rem;color:var(--sepia);border-top:1px solid var(--rule)}
+  .sprig{color:var(--sepia)}
+</style>
+
+</head>
+<body>
+<nav aria-label="Sections">
+  <a href="#services">Services</a>
+  <a href="#about">About</a>
+  <a href="#contact">Contact</a>
+</nav>
+
+<header>
+  <img class="mark" src="assets/logo.jpg" alt="Hand-drawn bull bowing its head to smell a single pink wildflower in a meadow">
+  <h1><span class="sc">The Bull</span><em>and</em><span class="sc">Bloom</span></h1>
+  <div class="divider" aria-hidden="true">
+    <svg class="sprig" width="34" height="14" viewBox="0 0 34 14" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round">
+      <path d="M2 7h30"/><path d="M11 7c-1-3-3-4-5-4 1 2 3 4 5 4z"/><path d="M11 7c-1 3-3 4-5 4 1-2 3-4 5-4z"/>
+      <path d="M17 7c-1-3-3-4-5-4 1 2 3 4 5 4z"/><path d="M17 7c-1 3-3 4-5 4 1-2 3-4 5-4z"/>
+      <path d="M23 7c-1-3-3-4-5-4 1 2 3 4 5 4z"/><path d="M23 7c-1 3-3 4-5 4 1-2 3-4 5-4z"/>
+    </svg>
+  </div>
+  <p class="tag">Floral Design</p>
+  <p class="lede">Fresh, hand-tied bouquets, delivered weekly. Made in Upstate New York.</p>
+</header>
+
+<main class="wrap">
+  <section id="services">
+    <p class="eyebrow">What we offer</p>
+    <h2>The weekly bouquet</h2>
+    <p class="intro">We're starting small and doing one thing well: a monthly subscription that puts a fresh, seasonal bouquet in your hands every week.</p>
+    <div class="plan">
+      <div class="plan-main">
+        <h3>Monthly subscription</h3>
+        <p>Four hand-tied bouquets a month, one each week, built from whatever's best that week. No two are the same. Pick up locally or have it delivered.</p>
+        <ul class="plan-list">
+          <li>Seasonal stems, chosen the morning they're arranged</li>
+          <li>Wrapped and ready to drop in a vase</li>
+          <li>Pause or cancel any time with a week's notice</li>
+          <li>Gift subscriptions available</li>
+        </ul>
+      </div>
+      <div class="plan-side">
+        <p class="plan-note">Tell us where you are and which day you'd like your flowers, and we'll take it from there.</p>
+        <a class="btn" href="#contact">Ask about a subscription</a>
+      </div>
+    </div>
+    <ul class="services">
+      <li>
+        <h3>One-time bouquets</h3>
+        <p>Not ready for a subscription? Order a single bouquet for a birthday, a thank-you, or a Tuesday.</p>
+      </li>
+      <li>
+        <h3>Small arrangements</h3>
+        <p>Vessel arrangements sized for a dinner table or an entryway, made to order. Bring your own vase or use one of ours.</p>
+      </li>
+    </ul>
+  </section>
+
+  <section id="about">
+    <p class="eyebrow">The designer</p>
+    <h2>Anthony Demonia</h2>
+    <div class="about">
+      <figure class="portrait">
+        <img src="assets/portrait-placeholder.svg" alt="Anthony Demonia">
+      </figure>
+      <div>
+        <p>The Bull and Bloom is the studio of floral designer Anthony Demonia, based in Upstate New York. The name comes from the drawing on the card: something big and steady, stopped in its tracks by something small and beautiful. That's the feeling we aim for in every arrangement.</p>
+        <p>Anthony works with what's in season, sources locally where he can, and keeps the palette honest: no dyed stems, no filler for the sake of filling.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <p class="eyebrow">How it works</p>
+    <h2>Ordering</h2>
+    <ol class="how">
+      <li><strong>Reach out</strong>Email, call, or message on Instagram. Tell us whether you'd like the weekly subscription or a one-off, and whether it's pickup or delivery.</li>
+      <li><strong>We design</strong>We confirm your start date and delivery day. For one-offs, we'll suggest a palette and size for the occasion.</li>
+      <li><strong>We deliver</strong>Your bouquet is arranged that morning and ready the same day, every week.</li>
+    </ol>
+  </section>
+</main>
+
+<section class="contact" id="contact">
+  <div class="wrap">
+    <p class="eyebrow">Get in touch</p>
+    <h2>Let's make something</h2>
+    <dl>
+      <dt>Email</dt><dd><a href="mailto:thebullandbloom@gmail.com">thebullandbloom@gmail.com</a></dd>
+      <dt>Phone</dt><dd><a href="tel:+15183340517">(518) 334-0517</a></dd>
+      <dt>Instagram</dt><dd><a href="https://instagram.com/thebullandbloom">@thebullandbloom</a></dd>
+    </dl>
+    <div><a class="btn" href="mailto:thebullandbloom@gmail.com?subject=Floral%20inquiry">Get in touch</a></div>
+  </div>
+</section>
+
+<footer>© 2026 The Bull and Bloom · Floral Design · thebullandbloom.com</footer>
+</body>
+</html>
