@@ -32,7 +32,8 @@ In scope for v1:
 4. **Checkout**: Stripe Checkout (hosted) for one-time orders. Jim stays for
    in-person sales; the store never touches Jim.
 5. **Subscriptions**: a size × cadence grid sold as Stripe subscriptions.
-   Nightly materialization of subscriber bouquets into the daily pools.
+   Nightly materialization of subscriber bouquets for the calendar and courier
+   flow; subscriber bouquets do not count against the daily pool (D14).
    Customers self-serve pause/cancel/card via Stripe's customer portal.
 6. **Delivery**: Uber Direct quote at checkout keyed on the customer's address;
    courier requested by Anthony with one tap on the day. Pickup is free.
@@ -76,6 +77,7 @@ Out of scope for v1 (explicit non-goals):
 | D11 | Email via Gmail API on the existing Google grant | Resend, Postmark, Stripe receipts only | No third vendor; one authorization by Anthony covers calendar and mail. |
 | D12 | Instagram images copied into our storage | Link to Instagram's CDN URLs | Instagram media URLs expire; the page must not depend on Instagram being up. |
 | D13 | Subscriber bouquet on a closed day moves to the next open day that week; whole week closed → skipped and flagged | Skip immediately; credit automatically | Keeps the promised cadence when possible; makes Anthony decide the rare full-week case. |
+| D14 | Subscriber bouquets do not count against the daily cap | Count them ahead of one-time orders | Ryan's call (2026-09-07). The cap is Anthony's one-time-order budget; subscriptions are planned work he sizes separately. Admin shows the subscriber count per day next to the cap so he can see the whole load. |
 
 ## 4. How
 
@@ -135,9 +137,10 @@ Config values Anthony still has to supply before launch are listed in §7.
 - `ig_posts` — ig_id, permalink, caption, media_r2_key, taken_at, hidden.
 - `settings` — key, value_json.
 
-Capacity for a date = cap(date) − count(orders where date and status in
-`held`,`paid`) where cap(date) is the override if present else the default,
-and 0 if the day is closed or not an open weekday.
+Capacity for a date = cap(date) − count(orders where date and source =
+`one_time` and status in `held`,`paid`) where cap(date) is the override if
+present else the default, and 0 if the day is closed or not an open weekday.
+Subscription-sourced orders are excluded (D14) but are shown per day in admin.
 
 ### 4.4 Flows
 
@@ -183,8 +186,8 @@ price for delivery created ad hoc. On `customer.subscription.created` insert
 each due date in the next 14 days per cadence and anchor: if an order for that
 subscriber/date does not exist, create one `paid` with source `subscription`,
 applying D13 for closed days (move within the week, else skip and write an
-admin flag). Materialized orders count against capacity ahead of one-time
-orders because they are created before the day opens to the public.
+admin flag). Materialized orders do not consume capacity (D14); they exist so
+the order appears on the calendar, in admin, and in the courier flow.
 
 **Courier request.** Admin or calendar link → `POST /admin/orders/:id/dispatch`
 → fresh Uber quote → create delivery → store `deliveries` row, email customer
@@ -240,7 +243,7 @@ environment secrets, never in the repo.
 
 | Module | Does | Depends on |
 |---|---|---|
-| `core/capacity` | remaining(date), isOrderable(date, now), applyOverrides | nothing |
+| `core/capacity` | remaining(date) over one-time orders only, isOrderable(date, now), applyOverrides | nothing |
 | `core/subscriptions` | dueDates(subscriber, range), shiftForClosed(date, closedSet) (D13) | nothing |
 | `store/*` | typed D1 queries; one transaction helper | D1 |
 | `adapters/stripe` | createCheckout(one-time · subscription), verifyWebhook, portalLink | Stripe SDK |
