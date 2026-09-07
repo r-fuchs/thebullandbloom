@@ -1,0 +1,14 @@
+{
+  "timezone": "America/New_York",
+  "studio": {
+    "pickupAddress": "SAMPLE — studio address, Upstate NY",
+    "pickupInstructions": "SAMPLE — text Anthony at (518) 334-0517 when you arrive."
+  },
+  "sizes": [
+    { "id": "posy", "name": "Posy", "description": "A small hand-tied bunch. SAMPLE.", "priceCents": 5500 },
+    { "id": "bouquet", "name": "Bouquet", "description": "The classic 10–12 stem bouquet. SAMPLE.", "priceCents": 8500 },
+    { "id": "statement", "name": "Statement", "description": "A generous, showpiece bouquet. SAMPLE.", "priceCents": 13500 }
+  ],
+  "defaults": { "cap": 4, "cutoff": "11:00", "openWeekdays": [2, 3, 4, 5, 6] },
+  "holdMinutes": 30
+}
