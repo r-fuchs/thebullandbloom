@@ -1,9 +1,11 @@
 # The Bull and Bloom
 
-Single-page static site for thebullandbloom.com — floral design by Anthony Demonia.
+thebullandbloom.com — floral design by Anthony Demonia. Static site plus a Cloudflare Worker store.
 
-- `index.html` — the whole site (no build step, no JS).
-- `assets/` — logo and photos. Replace `portrait-placeholder.svg` with a real photo and update the `<img>` in the About section.
-- `CNAME` — custom domain for GitHub Pages.
+- `site/` — the pages and images (no build step).
+- `src/` — the Worker: `/api/*` for the storefront, `/webhooks/stripe`, `/admin/api/*`.
+- `migrations/` — D1 schema.
+- `store.config.json` — menu, prices, capacity defaults.
+- Design: `docs/superpowers/specs/2026-09-07-store-design.md`.
 
-Hosted on GitHub Pages from the `main` branch. Edit `index.html`, commit, push — live within a minute or two.
+`npm test` runs everything in a local workerd with a throwaway D1. `npm run dev` serves locally.

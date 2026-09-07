@@ -1,0 +1,40 @@
+{
+  "name": "thebullandbloom",
+  "version": "1.0.0",
+  "description": "Single-page static site for thebullandbloom.com — floral design by Anthony Demonia.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/r-fuchs/thebullandbloom.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/r-fuchs/thebullandbloom/issues"
+  },
+  "homepage": "https://github.com/r-fuchs/thebullandbloom#readme",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "hono": "^4.13.7",
+    "stripe": "^22.6.1"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@cloudflare/workers-types": "^5.20260907.1",
+    "@types/node": "^26.5.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.129.1"
+  }
+}

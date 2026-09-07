@@ -1,0 +1,22 @@
+name = "thebullandbloom"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./site"
+binding = "ASSETS"
+html_handling = "auto-trailing-slash"
+not_found_handling = "404-page"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bullandbloom"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+[triggers]
+crons = ["*/15 * * * *"]
+
+[vars]
+SITE_URL = "https://thebullandbloom.com"
