@@ -1,15 +1,12 @@
 import type { Env } from "./env";
 import { buildApp } from "./app";
 import { loadConfig } from "./config";
-import type { Payments } from "./adapters/payments";
+import { StripePayments } from "./adapters/stripe";
 
 let cached: ReturnType<typeof buildApp> | null = null;
 function appFor(env: Env) {
   if (!cached) {
-    const payments: Payments = {
-      async createCheckout() { throw new Error("payments not configured"); },
-      async parseWebhook() { throw new Error("payments not configured"); },
-    };
+    const payments = new StripePayments(env.STRIPE_SECRET_KEY, env.STRIPE_WEBHOOK_SECRET);
     cached = buildApp({ payments, clock: () => new Date(), config: loadConfig() });
   }
   return cached;
