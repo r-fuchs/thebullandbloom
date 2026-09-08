@@ -10,6 +10,7 @@
 <meta property="og:image" content="https://thebullandbloom.com/assets/logo.jpg">
 <title>The Bull and Bloom</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap">
+<script src="store.js" defer></script>
 <style>
   :root{
     --paper:#F6F0E5; --paper-deep:#EFE6D7; --ink:#3A2E24; --sepia:#8B7662;
@@ -107,6 +108,16 @@
 
   footer{text-align:center;padding:2rem 1.5rem 3rem;font-size:.9rem;color:var(--sepia);border-top:1px solid var(--rule)}
   .sprig{color:var(--sepia)}
+
+  .menu li{cursor:default}
+  .menu .price{font-family:var(--display);font-size:1.3rem;margin-top:.3rem}
+  fieldset{border:0;padding:0;margin:0 0 1rem}
+  legend{font-family:var(--display);letter-spacing:.2em;text-transform:uppercase;font-size:.8rem;color:var(--sepia);margin-bottom:.5rem}
+  .sizes label,.days label{display:inline-flex;align-items:center;gap:.4rem;margin:0 .8rem .6rem 0;padding:.5rem .9rem;border:1px solid var(--rule);cursor:pointer}
+  .sizes input,.days input{margin:0}
+  .sizes label:has(input:checked),.days label:has(input:checked){border-color:var(--ink);background:var(--paper-deep)}
+  .days label.sold{opacity:.45;cursor:not-allowed;text-decoration:line-through}
+  .form-note{font-size:.95rem;color:var(--sepia);margin:.25rem 0 0}
 </style>
 
 </head>
@@ -133,36 +144,24 @@
 
 <main class="wrap">
   <section id="services">
-    <p class="eyebrow">What we offer</p>
-    <h2>The weekly bouquet</h2>
-    <p class="intro">We're starting small and doing one thing well: a monthly subscription that puts a fresh, seasonal bouquet in your hands every week.</p>
-    <div class="plan">
-      <div class="plan-main">
-        <h3>Monthly subscription</h3>
-        <p>A hand-tied bouquet of 10–12 stems every week, four a month, built from whatever's best that week. No two are the same. Pick up locally or have it delivered.</p>
-        <ul class="plan-list">
-          <li>Seasonal stems, chosen the morning they're arranged</li>
-          <li>Wrapped and ready to drop in a vase</li>
-          <li>Pause or cancel any time with a week's notice</li>
-          <li>Gift subscriptions available</li>
-        </ul>
-      </div>
-      <div class="plan-side">
-        <p class="plan-price"><span>$150</span> / month</p>
-        <p class="plan-note">Four weekly bouquets, 10–12 stems each. Pickup is always free; ask about local delivery.</p>
-        <a class="btn" href="#subscribe">Ask about a subscription</a>
-      </div>
-    </div>
-    <ul class="services">
-      <li>
-        <h3>One-time bouquets</h3>
-        <p>Not ready for a subscription? Order a single bouquet for a birthday, a thank-you, or a Tuesday.</p>
-      </li>
-      <li>
-        <h3>Custom arrangements</h3>
-        <p>Arrangements designed around your space or occasion — a dinner table, an entryway, a gift. Bring your own vase or use one of ours.</p>
-      </li>
-    </ul>
+    <p class="eyebrow">The menu</p>
+    <h2>Designer's choice, three sizes</h2>
+    <p class="intro">Every bouquet is built from whatever is best that morning. Pick a size, pick a day, and Anthony does the rest. Pickup is free.</p>
+    <ul class="services menu" id="menu" aria-live="polite"></ul>
+  </section>
+
+  <section id="order">
+    <p class="eyebrow">Order</p>
+    <h2>Pick a day</h2>
+    <form class="form" id="order-form" novalidate>
+      <fieldset class="full sizes" id="size-picker"><legend>Size</legend></fieldset>
+      <fieldset class="full days" id="day-picker"><legend>Day</legend><p class="form-note" id="day-note"></p></fieldset>
+      <label>Name<input type="text" name="name" required autocomplete="name"></label>
+      <label>Email<input type="email" name="email" required autocomplete="email"></label>
+      <label>Phone <span class="opt">(optional)</span><input type="tel" name="phone" autocomplete="tel"></label>
+      <label class="full">Anything for Anthony? <span class="opt">(colors you love, the occasion, a card message)</span><textarea name="note" rows="3" maxlength="500"></textarea></label>
+      <div class="full"><button class="btn" type="submit" id="pay-btn" disabled>Continue to payment</button><p class="form-status" role="status" aria-live="polite" id="order-status"></p></div>
+    </form>
   </section>
 
   <section id="about">
@@ -179,17 +178,8 @@
     </div>
   </section>
 
-  <section id="how">
-    <p class="eyebrow">How it works</p>
-    <h2>Ordering</h2>
-    <ol class="how">
-      <li><strong>Reach out</strong>Email, call, or message on Instagram. Tell us whether you'd like the weekly subscription or a one-off, and whether it's pickup or delivery.</li>
-      <li><strong>We design</strong>We confirm your start date and delivery day. For one-offs, we'll suggest a palette and size for the occasion.</li>
-      <li><strong>We deliver</strong>Your bouquet is arranged that morning and ready the same day, every week.</li>
-    </ol>
-  </section>
 <section id="subscribe">
-    <p class="eyebrow">Weekly bouquet</p>
+    <p class="eyebrow">Weekly bouquets</p>
     <h2>Ask about a subscription</h2>
     <p class="intro">Leave your details and Anthony will get back to you within a day or two to set up your first delivery.</p>
     <form class="form" action="https://formspree.io/f/mgaevprq" method="POST">
