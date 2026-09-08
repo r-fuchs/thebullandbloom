@@ -77,6 +77,9 @@ Out of scope for v1 (explicit non-goals):
 | D11 | Email via Gmail API on the existing Google grant | Resend, Postmark, Stripe receipts only | No third vendor; one authorization by Anthony covers calendar and mail. |
 | D12 | Instagram images copied into our storage | Link to Instagram's CDN URLs | Instagram media URLs expire; the page must not depend on Instagram being up. |
 | D13 | Subscriber bouquet on a closed day moves to the next open day that week; whole week closed → skipped and flagged | Skip immediately; credit automatically | Keeps the promised cadence when possible; makes Anthony decide the rare full-week case. |
+| D15 | A `done` order still consumes its day's capacity; only `cancelled`/`refunded` free a slot | Count held+paid only | Found in the Plan 1 final review (2026-09-07): with held+paid only, ticking "done" at 9 am on a full day reopened same-day sales before the 11:00 cutoff. |
+| D16 | The Stripe Checkout session expires one minute after the 30-minute hold target, and the database hold is released two minutes after the session expires | Same instant for both | Stripe enforces a 30-minute minimum measured on receipt, so an exact 30 minutes computed before the request can be rejected; and a payment completed seconds before expiry must not find its order already cancelled by the sweep. |
+| D17 | A `checkout.session.completed` webhook for a session whose order was already cancelled by the sweep resurrects the order as paid | Ignore it | A paid-but-cancelled order is a customer charged with no bouquet; being briefly over cap is the lesser harm and is visible in admin. |
 | D14 | Subscriber bouquets do not count against the daily cap | Count them ahead of one-time orders | Ryan's call (2026-09-07). The cap is Anthony's one-time-order budget; subscriptions are planned work he sizes separately. Admin shows the subscriber count per day next to the cap so he can see the whole load. |
 
 ## 4. How
@@ -111,7 +114,7 @@ Two layers:
   studio pickup address, timezone (`America/New_York`), menu sizes (id, name,
   description, price cents), subscription grid (size ids × cadence ids with
   price cents per month), default daily cap, default cutoff time, default open
-  weekdays, hold duration (30 min), Instagram poll interval, fallback flat
+  weekdays, hold duration (30 min; see D16 for the padding around it), Instagram poll interval, fallback flat
   delivery fee and zip list (used only if Uber is unavailable for the region).
 - **Admin settings** (D1 `settings` table; changes are immediate): current
   daily cap, cutoff time, open weekdays, per-day overrides, closed days.
@@ -138,9 +141,11 @@ Config values Anthony still has to supply before launch are listed in §7.
 - `settings` — key, value_json.
 
 Capacity for a date = cap(date) − count(orders where date and source =
-`one_time` and status in `held`,`paid`) where cap(date) is the override if
-present else the default, and 0 if the day is closed or not an open weekday.
+`one_time` and status in `held`,`paid`,`done`) where cap(date) is the override
+if present else the default, and 0 if the day is closed or not an open weekday.
 Subscription-sourced orders are excluded (D14) but are shown per day in admin.
+Only `cancelled` and `refunded` free a slot; marking an order done is
+bookkeeping, not capacity (D15).
 
 ### 4.4 Flows
 
@@ -202,7 +207,10 @@ refresh monthly via the long-lived token refresh endpoint; failure emails
 Ryan and Anthony with a reconnect link.
 
 **Admin auth.** Private path plus a passcode. Passcode check sets a signed,
-HttpOnly cookie valid 30 days. Rate-limited. No user accounts.
+HttpOnly cookie valid 30 days. Rate limiting is a Cloudflare rule on the login
+and checkout endpoints, configured at deploy, not application code. The
+passcode must be high-entropy (a generated 20+ character string). No user
+accounts.
 
 ### 4.5 Failure modes
 
