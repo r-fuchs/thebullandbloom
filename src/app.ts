@@ -3,6 +3,7 @@ import type { Env } from "./env";
 import type { Payments } from "./adapters/payments";
 import type { StoreConfig } from "./config";
 import { publicRoutes } from "./routes/public";
+import { webhookRoutes } from "./routes/webhooks";
 
 export interface Services { payments: Payments; clock: () => Date; config: StoreConfig }
 export type App = Hono<{ Bindings: Env; Variables: { services: Services } }>;
@@ -12,6 +13,7 @@ export function buildApp(services: Services): App {
   app.use("*", async (c, next) => { c.set("services", services); await next(); });
   app.get("/api/health", (c) => c.json({ ok: true }));
   app.route("/", publicRoutes());
+  app.route("/", webhookRoutes());
 
   // In production, Cloudflare serves static assets ahead of the Worker
   // (default `run_worker_first = false`), so this fallback only matters for the
