@@ -52,6 +52,7 @@
         <label>Cap for this day <input type="number" id="day-cap" min="0" style="width:5rem"></label>
         <button id="day-cap-save">Save cap</button>
         <button id="day-cap-clear">Use default</button>
+        <span class="status" id="day-status"></span>
       </div>
       <div class="row">
         <button id="day-toggle"></button>
@@ -76,7 +77,13 @@
     init.headers = Object.assign({ 'content-type': 'application/json' }, init.headers || {});
     return fetch('/admin/api' + path, init).then(function (r) {
       if (r.status === 401) { show(false); throw new Error('unauthorized'); }
-      return r.status === 204 ? null : r.json().then(function (b) { if (!r.ok) throw new Error(b.error || r.status); return b; });
+      if (r.status === 204) return null;
+      return r.text().then(function (t) {
+        var b = null;
+        try { b = t ? JSON.parse(t) : null; } catch (e) { b = null; }
+        if (!r.ok) throw new Error((b && b.error) || ('Request failed (' + r.status + ')'));
+        return b;
+      });
     });
   };
   var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -161,19 +168,29 @@
       body: JSON.stringify({ passcode: new FormData(e.target).get('passcode') }) })
       .then(function (r) { if (r.status === 204) { show(true); loadMonth(); } else { $('#login-status').textContent = 'Wrong passcode.'; } });
   });
-  $('#logout').addEventListener('click', function () { api('/logout', { method: 'POST' }).then(function () { show(false); }); });
+  $('#logout').addEventListener('click', function () {
+    $('#login-status').textContent = '';
+    api('/logout', { method: 'POST' }).then(function () { show(false); })
+      .catch(function (e) { if (e.message === 'unauthorized') return; $('#login-status').textContent = e.message; });
+  });
   $('#prev').addEventListener('click', function () { view.setMonth(view.getMonth() - 1); loadMonth(); });
   $('#next').addEventListener('click', function () { view.setMonth(view.getMonth() + 1); loadMonth(); });
   $('#settings-btn').addEventListener('click', loadSettings);
   $('#day-cap-save').addEventListener('click', function () {
+    $('#day-status').textContent = '';
     var v = $('#day-cap').value;
-    api('/days/' + selected, { method: 'PUT', body: JSON.stringify({ cap: v === '' ? null : Number(v) }) }).then(loadMonth).then(loadDay);
+    api('/days/' + selected, { method: 'PUT', body: JSON.stringify({ cap: v === '' ? null : Number(v) }) }).then(loadMonth).then(loadDay)
+      .catch(function (e) { if (e.message === 'unauthorized') return; $('#day-status').textContent = e.message; });
   });
   $('#day-cap-clear').addEventListener('click', function () {
-    api('/days/' + selected, { method: 'DELETE' }).then(loadMonth).then(loadDay);
+    $('#day-status').textContent = '';
+    api('/days/' + selected, { method: 'DELETE' }).then(loadMonth).then(loadDay)
+      .catch(function (e) { if (e.message === 'unauthorized') return; $('#day-status').textContent = e.message; });
   });
   $('#day-toggle').addEventListener('click', function () {
-    api('/days/' + selected, { method: 'PUT', body: JSON.stringify({ closed: !cache[selected].closed }) }).then(loadMonth).then(loadDay);
+    $('#day-status').textContent = '';
+    api('/days/' + selected, { method: 'PUT', body: JSON.stringify({ closed: !cache[selected].closed }) }).then(loadMonth).then(loadDay)
+      .catch(function (e) { if (e.message === 'unauthorized') return; $('#day-status').textContent = e.message; });
   });
   $('#s-save').addEventListener('click', function () {
     var days = Array.prototype.map.call(document.querySelectorAll('#s-days input:checked'), function (i) { return Number(i.value); });
