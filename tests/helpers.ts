@@ -3,6 +3,15 @@ import { buildApp } from "../src/app";
 import { loadConfig } from "../src/config";
 import type { Payments, WebhookEvent } from "../src/adapters/payments";
 
+// Module-scoped (not per-instance) so session ids stay unique across every
+// RecordingPayments created within a test file, matching the D1 test DB,
+// which persists across `it()` blocks in the same file (see tests/store/orders.test.ts's
+// own `let n = 0` counter for the same reason). A per-instance counter would
+// hand out "cs_1" again for the first checkout of every fresh testApp(),
+// colliding with orders.stripe_session_id's UNIQUE constraint once more than
+// one test's held order lands in that shared DB.
+let sessionSeq = 0;
+
 export class RecordingPayments implements Payments {
   created: Array<Parameters<Payments["createCheckout"]>[0]> = [];
   failNext = false;
@@ -10,7 +19,8 @@ export class RecordingPayments implements Payments {
   async createCheckout(input: Parameters<Payments["createCheckout"]>[0]) {
     if (this.failNext) { this.failNext = false; throw new Error("stripe down"); }
     this.created.push(input);
-    return { id: `cs_${this.created.length}`, url: `https://checkout.example/${this.created.length}` };
+    sessionSeq += 1;
+    return { id: `cs_${sessionSeq}`, url: `https://checkout.example/${sessionSeq}` };
   }
   async parseWebhook(_raw: string, signature: string) {
     if (signature !== "good") throw new Error("bad signature");
