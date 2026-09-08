@@ -12,7 +12,7 @@ not_found_handling = "none"
 [[d1_databases]]
 binding = "DB"
 database_name = "bullandbloom"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "48c896fa-161a-4bca-9a0b-4a111c91c354"
 migrations_dir = "migrations"
 
 [triggers]

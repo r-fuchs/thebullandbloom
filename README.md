@@ -17,3 +17,9 @@ thebullandbloom.com — floral design by Anthony Demonia. Static site plus a Clo
 3. Run `npm run dev`.
 
 `ADMIN_PASSCODE` must be a generated string of at least 20 characters. Rate limiting for `/admin/api/login` and `/api/checkout` is configured as Cloudflare rules at deploy, not in code.
+
+## Deploy
+
+`npm run deploy` publishes the Worker and `site/`. Secrets live in Cloudflare (`wrangler secret put`), never in the repo.
+Migrations: `npx wrangler d1 migrations apply bullandbloom --remote`. Stripe webhook endpoint: `/webhooks/stripe`.
+Preview URL until DNS cutover: https://thebullandbloom.thebullandbloom.workers.dev
