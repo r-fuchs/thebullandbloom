@@ -2586,3 +2586,18 @@ Then fill spec §8 Verification with what actually passed in Step 5, and note in
 **Placeholders.** `database_id` in Task 1 and SAMPLE values in `store.config.json` are deliberate and named as such in the spec's §7 blanks list. No "TBD" or "similar to Task N" anywhere.
 
 **Type consistency.** `Defaults`/`Override`/`Clock`/`Availability` defined once in Task 4 and imported by Tasks 5, 6, 12. `Payments`/`CheckoutInput`/`WebhookEvent` defined in Task 6 stub, implemented in Task 7, consumed in Tasks 8, 9. `NewOrder`/`Order` from Task 5 used in Tasks 8, 12. `testApp` returns `{ app, payments, fetch }` and is used that way in Tasks 6, 8, 9, 12. `humanDate` is defined in Task 8 and produces the exact line-item string the test asserts (`Wed Sep 9` for 2026-09-09).
+
+## Deferred minors after the final review (2026-09-07, all triaged "can wait")
+
+Task 1: minor (deferred): Node punycode DEP0040 warning in test output (transitive dep); package.json description/main stale boilerplate; no engines.node (vitest wants ^20||^22||>=24, machine on 23.6.1); skipLibCheck blanket.
+Tasks 2-4: minor (deferred): no test for holdMinutes<30 validation (plan-mandated omission); validateConfig doesn't shape-check studio/sizes array; param named `left` vs interface doc `remaining`.
+Task 5: minor (deferred): cancelOrder untested (plan-mandated omission); DayOverride type exported but unused; loadDefaults `as any` overlay and unguarded JSON.parse (plan-mandated).
+Task 6: minor (deferred): appFor(env) dead parameter (plan-mandated); no explicit error handling around D1 reads in availability route.
+Task 7: minor (deferred): Stripe SDK sourcemap warnings in npm test output (third-party; fix is a vitest logOverride); toWebhookEvent loose input typing (plan-mandated); createSubtleCryptoProvider built per call.
+Task 8: minor (deferred): capacity-context loading duplicated between availability and checkout routes; helpers.ts comment should state the per-file module-graph assumption; console.error noise on the Stripe-failure test path is acceptable.
+Task 8: minor (deferred): `let session;` untyped evolving-any in checkout route.
+Task 9: minor (deferred): RecordingPayments.parseWebhook ignores the raw body so a text→json regression is untested (plan-mandated); bare catch on parseWebhook has no log line.
+Tasks 10-11: minor (deferred): runScheduled promise in waitUntil has no .catch (plan-mandated); no explicit test for non-numeric/leading-zero exp.
+Task 12: minor (deferred): range-validation block duplicated from public.ts; raw admin-cap SQL redundant with getOverrides; raw GROUP BY SQL inline in route rather than store fn.
+Tasks 13-14: minor (deferred): non-JSON error bodies surface raw SyntaxError text in the settings status; ES5 style is plan-mandated.
+Tasks 13-14: minor (deferred): api() returns null on an ok non-JSON non-204 body instead of throwing (no current endpoint produces one).
