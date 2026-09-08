@@ -182,7 +182,7 @@
     <p class="eyebrow">Weekly bouquets</p>
     <h2>Ask about a subscription</h2>
     <p class="intro">Leave your details and Anthony will get back to you within a day or two to set up your first delivery.</p>
-    <form class="form" action="https://formspree.io/f/mgaevprq" method="POST">
+    <form class="form" id="subscribe-form" action="https://formspree.io/f/mgaevprq" method="POST">
       <label>Name<input type="text" name="name" required autocomplete="name"></label>
       <label>Email<input type="email" name="email" required autocomplete="email"></label>
       <label>Phone <span class="opt">(optional)</span><input type="tel" name="phone" autocomplete="tel"></label>
@@ -214,7 +214,7 @@
 <footer>© 2026 The Bull and Bloom · Floral Design · thebullandbloom.com</footer>
 <script>
 (function(){
-  var f=document.querySelector('.form'); if(!f) return;
+  var f=document.querySelector('#subscribe-form'); if(!f) return;
   var status=f.querySelector('.form-status');
   var configured=f.action.indexOf('FORM_ID')===-1;
   f.addEventListener('submit',function(e){

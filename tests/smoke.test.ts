@@ -12,4 +12,11 @@ describe("worker", () => {
     expect(r.status).toBe(200);
     expect(await r.text()).toContain("The Bull and Bloom");
   });
+  it("wires the subscribe form by id so the order form's Formspree script can't hijack it", async () => {
+    const r = await SELF.fetch("https://example.com/");
+    const body = await r.text();
+    expect(body).toContain('id="subscribe-form"');
+    expect(body).toContain("querySelector('#subscribe-form')");
+    expect(body).not.toContain("querySelector('.form')");
+  });
 });
