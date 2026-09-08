@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Bull and Bloom — Admin</title>
+<style>
+  :root{--paper:#F6F0E5;--ink:#3A2E24;--sepia:#8B7662;--rule:#CDBFAD;--closed:#E6C9C9;--full:#F1E1B8}
+  body{margin:0;background:var(--paper);color:var(--ink);font:1rem/1.5 -apple-system,system-ui,Georgia,serif}
+  main{max-width:44rem;margin:0 auto;padding:1rem}
+  h1{font-weight:500;font-size:1.4rem;margin:.5rem 0 1rem}
+  button{font:inherit;padding:.5rem .9rem;border:1px solid var(--ink);background:#fff;cursor:pointer}
+  input,select{font:inherit;padding:.4rem;border:1px solid var(--rule)}
+  .row{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:.6rem 0}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .grid .h{text-align:center;font-size:.8rem;color:var(--sepia)}
+  .day{min-height:3.6rem;padding:.3rem;border:1px solid var(--rule);background:#fff;cursor:pointer;font-size:.85rem}
+  .day.off{background:transparent;color:var(--sepia)}
+  .day.closed{background:var(--closed)}
+  .day.full{background:var(--full)}
+  .day.sel{outline:2px solid var(--ink)}
+  .day b{display:block}
+  .panel{border:1px solid var(--rule);padding:1rem;margin-top:1rem;background:#fff}
+  .order{border-top:1px solid var(--rule);padding:.6rem 0}
+  .order small{color:var(--sepia)}
+  .status{color:var(--sepia);font-size:.9rem}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <h1>The Bull and Bloom — admin</h1>
+
+  <form id="login" class="row">
+    <input type="password" name="passcode" placeholder="Passcode" autocomplete="current-password" required>
+    <button type="submit">Sign in</button><span class="status" id="login-status"></span>
+  </form>
+
+  <section id="app" hidden>
+    <div class="row">
+      <button id="prev">‹</button><strong id="month-label"></strong><button id="next">›</button>
+      <span style="flex:1"></span>
+      <button id="settings-btn">Settings</button><button id="logout">Sign out</button>
+    </div>
+    <div class="grid" id="grid"></div>
+    <p class="status">Tap a day. Number is one-time orders / cap; “+n” is subscription bouquets. Pink = closed, yellow = full.</p>
+
+    <div class="panel" id="day-panel" hidden>
+      <h2 id="day-title" style="margin:0 0 .5rem;font-size:1.1rem;font-weight:500"></h2>
+      <div class="row">
+        <label>Cap for this day <input type="number" id="day-cap" min="0" style="width:5rem"></label>
+        <button id="day-cap-save">Save cap</button>
+        <button id="day-cap-clear">Use default</button>
+      </div>
+      <div class="row">
+        <button id="day-toggle"></button>
+      </div>
+      <div id="orders"></div>
+    </div>
+
+    <div class="panel" id="settings-panel" hidden>
+      <h2 style="margin:0 0 .5rem;font-size:1.1rem;font-weight:500">Defaults</h2>
+      <div class="row"><label>Bouquets per day <input type="number" id="s-cap" min="0" style="width:5rem"></label></div>
+      <div class="row"><label>Same-day cutoff <input type="time" id="s-cutoff"></label></div>
+      <div class="row" id="s-days"></div>
+      <div class="row"><button id="s-save">Save</button><span class="status" id="s-status"></span></div>
+    </div>
+  </section>
+</main>
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var api = function (path, init) {
+    init = init || {};
+    init.headers = Object.assign({ 'content-type': 'application/json' }, init.headers || {});
+    return fetch('/admin/api' + path, init).then(function (r) {
+      if (r.status === 401) { show(false); throw new Error('unauthorized'); }
+      return r.status === 204 ? null : r.json().then(function (b) { if (!r.ok) throw new Error(b.error || r.status); return b; });
+    });
+  };
+  var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var view = new Date(); view.setDate(1);
+  var selected = null, cache = {};
+
+  function show(authed) { $('#login').hidden = authed; $('#app').hidden = !authed; }
+  function ymd(y, m, d) { return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0'); }
+
+  function loadMonth() {
+    var y = view.getFullYear(), m = view.getMonth();
+    var last = new Date(y, m + 1, 0).getDate();
+    $('#month-label').textContent = view.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    return api('/month?from=' + ymd(y, m, 1) + '&to=' + ymd(y, m, last)).then(function (res) {
+      cache = {}; res.days.forEach(function (d) { cache[d.date] = d; });
+      var g = $('#grid'); g.innerHTML = '';
+      DAYS.forEach(function (n) { var h = document.createElement('div'); h.className = 'h'; h.textContent = n; g.appendChild(h); });
+      var first = new Date(y, m, 1).getDay();
+      for (var i = 0; i < first; i++) g.appendChild(document.createElement('div'));
+      res.days.forEach(function (d) {
+        var el = document.createElement('div');
+        el.className = 'day' + (!d.open && !d.closed ? ' off' : '') + (d.closed ? ' closed' : '') + (d.open && d.remaining === 0 ? ' full' : '') + (d.date === selected ? ' sel' : '');
+        el.innerHTML = '<b></b><span></span>';
+        el.querySelector('b').textContent = Number(d.date.slice(8));
+        el.querySelector('span').textContent = (d.open || d.used ? d.used + '/' + d.cap : '') + (d.subscriptionCount ? ' +' + d.subscriptionCount : '');
+        el.addEventListener('click', function () { selected = d.date; loadMonth(); loadDay(); });
+        g.appendChild(el);
+      });
+    });
+  }
+
+  function loadDay() {
+    var d = cache[selected]; if (!d) return;
+    $('#day-panel').hidden = false; $('#settings-panel').hidden = true;
+    $('#day-title').textContent = new Date(selected + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    $('#day-cap').value = d.overrideCap === null ? '' : d.overrideCap;
+    $('#day-cap').placeholder = 'default';
+    $('#day-toggle').textContent = d.closed ? 'Reopen this day' : 'Close this day';
+    api('/orders?date=' + selected).then(function (res) {
+      var box = $('#orders'); box.innerHTML = '';
+      if (!res.orders.length) { box.innerHTML = '<p class="status">No orders.</p>'; return; }
+      res.orders.forEach(function (o) {
+        if (o.status === 'cancelled') return;
+        var el = document.createElement('div'); el.className = 'order';
+        el.innerHTML = '<div><strong></strong> · <span class="size"></span> · <span class="st"></span></div><small class="contact"></small><div class="note"></div><div class="row"></div>';
+        el.querySelector('strong').textContent = o.customerName;
+        el.querySelector('.size').textContent = o.sizeId + (o.source === 'subscription' ? ' (subscription)' : '');
+        el.querySelector('.st').textContent = o.status;
+        el.querySelector('.contact').textContent = o.customerEmail + (o.customerPhone ? ' · ' + o.customerPhone : '');
+        el.querySelector('.note').textContent = o.note || '';
+        var row = el.querySelector('.row');
+        if (o.status === 'paid' || o.status === 'done') {
+          var b = document.createElement('button');
+          b.textContent = o.status === 'paid' ? 'Mark done' : 'Undo done';
+          b.addEventListener('click', function () { api('/orders/' + o.id + (o.status === 'paid' ? '/done' : '/undone'), { method: 'POST' }).then(loadDay); });
+          row.appendChild(b);
+        }
+        box.appendChild(el);
+      });
+    });
+  }
+
+  function loadSettings() {
+    $('#settings-panel').hidden = false; $('#day-panel').hidden = true;
+    api('/settings').then(function (s) {
+      $('#s-cap').value = s.cap; $('#s-cutoff').value = s.cutoff;
+      var box = $('#s-days'); box.innerHTML = '';
+      DAYS.forEach(function (n, i) {
+        var l = document.createElement('label');
+        l.innerHTML = '<input type="checkbox"> ' + n;
+        l.querySelector('input').checked = s.openWeekdays.indexOf(i) >= 0;
+        l.querySelector('input').value = i;
+        box.appendChild(l);
+      });
+    });
+  }
+
+  $('#login').addEventListener('submit', function (e) {
+    e.preventDefault();
+    $('#login-status').textContent = '…';
+    fetch('/admin/api/login', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ passcode: new FormData(e.target).get('passcode') }) })
+      .then(function (r) { if (r.status === 204) { show(true); loadMonth(); } else { $('#login-status').textContent = 'Wrong passcode.'; } });
+  });
+  $('#logout').addEventListener('click', function () { api('/logout', { method: 'POST' }).then(function () { show(false); }); });
+  $('#prev').addEventListener('click', function () { view.setMonth(view.getMonth() - 1); loadMonth(); });
+  $('#next').addEventListener('click', function () { view.setMonth(view.getMonth() + 1); loadMonth(); });
+  $('#settings-btn').addEventListener('click', loadSettings);
+  $('#day-cap-save').addEventListener('click', function () {
+    var v = $('#day-cap').value;
+    api('/days/' + selected, { method: 'PUT', body: JSON.stringify({ cap: v === '' ? null : Number(v) }) }).then(loadMonth).then(loadDay);
+  });
+  $('#day-cap-clear').addEventListener('click', function () {
+    api('/days/' + selected, { method: 'DELETE' }).then(loadMonth).then(loadDay);
+  });
+  $('#day-toggle').addEventListener('click', function () {
+    api('/days/' + selected, { method: 'PUT', body: JSON.stringify({ closed: !cache[selected].closed }) }).then(loadMonth).then(loadDay);
+  });
+  $('#s-save').addEventListener('click', function () {
+    var days = Array.prototype.map.call(document.querySelectorAll('#s-days input:checked'), function (i) { return Number(i.value); });
+    api('/settings', { method: 'PUT', body: JSON.stringify({ cap: Number($('#s-cap').value), cutoff: $('#s-cutoff').value, openWeekdays: days }) })
+      .then(function () { $('#s-status').textContent = 'Saved.'; loadMonth(); })
+      .catch(function (e) { $('#s-status').textContent = e.message; });
+  });
+
+  api('/settings').then(function () { show(true); loadMonth(); }).catch(function () { show(false); });
+})();
+</script>
+</body>
+</html>
