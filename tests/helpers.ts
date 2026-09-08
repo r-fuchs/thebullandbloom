@@ -12,6 +12,14 @@ import type { Payments, WebhookEvent } from "../src/adapters/payments";
 // one test's held order lands in that shared DB.
 let sessionSeq = 0;
 
+// Lets a test predict the session id the next `createCheckout` call (on any
+// RecordingPayments instance in this file) will hand out, without advancing
+// the counter itself — e.g. to pre-seed a UNIQUE-constraint collision on
+// `orders.stripe_session_id` for testing the attachSession failure path.
+export function peekNextSessionId(): string {
+  return `cs_${sessionSeq + 1}`;
+}
+
 export class RecordingPayments implements Payments {
   created: Array<Parameters<Payments["createCheckout"]>[0]> = [];
   failNext = false;

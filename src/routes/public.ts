@@ -29,7 +29,7 @@ function parseCheckout(raw: unknown): { ok: true; body: CheckoutBody } | { ok: f
   if (!isYmd(b.date)) return { ok: false, error: "date must be YYYY-MM-DD" };
   if (b.fulfillment !== "pickup") return { ok: false, error: "only pickup is available right now" };
   const c = b.customer;
-  if (!c || typeof c.name !== "string" || c.name.trim().length < 1 || c.name.length > 120) return { ok: false, error: "name required" };
+  if (!c || typeof c.name !== "string" || c.name.trim().length < 1 || c.name.trim().length > 120) return { ok: false, error: "name required" };
   if (typeof c.email !== "string" || !EMAIL.test(c.email) || c.email.length > 200) return { ok: false, error: "valid email required" };
   if (c.phone !== undefined && (typeof c.phone !== "string" || c.phone.length > 40)) return { ok: false, error: "phone too long" };
   if (b.note !== undefined && (typeof b.note !== "string" || b.note.length > 500)) return { ok: false, error: "note must be 500 characters or fewer" };
@@ -96,21 +96,29 @@ export function publicRoutes(): App {
     }, cap, nowSec, holdUntil);
     if (!inserted) return c.json({ error: "sold_out" }, 409);
 
+    let session;
     try {
-      const session = await payments.createCheckout({
+      session = await payments.createCheckout({
         orderId, customerEmail: body.customer.email,
         lineItems: [{ name: `${size.name} — pickup ${humanDate(body.date)}`, amountCents: size.priceCents, quantity: 1 }],
         successUrl: `${c.env.SITE_URL}/thanks?order=${orderId}`,
         cancelUrl: `${c.env.SITE_URL}/#order`,
         expiresAt: holdUntil,
       });
-      await attachSession(c.env.DB, orderId, session.id);
-      return c.json({ url: session.url });
     } catch (err) {
       await cancelOrder(c.env.DB, orderId);
       console.error("checkout: payments failed", err);
       return c.json({ error: "payments_unavailable" }, 503);
     }
+
+    try {
+      await attachSession(c.env.DB, orderId, session.id);
+    } catch (err) {
+      await cancelOrder(c.env.DB, orderId);
+      console.error(`checkout: attach failed after session ${session.id}`, err);
+      return c.json({ error: "payments_unavailable" }, 503);
+    }
+    return c.json({ url: session.url });
   });
 
   return r;
