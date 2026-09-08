@@ -15,6 +15,8 @@ declare global {
       STRIPE_WEBHOOK_SECRET: string;
       ADMIN_PASSCODE: string;
       ADMIN_SECRET: string;
+      GOOGLE_CLIENT_ID?: string;
+      GOOGLE_CLIENT_SECRET?: string;
       TEST_MIGRATIONS: D1Migration[];
     }
   }

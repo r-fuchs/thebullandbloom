@@ -19,6 +19,8 @@ export default defineConfig(async () => {
             STRIPE_WEBHOOK_SECRET: "whsec_fake",
             ADMIN_PASSCODE: "open-sesame-1234",
             ADMIN_SECRET: "test-secret",
+            GOOGLE_CLIENT_ID: "test-client-id",
+            GOOGLE_CLIENT_SECRET: "test-client-secret",
           },
         },
       }),

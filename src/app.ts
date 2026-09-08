@@ -1,12 +1,13 @@
 import { Hono } from "hono";
 import type { Env } from "./env";
 import type { Payments } from "./adapters/payments";
+import type { Google } from "./adapters/google";
 import type { StoreConfig } from "./config";
 import { publicRoutes } from "./routes/public";
 import { webhookRoutes } from "./routes/webhooks";
 import { adminRoutes } from "./routes/admin";
 
-export interface Services { payments: Payments; clock: () => Date; config: StoreConfig }
+export interface Services { payments: Payments; google: Google; clock: () => Date; config: StoreConfig }
 export type App = Hono<{ Bindings: Env; Variables: { services: Services } }>;
 
 export function buildApp(services: Services): App {
