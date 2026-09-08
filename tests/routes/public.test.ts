@@ -84,6 +84,12 @@ describe("POST /api/checkout", () => {
     expect((await post(fetch, { ...good, note: "x".repeat(501) })).status).toBe(400);
     expect((await fetch("/api/checkout", { method: "POST", body: "not json" })).status).toBe(400);
   });
+  it("rejects a date far beyond the ordering horizon", async () => {
+    const { fetch } = testApp();
+    const r = await post(fetch, { ...good, date: "2099-06-15" });
+    expect(r.status).toBe(400);
+    expect(await r.json()).toEqual({ error: "date too far ahead" });
+  });
   it("accepts a customer name that only exceeds 120 characters before trimming", async () => {
     const { fetch } = testApp();
     const name = `${" ".repeat(5)}${"a".repeat(118)}${" ".repeat(5)}`; // 128 raw, trims to 118

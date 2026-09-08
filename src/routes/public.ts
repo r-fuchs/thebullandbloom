@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { App } from "../app";
 import { availabilityFor, capFor, isOrderable } from "../core/capacity";
-import { isYmd, weekdayOf, ymdRange } from "../core/time";
+import { isYmd, weekdayOf, ymdRange, addDays, ymdIn } from "../core/time";
 import { loadDefaults } from "../store/settings";
 import { getOverrides } from "../store/overrides";
 import { countUsed, tryInsertHeldOrder, attachSession, cancelOrder } from "../store/orders";
@@ -75,12 +75,16 @@ export function publicRoutes(): App {
     const size = sizeById(config, body.sizeId);
     if (!size) return c.json({ error: "unknown size" }, 400);
 
+    const now = clock();
+    if (body.date > addDays(ymdIn(config.timezone, now), MAX_DAYS)) {
+      return c.json({ error: "date too far ahead" }, 400);
+    }
+
     const [defaults, overrides, used] = await Promise.all([
       loadDefaults(c.env.DB, config.defaults),
       getOverrides(c.env.DB, body.date, body.date),
       countUsed(c.env.DB, body.date, body.date),
     ]);
-    const now = clock();
     const cap = capFor(body.date, defaults, overrides.get(body.date) ?? null);
     if (!isOrderable(body.date, cap - (used.get(body.date) ?? 0), defaults, { now, tz: config.timezone })) {
       return c.json({ error: "sold_out" }, 409);
