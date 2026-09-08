@@ -65,7 +65,7 @@ export async function getOrder(db: D1Database, id: string): Promise<Order | null
 export async function markPaidBySession(db: D1Database, sessionId: string, paymentIntent: string): Promise<Order | null> {
   const res = await db.prepare(
     `UPDATE orders SET status = 'paid', stripe_payment_intent = ?, hold_expires_at = NULL
-     WHERE stripe_session_id = ? AND status = 'held'`,
+     WHERE stripe_session_id = ? AND status IN ('held', 'cancelled')`,
   ).bind(paymentIntent, sessionId).run();
   if (res.meta.changes !== 1) return null;
   const r = await db.prepare(`SELECT ${COLS} FROM orders WHERE stripe_session_id = ?`).bind(sessionId).first<Row>();

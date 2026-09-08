@@ -21,6 +21,16 @@ describe("POST /webhooks/stripe", () => {
     const row = await env.DB.prepare("SELECT status, stripe_payment_intent, hold_expires_at FROM orders WHERE id = 'w1'").first<any>();
     expect(row).toEqual({ status: "paid", stripe_payment_intent: "pi_w1", hold_expires_at: null });
   });
+  it("resurrects a cancelled (expired-hold) order when completion arrives late, and is idempotent (D17)", async () => {
+    await heldOrder("w1c", "cs_w1c");
+    await env.DB.prepare("UPDATE orders SET status = 'cancelled' WHERE id = 'w1c'").run();
+    const { fetch, payments } = testApp();
+    payments.nextEvent = { type: "checkout.session.completed", sessionId: "cs_w1c", paymentIntent: "pi_w1c" };
+    expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "paid" });
+    const row = await env.DB.prepare("SELECT status, stripe_payment_intent, hold_expires_at FROM orders WHERE id = 'w1c'").first<any>();
+    expect(row).toEqual({ status: "paid", stripe_payment_intent: "pi_w1c", hold_expires_at: null });
+    expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "ignored" });
+  });
   it("cancels a held order on expiry", async () => {
     await heldOrder("w2", "cs_w2");
     const { fetch, payments } = testApp();
