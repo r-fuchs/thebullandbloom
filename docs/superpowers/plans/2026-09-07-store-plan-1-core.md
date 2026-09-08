@@ -2545,6 +2545,12 @@ Note the `*.workers.dev` URL. Temporarily set `SITE_URL` to it via `[vars]` in `
 
 Stripe Dashboard → Developers → Webhooks → Add endpoint: `https://<worker>.workers.dev/webhooks/stripe`, events `checkout.session.completed` and `checkout.session.expired`. Copy the signing secret into `STRIPE_WEBHOOK_SECRET` (Step 2) and redeploy.
 
+- [ ] **Step 4b: Pre-flight from the final review (2026-09-07)**
+
+1. `ADMIN_PASSCODE` is a generated string of at least 20 characters (`openssl rand -base64 24`); record nowhere but the Cloudflare secret and Anthony's password manager.
+2. In the Cloudflare dashboard, add two rate-limiting rules on the Worker's zone: `POST /admin/api/login` at 5 requests per minute per IP, and `POST /api/checkout` at 10 requests per minute per IP. Rate limiting is deliberately not application code (spec §4.4).
+3. Confirm the deployed Worker answers `/api/health` with 200; a 500 `misconfigured` means a secret is missing (the Worker refuses to serve until all four are set).
+
 - [ ] **Step 5: Acceptance walk-through (spec §4.6 subset)**
 
 1. Buy a pickup bouquet with `4242 4242 4242 4242`; land on `/thanks`; admin shows it `paid`.
