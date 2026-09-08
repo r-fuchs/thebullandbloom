@@ -87,7 +87,11 @@ export function publicRoutes(): App {
     }
 
     const nowSec = Math.floor(now.getTime() / 1000);
-    const holdUntil = nowSec + config.holdMinutes * 60;
+    // D16: pad Stripe's own expiry 60s past the nominal hold window, and let our hold outlive
+    // the Stripe session by a further 120s so a session expiring right at the edge can't race
+    // ahead of a still-live hold.
+    const stripeExpiresAt = nowSec + config.holdMinutes * 60 + 60;
+    const holdUntil = stripeExpiresAt + 120;
     const orderId = crypto.randomUUID();
     const inserted = await tryInsertHeldOrder(c.env.DB, {
       id: orderId, date: body.date, sizeId: size.id, fulfillment: "pickup",
@@ -103,7 +107,7 @@ export function publicRoutes(): App {
         lineItems: [{ name: `${size.name} — pickup ${humanDate(body.date)}`, amountCents: size.priceCents, quantity: 1 }],
         successUrl: `${c.env.SITE_URL}/thanks?order=${orderId}`,
         cancelUrl: `${c.env.SITE_URL}/#order`,
-        expiresAt: holdUntil,
+        expiresAt: stripeExpiresAt,
       });
     } catch (err) {
       await cancelOrder(c.env.DB, orderId);

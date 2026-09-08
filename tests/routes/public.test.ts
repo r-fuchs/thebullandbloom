@@ -56,10 +56,10 @@ describe("POST /api/checkout", () => {
     expect(await r.json()).toEqual({ url: "https://checkout.example/1" });
     const c = payments.created[0];
     expect(c.lineItems).toEqual([{ name: "Bouquet — pickup Wed Sep 9", amountCents: 8500, quantity: 1 }]);
-    expect(c.expiresAt).toBe(Math.floor(new Date("2026-09-08T14:30:00Z").getTime() / 1000));
+    expect(c.expiresAt).toBe(Math.floor(new Date("2026-09-08T14:31:00Z").getTime() / 1000));
     expect(c.successUrl).toBe(`https://thebullandbloom.com/thanks?order=${c.orderId}`);
-    const row = await env.DB.prepare("SELECT status, stripe_session_id, note FROM orders WHERE id = ?").bind(c.orderId).first<any>();
-    expect(row).toEqual({ status: "held", stripe_session_id: "cs_1", note: "yellows please" });
+    const row = await env.DB.prepare("SELECT status, stripe_session_id, note, hold_expires_at FROM orders WHERE id = ?").bind(c.orderId).first<any>();
+    expect(row).toEqual({ status: "held", stripe_session_id: "cs_1", note: "yellows please", hold_expires_at: c.expiresAt + 120 });
   });
   it("returns 409 sold_out when the day is full and does not call Stripe", async () => {
     await seedAdminOverride("2026-09-16", 1, false);
