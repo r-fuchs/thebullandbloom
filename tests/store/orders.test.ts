@@ -23,6 +23,13 @@ describe("orders", () => {
     expect(await tryInsertHeldOrder(env.DB, fresh("2026-09-20"), 2, NOW, NOW + 1800)).toBe(false);
     expect((await countUsed(env.DB, "2026-09-20", "2026-09-20")).get("2026-09-20")).toBe(2);
   });
+  it("done orders still count and still block at cap (D15)", async () => {
+    const a = fresh("2026-09-26");
+    await tryInsertHeldOrder(env.DB, a, 1, NOW, NOW + 1800);
+    await setStatus(env.DB, a.id, "done");
+    expect((await countUsed(env.DB, "2026-09-26", "2026-09-26")).get("2026-09-26")).toBe(1);
+    expect(await tryInsertHeldOrder(env.DB, fresh("2026-09-26"), 1, NOW, NOW + 1800)).toBe(false);
+  });
   it("cancelled orders do not count; subscription orders do not count", async () => {
     const a = fresh("2026-09-21");
     await tryInsertHeldOrder(env.DB, a, 5, NOW, NOW + 1800);

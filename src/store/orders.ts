@@ -31,11 +31,11 @@ function fromRow(r: Row): Order {
   };
 }
 
-const USED = `SELECT COUNT(*) FROM orders WHERE date = ?1 AND source = 'one_time' AND status IN ('held','paid')`;
+const USED = `SELECT COUNT(*) FROM orders WHERE date = ?1 AND source = 'one_time' AND status IN ('held','paid','done')`;
 
 export async function countUsed(db: D1Database, from: string, to: string): Promise<Map<string, number>> {
   const rows = await db.prepare(
-    `SELECT date, COUNT(*) AS n FROM orders WHERE date BETWEEN ? AND ? AND source = 'one_time' AND status IN ('held','paid') GROUP BY date`,
+    `SELECT date, COUNT(*) AS n FROM orders WHERE date BETWEEN ? AND ? AND source = 'one_time' AND status IN ('held','paid','done') GROUP BY date`,
   ).bind(from, to).all<{ date: string; n: number }>();
   return new Map(rows.results.map((r) => [r.date, r.n]));
 }
