@@ -2,8 +2,10 @@
   "timezone": "America/New_York",
   "studio": {
     "pickupAddress": "SAMPLE — studio address, Upstate NY",
-    "pickupInstructions": "SAMPLE — text Anthony at (518) 334-0517 when you arrive."
+    "pickupInstructions": "SAMPLE — text Anthony at (518) 334-0517 when you arrive.",
+    "ownerEmail": "thebullandbloom@gmail.com"
   },
+  "calendars": { "closed": "Bull and Bloom: Closed", "orders": "Bull and Bloom: Orders" },
   "sizes": [
     { "id": "posy", "name": "Posy", "description": "A small hand-tied bunch. SAMPLE.", "priceCents": 5500 },
     { "id": "bouquet", "name": "Bouquet", "description": "The classic 10–12 stem bouquet. SAMPLE.", "priceCents": 8500 },
