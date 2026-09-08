@@ -25,6 +25,17 @@ describe("admin auth", () => {
       body: JSON.stringify({ passcode: "open-sesame-1234" }) });
     expect(r.headers.get("set-cookie")).toMatch(/bb_admin=.*HttpOnly/);
   });
+  it("refuses logout without a cookie", async () => {
+    const { fetch } = testApp();
+    expect((await fetch("/admin/api/logout", { method: "POST" })).status).toBe(401);
+  });
+  it("clears the cookie on a logged-in logout", async () => {
+    const { fetch } = testApp();
+    const as = await login(fetch);
+    const r = await as("/admin/api/logout", { method: "POST" });
+    expect(r.status).toBe(204);
+    expect(r.headers.get("set-cookie")).toMatch(/bb_admin=;.*(Max-Age=0|Expires=Thu, 01 Jan 1970)/);
+  });
 });
 
 describe("admin month and days", () => {

@@ -45,14 +45,14 @@ export function adminRoutes(): App {
     return c.body(null, 204);
   });
 
-  r.post("/admin/api/logout", (c) => { deleteCookie(c, COOKIE, { path: "/" }); return c.body(null, 204); });
-
   r.use("/admin/api/*", async (c, next) => {
     if (c.req.path === "/admin/api/login") return next();
     const nowSec = Math.floor(c.get("services").clock().getTime() / 1000);
     if (!(await verifySession(getCookie(c, COOKIE), c.env.ADMIN_SECRET, nowSec))) return c.json({ error: "unauthorized" }, 401);
     await next();
   });
+
+  r.post("/admin/api/logout", (c) => { deleteCookie(c, COOKIE, { path: "/" }); return c.body(null, 204); });
 
   r.get("/admin/api/month", async (c) => {
     const { config, clock } = c.get("services");
