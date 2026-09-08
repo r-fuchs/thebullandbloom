@@ -298,15 +298,19 @@ Config Anthony supplies:
 - Studio pickup address and pickup instructions.
 - Admin passcode.
 
-## 8. Verification (to complete at ship)
+## 8. Verification
 
-- All unit and route tests green.
-- Acceptance walk-through in §4.6 passed on a preview deploy.
-- Stripe test-mode order and subscription end to end, including portal.
-- Uber sandbox dispatch end to end.
-- Instagram feed populated from Anthony's real account.
-- Closed calendar event closes a day within 15 minutes.
+Plan 1 (core store), verified 2026-09-08 on the preview deployment:
+
+- 75 unit and route tests green in workerd against a throwaway D1; typecheck clean.
+- Whole-branch review (Opus) plus one fix wave; all Critical/Important findings closed, minors recorded in the plan.
+- Deployed to https://thebullandbloom.thebullandbloom.workers.dev on Ryan's Cloudflare account; D1 `bullandbloom` migrated; cron live.
+- Live checks: home page with menu and order form, admin page, config and availability APIs, admin login/logout/401, closing a day propagates to the public picker, reopening restores it.
+- Stripe sandbox (Anthony's account) end to end: checkout created a session, a test-card payment completed, the webhook flipped the order to `paid` with the payment intent recorded and the hold cleared. A checkout against a bad key returned 503 and released its hold.
+- Same-day cutoff observed live: at 18:25 Eastern the current day was open but not orderable.
+
+Still to verify in later plans: Uber sandbox dispatch, Instagram feed, Closed-calendar sync, subscription portal, and the Cloudflare rate-limit rules (need the zone, so at DNS cutover).
 
 ## 9. Outcome
 
-To be filled at ship: what went live, version, what Anthony noticed.
+Plan 1 shipped to a preview URL on 2026-09-08 (branch `feat/store`, not merged; merge is the cutover because the page moved into `site/`). What Anthony would notice: a menu with three sizes and a day picker on his site, Stripe taking payment, and an admin page where closing a day takes it off the market instantly. Prices, cap, cutoff, and studio address are SAMPLE values until he supplies his (§7). Plan 2 (Google calendar and email) is next so he learns of orders without opening admin.
