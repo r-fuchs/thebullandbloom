@@ -39,12 +39,12 @@
 | D24 | Order events are all-day events on the order date with size, name, and fulfillment in the title. | Timed event at a ready time | The phone's day view lists all-day items at the top as a checklist. A studio ready time does not exist in config until Plan 3 (courier pickup). |
 | D25 | The OAuth callback is authenticated by a signed, 10-minute `state` parameter (HMAC with a key derived from `ADMIN_SECRET`), not by the admin cookie. | Cookie only | The admin cookie is `SameSite=Strict`, and a redirect back from accounts.google.com is a cross-site top-level navigation, so the browser withholds the cookie. |
 
-## Pending decisions for Ryan (behavior-visible; answers do not block Tasks 1–11)
+## Decisions Ryan made (2026-09-08, before execution)
 
-1. **Which Google account owns the Cloud project and OAuth client.** Recommendation: Ryan's own Google account (he already hosts Cloudflare and Stripe wiring; Anthony's only action is one consent click as thebullandbloom@gmail.com). Alternative: create it while signed in as thebullandbloom@gmail.com so it survives Ryan, at the cost of Ryan needing that login for every console change.
-2. **Who clicks "Connect Google" in admin.** It must be done while signed in to Google as thebullandbloom@gmail.com. Either Ryan with Anthony's Gmail login, or Anthony on a call with Ryan.
-3. **Email copy.** The plain-text drafts are in Task 7 verbatim. Anthony should read them before launch; any change is a string edit plus test update.
-4. **Event title shape** (D24): "Bouquet · Pat Smith · pickup". Alternatives are cheap to change in Task 7.
+1. **Google Cloud project and OAuth client owner:** Ryan's own Google account.
+2. **Who clicks "Connect Google":** Anthony, signed in as thebullandbloom@gmail.com (Ryan walks him through it).
+3. **Email copy:** the Task 7 drafts stand for the build; Ryan will have Anthony review them when needed, and any change is a template + test edit.
+4. **Event title shape** (D24): "Bouquet · Pat Smith · pickup" approved.
 
 ---
 
