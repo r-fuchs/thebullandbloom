@@ -9,3 +9,11 @@ thebullandbloom.com — floral design by Anthony Demonia. Static site plus a Clo
 - Design: `docs/superpowers/specs/2026-09-07-store-design.md`.
 
 `npm test` runs everything in a local workerd with a throwaway D1. `npm run dev` serves locally.
+
+## Local development
+
+1. Create `.dev.vars` with the four secrets: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ADMIN_PASSCODE`, `ADMIN_SECRET`.
+2. Run `npx wrangler d1 migrations apply bullandbloom --local`.
+3. Run `npm run dev`.
+
+`ADMIN_PASSCODE` must be a generated string of at least 20 characters. Rate limiting for `/admin/api/login` and `/api/checkout` is configured as Cloudflare rules at deploy, not in code.

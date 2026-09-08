@@ -166,7 +166,11 @@
     $('#login-status').textContent = '…';
     fetch('/admin/api/login', { method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ passcode: new FormData(e.target).get('passcode') }) })
-      .then(function (r) { if (r.status === 204) { show(true); loadMonth(); } else { $('#login-status').textContent = 'Wrong passcode.'; } });
+      .then(function (r) {
+        if (r.status === 204) { show(true); loadMonth(); }
+        else if (r.status === 401) { $('#login-status').textContent = 'Wrong passcode.'; }
+        else { $('#login-status').textContent = 'Sign-in failed (' + r.status + ').'; }
+      });
   });
   $('#logout').addEventListener('click', function () {
     $('#login-status').textContent = '';
@@ -193,8 +197,12 @@
       .catch(function (e) { if (e.message === 'unauthorized') return; $('#day-status').textContent = e.message; });
   });
   $('#s-save').addEventListener('click', function () {
+    var capRaw = $('#s-cap').value;
+    if (capRaw === '') { $('#s-status').textContent = 'Enter a number of bouquets per day.'; return; }
+    var cap = Number(capRaw);
+    if (!Number.isInteger(cap) || cap < 0) { $('#s-status').textContent = 'Enter a number of bouquets per day.'; return; }
     var days = Array.prototype.map.call(document.querySelectorAll('#s-days input:checked'), function (i) { return Number(i.value); });
-    api('/settings', { method: 'PUT', body: JSON.stringify({ cap: Number($('#s-cap').value), cutoff: $('#s-cutoff').value, openWeekdays: days }) })
+    api('/settings', { method: 'PUT', body: JSON.stringify({ cap: cap, cutoff: $('#s-cutoff').value, openWeekdays: days }) })
       .then(function () { $('#s-status').textContent = 'Saved.'; loadMonth(); })
       .catch(function (e) { $('#s-status').textContent = e.message; });
   });
