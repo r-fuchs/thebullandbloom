@@ -13,8 +13,21 @@ function appFor(env: Env) {
   return cached;
 }
 
+const REQUIRED_SECRETS = ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "ADMIN_PASSCODE", "ADMIN_SECRET"] as const;
+
+function missingSecrets(env: Env): string[] {
+  return REQUIRED_SECRETS.filter((k) => typeof env[k] !== "string" || env[k] === "");
+}
+
 export default {
-  fetch: (req: Request, env: Env, ctx: ExecutionContext) => appFor(env).fetch(req, env, ctx),
+  fetch: (req: Request, env: Env, ctx: ExecutionContext) => {
+    const missing = missingSecrets(env);
+    if (missing.length > 0) {
+      console.error("misconfigured: missing", missing.join(", "));
+      return new Response("misconfigured", { status: 500 });
+    }
+    return appFor(env).fetch(req, env, ctx);
+  },
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(runScheduled(env, new Date()).then((r) => console.log("scheduled", JSON.stringify(r))));
   },
