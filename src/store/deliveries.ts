@@ -78,16 +78,36 @@ export async function deliveriesForDate(db: D1Database, date: string): Promise<M
 }
 
 /**
- * Move a delivery to `status`. Idempotent: replaying the same event rewrites the same values.
- * `reason` is stored on a failure status and cleared on any other, so admin shows only a live problem.
- * Returns the updated row, or null when we have never heard of this delivery.
+ * How far along the lifecycle each status is. Uber does not guarantee event order (its
+ * 10/30/60/120s retry ladder makes out-of-order and re-delivered events normal), so `applyStatus`
+ * refuses to move a delivery to a LOWER rank — a late `dropoff` must not erase a `returned` that
+ * already landed. Terminal statuses rank highest (and equal each other): a `delivered` bouquet can
+ * still resolve to `canceled` (a refund-and-cancel after a bad delivery is legitimate), and
+ * `canceled`/`returned` can replace one another.
+ */
+const STATUS_RANK: Record<DeliveryStatus, number> = {
+  pending: 0, pickup: 1, pickup_complete: 2, dropoff: 3, delivered: 4, canceled: 5, returned: 5,
+};
+const RANK_CASE = `CASE status ${Object.entries(STATUS_RANK).map(([s, rank]) => `WHEN '${s}' THEN ${rank}`).join(" ")} END`;
+
+/**
+ * Move a delivery to `status`, refusing a move to a lower rank (see `STATUS_RANK`) so an
+ * out-of-order or reordered event can never undo a later one. Idempotent: replaying the same
+ * event (same rank) still rewrites `updated_at`/`last_error`.
+ * `reason` is stored on a terminal status and cleared on any other, so admin shows only a live
+ * problem — but only when the move is actually applied; a refused move leaves the existing
+ * status and reason untouched.
+ * Returns the delivery's current row (updated if the move applied, unchanged if it was refused),
+ * or null when we have never heard of this delivery.
  */
 export async function applyStatus(
   db: D1Database, uberDeliveryId: string, status: DeliveryStatus, reason: string | null, now: number,
 ): Promise<Delivery | null> {
   const keepReason = (TERMINAL_STATUSES as readonly string[]).includes(status);
-  await db.prepare("UPDATE deliveries SET status = ?, updated_at = ?, last_error = ? WHERE uber_delivery_id = ?")
-    .bind(status, now, keepReason ? reason?.slice(0, 500) ?? null : null, uberDeliveryId).run();
+  await db.prepare(
+    `UPDATE deliveries SET status = ?, updated_at = ?, last_error = ?
+     WHERE uber_delivery_id = ? AND (${RANK_CASE}) <= ?`,
+  ).bind(status, now, keepReason ? reason?.slice(0, 500) ?? null : null, uberDeliveryId, STATUS_RANK[status]).run();
   const r = await db.prepare(`SELECT ${COLS} FROM deliveries WHERE uber_delivery_id = ?`).bind(uberDeliveryId).first<Row>();
   return r ? fromRow(r) : null;
 }

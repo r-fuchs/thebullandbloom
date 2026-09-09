@@ -165,6 +165,17 @@ describe("POST /webhooks/uber", () => {
     expect((await env.DB.prepare("SELECT status FROM orders WHERE id = 'u4'").first<any>()).status).toBe("paid");
   });
 
+  it("keeps a returned delivery's reason when a late, reordered dropoff webhook arrives", async () => {
+    await deliveryOrder("u4b", "del_4b");
+    const { fetch } = testApp();
+    const r1 = await uberHook(fetch, statusEvent("del_4b", "returned", { undeliverable_reason: "customer_unavailable" }));
+    expect(r1.status).toBe(200);
+    const r2 = await uberHook(fetch, statusEvent("del_4b", "dropoff"));
+    expect(r2.status).toBe(200);
+    const row = await env.DB.prepare("SELECT status, last_error FROM deliveries WHERE uber_delivery_id = 'del_4b'").first<any>();
+    expect(row).toEqual({ status: "returned", last_error: "customer_unavailable" });
+  });
+
   it("accepts the legacy x-postmates-signature header", async () => {
     await deliveryOrder("u5", "del_5");
     const { fetch } = testApp();

@@ -52,24 +52,45 @@ describe("store/deliveries", () => {
     expect(await applyStatus(env.DB, "unknown", "delivered", null, 2600)).toBeNull();
   });
 
-  it("records a reason on a failure status and clears it on a later good one", async () => {
+  it("keeps a returned delivery's reason when a late, reordered dropoff arrives", async () => {
     await order("o5", "2026-09-16", 1200);
     await insertDelivery(env.DB, row("o5", "u5", 1300, 1300));
     await applyStatus(env.DB, "u5", "returned", "nobody home", 2000);
     expect((await env.DB.prepare("SELECT last_error FROM deliveries WHERE uber_delivery_id = 'u5'").first<any>()).last_error)
       .toBe("nobody home");
-    await applyStatus(env.DB, "u5", "dropoff", null, 2100);
-    expect((await env.DB.prepare("SELECT last_error FROM deliveries WHERE uber_delivery_id = 'u5'").first<any>()).last_error)
-      .toBeNull();
+    // dropoff outranks nothing here — it arrived after the (higher-ranked) terminal returned event
+    const d = await applyStatus(env.DB, "u5", "dropoff", null, 2100);
+    expect(d).toMatchObject({ status: "returned", lastError: "nobody home" });
+    const row5 = await env.DB.prepare("SELECT status, last_error FROM deliveries WHERE uber_delivery_id = 'u5'").first<any>();
+    expect(row5).toEqual({ status: "returned", last_error: "nobody home" });
   });
 
-  it("is idempotent: replaying the same status leaves one row and the same values", async () => {
+  it("refuses to move a delivered delivery backward to pickup", async () => {
+    await order("o5b", "2026-09-16", 1200);
+    await insertDelivery(env.DB, row("o5b", "u5b", 1300, 1300));
+    await applyStatus(env.DB, "u5b", "delivered", null, 2000);
+    const d = await applyStatus(env.DB, "u5b", "pickup", null, 2100);
+    expect(d).toMatchObject({ status: "delivered" });
+    expect((await env.DB.prepare("SELECT status FROM deliveries WHERE uber_delivery_id = 'u5b'").first<any>()).status)
+      .toBe("delivered");
+  });
+
+  it("still moves a delivered delivery to canceled — terminal outranks delivered (a refund-and-cancel after a bad delivery)", async () => {
+    await order("o5c", "2026-09-16", 1200);
+    await insertDelivery(env.DB, row("o5c", "u5c", 1300, 1300));
+    await applyStatus(env.DB, "u5c", "delivered", null, 2000);
+    const d = await applyStatus(env.DB, "u5c", "canceled", "return requested after delivery", 2100);
+    expect(d).toMatchObject({ status: "canceled", lastError: "return requested after delivery" });
+  });
+
+  it("is idempotent: replaying the same status leaves one row, the same values, and still updates updated_at", async () => {
     await order("o6", "2026-09-16", 1200);
     await insertDelivery(env.DB, row("o6", "u6", 1300, 1300));
     await applyStatus(env.DB, "u6", "delivered", null, 3000);
-    await applyStatus(env.DB, "u6", "delivered", null, 3000);
+    const d = await applyStatus(env.DB, "u6", "delivered", null, 3100);
+    expect(d).toMatchObject({ status: "delivered", updatedAt: 3100 });
     const rows = await env.DB.prepare("SELECT status, updated_at FROM deliveries WHERE uber_delivery_id = 'u6'").all<any>();
-    expect(rows.results).toEqual([{ status: "delivered", updated_at: 3000 }]);
+    expect(rows.results).toEqual([{ status: "delivered", updated_at: 3100 }]);
   });
 
   it("finds the latest delivery for an order whatever its status, and none for a stranger", async () => {
