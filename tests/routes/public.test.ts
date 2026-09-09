@@ -123,7 +123,9 @@ describe("POST /api/checkout", () => {
   });
 });
 
-const address = { street: "5 Elm Street", unit: "", city: "Hudson", state: "NY", zip: "12534" };
+// The zip comes from the repo config so the "listed zip" tests follow whatever fallback list is configured.
+const LISTED_ZIP = loadConfig().delivery.fallbackZips[0];
+const address = { street: "5 Elm Street", unit: "", city: "Albany", state: "NY", zip: LISTED_ZIP };
 const outside = { ...address, zip: "10001" };
 const quoteFor = (fetch: any, body: unknown) =>
   fetch("/api/quote", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -139,7 +141,7 @@ describe("POST /api/quote", () => {
     expect(typeof body.quoteToken).toBe("string");
     // 09:00 America/New_York on 2026-09-16 == 13:00 UTC
     expect(uber.quoted[0].window.pickupReadyAt.toISOString()).toBe("2026-09-16T13:00:00.000Z");
-    expect(uber.quoted[0].dropoff.address.zip).toBe("12534");
+    expect(uber.quoted[0].dropoff.address.zip).toBe(LISTED_ZIP);
     expect(uber.quoted[0].valueCents).toBeGreaterThan(0);
   });
 
@@ -228,7 +230,7 @@ describe("POST /api/checkout — delivery", () => {
     expect(row.uber_quote_id).toBe("dqt_fake_1");
     expect(row.customer_phone).toBe("+15185550100");
     expect(JSON.parse(row.address_json)).toEqual({
-      street: "5 Elm Street", unit: "", city: "Hudson", state: "NY", zip: "12534",
+      street: "5 Elm Street", unit: "", city: "Albany", state: "NY", zip: LISTED_ZIP,
       notes: "porch, behind the planter",
     });
   });
