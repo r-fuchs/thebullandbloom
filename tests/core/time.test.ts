@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ymdIn, hmIn, weekdayOf, addDays, isYmd, ymdRange, humanDate, longDate } from "../../src/core/time";
+import { ymdIn, hmIn, weekdayOf, addDays, isYmd, ymdRange, humanDate, longDate, instantAt } from "../../src/core/time";
 
 const NY = "America/New_York";
 
@@ -37,5 +37,25 @@ describe("time", () => {
     expect(humanDate("2026-09-09")).toBe("Wed Sep 9");
     expect(longDate("2026-09-09")).toBe("Wednesday, September 9");
     expect(longDate("2026-11-01")).toBe("Sunday, November 1");
+  });
+});
+
+describe("instantAt", () => {
+  it("resolves a studio-local wall time to the right UTC instant in EDT", () => {
+    expect(instantAt("America/New_York", "2026-09-15", "09:00").toISOString()).toBe("2026-09-15T13:00:00.000Z");
+  });
+  it("resolves the same wall time to a different instant in EST", () => {
+    expect(instantAt("America/New_York", "2026-12-15", "09:00").toISOString()).toBe("2026-12-15T14:00:00.000Z");
+  });
+  it("handles the spring-forward day (2 am does not exist; 3 am local is returned)", () => {
+    // 2027-03-14 is the US spring-forward date. 02:30 local does not exist; the
+    // corrected instant lands on the instant Intl reports as 03:30 EDT.
+    const d = instantAt("America/New_York", "2027-03-14", "02:30");
+    expect(hmIn("America/New_York", d)).toBe("03:30");
+  });
+  it("round-trips any ordinary time through ymdIn/hmIn", () => {
+    const d = instantAt("America/New_York", "2026-11-20", "16:45");
+    expect(ymdIn("America/New_York", d)).toBe("2026-11-20");
+    expect(hmIn("America/New_York", d)).toBe("16:45");
   });
 });

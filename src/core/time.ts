@@ -60,3 +60,27 @@ export function longDate(ymd: string): string {
   const [, m, d] = ymd.split("-").map(Number);
   return `${DAY_LONG[weekdayOf(ymd)]}, ${MON_LONG[m - 1]} ${d}`;
 }
+
+/**
+ * The UTC instant at which the clock in `tz` reads `hm` on `ymd`.
+ * The first correction uses the offset measured at the naive instant, which can be the wrong
+ * side of a DST change; re-measuring at the corrected instant settles it. On a spring-forward
+ * gap (a wall time that does not exist) neither measurement lands back on the naive instant, so
+ * this returns the later instant, which is what a courier pickup at "2:30 am on the day the
+ * clocks jump" should mean anyway.
+ */
+export function instantAt(tz: string, ymd: string, hm: string): Date {
+  const naive = Date.parse(`${ymd}T${hm}:00Z`);
+  const shownAt = (t: number) => {
+    const at = new Date(t);
+    return Date.parse(`${ymdIn(tz, at)}T${hmIn(tz, at)}:00Z`);
+  };
+  // offset measured at the naive instant; right except on the wrong side of a DST change
+  const first = naive + (naive - shownAt(naive));
+  if (shownAt(first) === naive) return new Date(first);
+  // re-measure at the corrected instant
+  const second = naive + (first - shownAt(first));
+  if (shownAt(second) === naive) return new Date(second);
+  // a spring-forward gap: no instant shows this wall time; `first` is the later side (03:30 for 02:30)
+  return new Date(first);
+}

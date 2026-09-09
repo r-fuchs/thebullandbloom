@@ -3,7 +3,16 @@
   "studio": {
     "pickupAddress": "SAMPLE — studio address, Upstate NY",
     "pickupInstructions": "SAMPLE — text Anthony at (518) 334-0517 when you arrive.",
-    "ownerEmail": "thebullandbloom@gmail.com"
+    "ownerEmail": "thebullandbloom@gmail.com",
+    "readyTime": "09:00",
+    "phone": "+15183340517",
+    "address": {
+      "street": "SAMPLE — 1 Warren Street",
+      "unit": "",
+      "city": "Hudson",
+      "state": "NY",
+      "zip": "12534"
+    }
   },
   "calendars": { "closed": "Bull and Bloom: Closed", "orders": "Bull and Bloom: Orders" },
   "sizes": [
@@ -12,5 +21,6 @@
     { "id": "statement", "name": "Statement", "description": "A generous, showpiece bouquet. SAMPLE.", "priceCents": 13500 }
   ],
   "defaults": { "cap": 4, "cutoff": "11:00", "openWeekdays": [2, 3, 4, 5, 6] },
+  "delivery": { "fallbackFeeCents": 1500, "fallbackZips": ["12534", "12106", "12075"] },
   "holdMinutes": 30
 }
