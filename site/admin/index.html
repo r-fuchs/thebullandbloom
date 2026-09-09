@@ -204,7 +204,7 @@
               .catch(function (e) {
                 if (e.message === 'unauthorized') return;
                 c.disabled = false;
-                msg.textContent = e.message + ' — try again, or deliver this one yourself.';
+                msg.textContent = e.message + (e.message.indexOf('deliver this one yourself') === -1 ? ' — try again, or deliver this one yourself.' : '');
                 if (e.delivery && e.delivery.trackingUrl) {
                   var trackA = document.createElement('a');
                   trackA.href = e.delivery.trackingUrl; trackA.target = '_blank'; trackA.rel = 'noopener'; trackA.textContent = ' track';
