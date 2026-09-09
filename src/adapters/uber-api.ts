@@ -9,6 +9,25 @@ const API = "https://api.uber.com/v1";
 const SCOPE = "eats.deliveries";
 /** Refresh this far before the token's stated expiry so a call never races the boundary. */
 const TOKEN_SKEW_SECONDS = 3600;
+/** Neither Uber endpoint below is expected to take anywhere near this; a stuck request should fail, not hang the request. */
+const UBER_TIMEOUT_MS = 15_000;
+
+/**
+ * Runs `fn` and guarantees only a `UberError` escapes: a rejected `fetch` (DNS/connection
+ * failure, our own `AbortSignal.timeout`), a rejected `res.text()`, or a rejected D1 cache call
+ * all surface as raw, unwrapped errors otherwise. The plan's Global Constraints call for exactly
+ * the three `UberFailureCode`s out of `quote`/`createDelivery`, so anything else collapses to
+ * "unavailable" (try again) rather than propagating.
+ */
+async function guard<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    if (e instanceof UberError) throw e;
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new UberError("unavailable", `uber: ${msg}`.slice(0, 300));
+  }
+}
 
 /** Uber's 400 codes that mean "we do not serve this address", as opposed to "try again". */
 const UNDELIVERABLE = new Set(["address_undeliverable", "unknown_location", "address_undeliverable_limited_couriers"]);
@@ -48,50 +67,54 @@ export class UberApi implements Uber {
   }
 
   async quote(req: QuoteRequest): Promise<UberQuote> {
-    const body = {
-      pickup_address: encodeAddress(req.pickup.address),
-      pickup_phone_number: req.pickup.phone,
-      dropoff_address: encodeAddress(req.dropoff.address),
-      dropoff_phone_number: req.dropoff.phone,
-      ...windowFields(req.window),
-      manifest_total_value: req.valueCents,
-    };
-    const r = await this.api<QuoteResponse>(`/customers/${this.customerId}/delivery_quotes`, body);
-    const expiresAt = secondsFrom(r.expires);
-    if (typeof r.id !== "string" || typeof r.fee !== "number" || expiresAt === null) {
-      throw new UberError("unavailable", `uber: quote response missing id, fee or expires: ${JSON.stringify(r).slice(0, 200)}`);
-    }
-    return {
-      id: r.id, feeCents: r.fee, currency: typeof r.currency === "string" ? r.currency : "usd",
-      expiresAt, dropoffEtaAt: secondsFrom(r.dropoff_eta),
-    };
+    return guard(async () => {
+      const body = {
+        pickup_address: encodeAddress(req.pickup.address),
+        pickup_phone_number: req.pickup.phone,
+        dropoff_address: encodeAddress(req.dropoff.address),
+        dropoff_phone_number: req.dropoff.phone,
+        ...windowFields(req.window),
+        manifest_total_value: req.valueCents,
+      };
+      const r = await this.api<QuoteResponse>(`/customers/${this.customerId}/delivery_quotes`, body);
+      const expiresAt = secondsFrom(r.expires);
+      if (typeof r.id !== "string" || typeof r.fee !== "number" || expiresAt === null) {
+        throw new UberError("unavailable", `uber: quote response missing id, fee or expires: ${JSON.stringify(r).slice(0, 200)}`);
+      }
+      return {
+        id: r.id, feeCents: r.fee, currency: typeof r.currency === "string" ? r.currency : "usd",
+        expiresAt, dropoffEtaAt: secondsFrom(r.dropoff_eta),
+      };
+    });
   }
 
   async createDelivery(req: DeliveryRequest): Promise<UberDelivery> {
-    const body: Record<string, unknown> = {
-      quote_id: req.quoteId,
-      ...partyFields("pickup", req.pickup),
-      ...partyFields("dropoff", req.dropoff),
-      ...windowFields(req.window),
-      // `size: "small"` is the value from Uber's own manifest example; a bouquet is a one-hand
-      // parcel. The full size enum is not documented on the pages we could read (see Global
-      // Constraints, unverified item 3).
-      manifest_items: [{ name: req.itemName, quantity: 1, size: "small", price: req.valueCents }],
-      manifest_reference: req.reference,
-      manifest_total_value: req.valueCents,
-      // Hand a $85 perishable to a person, and bring it home rather than bin it if nobody answers.
-      deliverable_action: "deliverable_action_meet_at_door",
-      undeliverable_action: "return",
-      idempotency_key: req.idempotencyKey,
-      external_id: req.reference,
-    };
-    if (this.robocourier) body.test_specifications = { robo_courier_specification: { mode: "auto" } };
+    return guard(async () => {
+      const body: Record<string, unknown> = {
+        quote_id: req.quoteId,
+        ...partyFields("pickup", req.pickup),
+        ...partyFields("dropoff", req.dropoff),
+        ...windowFields(req.window),
+        // `size: "small"` is the value from Uber's own manifest example; a bouquet is a one-hand
+        // parcel. The full size enum is not documented on the pages we could read (see Global
+        // Constraints, unverified item 3).
+        manifest_items: [{ name: req.itemName, quantity: 1, size: "small", price: req.valueCents }],
+        manifest_reference: req.reference,
+        manifest_total_value: req.valueCents,
+        // Hand a $85 perishable to a person, and bring it home rather than bin it if nobody answers.
+        deliverable_action: "deliverable_action_meet_at_door",
+        undeliverable_action: "return",
+        idempotency_key: req.idempotencyKey,
+        external_id: req.reference,
+      };
+      if (this.robocourier) body.test_specifications = { robo_courier_specification: { mode: "auto" } };
 
-    const r = await this.api<DeliveryResponse>(`/customers/${this.customerId}/deliveries`, body);
-    if (typeof r.id !== "string" || typeof r.status !== "string" || typeof r.tracking_url !== "string" || typeof r.fee !== "number") {
-      throw new UberError("unavailable", `uber: delivery response missing id, status, tracking_url or fee: ${JSON.stringify(r).slice(0, 200)}`);
-    }
-    return { id: r.id, status: r.status, trackingUrl: r.tracking_url, feeCents: r.fee };
+      const r = await this.api<DeliveryResponse>(`/customers/${this.customerId}/deliveries`, body);
+      if (typeof r.id !== "string" || typeof r.status !== "string" || typeof r.tracking_url !== "string" || typeof r.fee !== "number") {
+        throw new UberError("unavailable", `uber: delivery response missing id, status, tracking_url or fee: ${JSON.stringify(r).slice(0, 200)}`);
+      }
+      return { id: r.id, status: r.status, trackingUrl: r.tracking_url, feeCents: r.fee };
+    });
   }
 
   /** Client-credentials token, cached in D1 across isolates (D30). Uber allows 100 of these an hour. */
@@ -110,6 +133,7 @@ export class UberApi implements Uber {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body: form.toString(),
+      signal: AbortSignal.timeout(UBER_TIMEOUT_MS),
     });
     const text = await res.text();
     if (!res.ok) throw new UberError("unavailable", `uber token ${res.status}: ${text.slice(0, 300)}`);
@@ -131,6 +155,7 @@ export class UberApi implements Uber {
         method: "POST",
         headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(UBER_TIMEOUT_MS),
       });
       if (res.status === 401 && attempt === 0) { await this.cache.clear(); continue; }
       const text = await res.text();

@@ -196,6 +196,39 @@ describe("UberApi", () => {
     const { uber } = api([TOKEN, { status: 200, body: { id: "del_9", status: "pending" } }]);
     await expect(uber.createDelivery(DELIVERY_REQ)).rejects.toMatchObject({ code: "unavailable" });
   });
+
+  it("wraps a rejected fetch (DNS/connection failure) in UberError unavailable rather than letting it escape", async () => {
+    const fetchFn = (() => Promise.reject(new TypeError("network down"))) as unknown as typeof fetch;
+    const uber = new UberApi("cid", "csec", "cus_1", memoryCache(), false, fetchFn);
+    await expect(uber.quote(QUOTE_REQ)).rejects.toBeInstanceOf(UberError);
+    await expect(uber.quote(QUOTE_REQ)).rejects.toMatchObject({ code: "unavailable" });
+  });
+
+  it("wraps a rejected cache load in UberError unavailable rather than letting it escape", async () => {
+    const cache: TokenCache = {
+      async load() { throw new Error("D1 fault"); },
+      async save() {},
+      async clear() {},
+    };
+    const { fn } = fakeFetch([]);
+    const uber = new UberApi("cid", "csec", "cus_1", cache, false, fn);
+    await expect(uber.quote(QUOTE_REQ)).rejects.toMatchObject({ code: "unavailable" });
+  });
+
+  it("sends every request with an AbortSignal request timeout", async () => {
+    const seenInits: RequestInit[] = [];
+    const fn = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      seenInits.push(init ?? {});
+      const body = seenInits.length === 1
+        ? TOKEN.body
+        : { id: "dqt_x", expires: "2026-09-09T19:15:37.887Z", fee: 600, currency: "usd" };
+      return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+    }) as typeof fetch;
+    const uber = new UberApi("cid", "csec", "cus_1", memoryCache(), false, fn);
+    await uber.quote(QUOTE_REQ);
+    expect(seenInits).toHaveLength(2);
+    for (const init of seenInits) expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
 });
 
 describe("verifyUberSignature", () => {
