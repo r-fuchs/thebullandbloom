@@ -75,6 +75,17 @@ describe("store/deliveries", () => {
       .toBe("delivered");
   });
 
+  it("moves a delivery stuck with an unmodeled status rather than refusing every update forever", async () => {
+    await order("o5d", "2026-09-16", 1200);
+    // Inserted via raw SQL: the typed insertDelivery() now refuses a status outside DeliveryStatus.
+    await env.DB.prepare(
+      `INSERT INTO deliveries (id, order_id, uber_delivery_id, status, quoted_cents, fee_cents, tracking_url, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind("del_u5d", "o5d", "u5d", "teleported", 1300, 1300, "https://track.uber.test/u5d", 1000, 1000).run();
+    const d = await applyStatus(env.DB, "u5d", "pickup", null, 2000);
+    expect(d).toMatchObject({ status: "pickup" });
+  });
+
   it("still moves a delivered delivery to canceled — terminal outranks delivered (a refund-and-cancel after a bad delivery)", async () => {
     await order("o5c", "2026-09-16", 1200);
     await insertDelivery(env.DB, row("o5c", "u5c", 1300, 1300));

@@ -2,7 +2,7 @@ import type { App } from "../app";
 import { UberError } from "../adapters/uber";
 import { deliveryItemName, deliveryWindow, normalizePhone } from "../core/delivery";
 import { deliveryAddressOf } from "../core/messages";
-import { activeDeliveryFor, insertDeliveryStatement, latestDeliveryFor, varianceTotal } from "../store/deliveries";
+import { activeDeliveryFor, insertDeliveryStatement, knownStatus, latestDeliveryFor, varianceTotal } from "../store/deliveries";
 import { enqueueCourierEmailStatement } from "../store/outbox";
 import { getOrder } from "../store/orders";
 import { sizeById } from "../config";
@@ -77,7 +77,7 @@ export function registerDeliveryAdmin(r: App): void {
       await c.env.DB.batch([
         insertDeliveryStatement(c.env.DB, {
           id: crypto.randomUUID(), orderId: order.id, uberDeliveryId: delivery.id,
-          status: (delivery.status || "pending") as never,
+          status: knownStatus(delivery.status) ?? "pending",
           quotedCents, feeCents: delivery.feeCents, trackingUrl: delivery.trackingUrl, at: nowSec,
         }),
         enqueueCourierEmailStatement(c.env.DB, order.id, nowSec),

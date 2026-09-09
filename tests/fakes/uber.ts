@@ -12,6 +12,9 @@ export class FakeUber implements Uber {
   /** what the next quote() returns; the id gains a counter suffix so ids stay unique */
   quoteFee = 1200;
   quoteExpiresAt = 2_000_000_000;
+  /** what the next createDelivery() reports as the delivery's status; a real Uber value can be
+   * anything, including one we do not model — tests use this to exercise that path. */
+  nextStatus = "pending";
   /** when set, the next call throws this once */
   failNext: { code: UberFailureCode; message: string } | null = null;
   private n = 0;
@@ -33,7 +36,7 @@ export class FakeUber implements Uber {
     this.created.push(req);
     this.n += 1;
     return {
-      id: `del_fake_${this.n}`, status: "pending",
+      id: `del_fake_${this.n}`, status: this.nextStatus,
       trackingUrl: `https://track.uber.test/del_fake_${this.n}`, feeCents: this.quoteFee,
     };
   }

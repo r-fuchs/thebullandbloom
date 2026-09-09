@@ -5,15 +5,7 @@ import { enqueueForSessionStatements, ORDER_PAID_KINDS } from "../store/outbox";
 import { drainOutbox } from "../jobs/outbox";
 import { background } from "./background";
 import { verifyUberSignature } from "../adapters/uber";
-import { applyStatus, type DeliveryStatus } from "../store/deliveries";
-
-const DELIVERY_STATUSES: readonly DeliveryStatus[] =
-  ["pending", "pickup", "pickup_complete", "dropoff", "delivered", "canceled", "returned"];
-
-/** Only statuses we model; anything else (a new Uber value, a typo) is acknowledged and dropped. */
-function knownStatus(v: unknown): DeliveryStatus | null {
-  return typeof v === "string" && (DELIVERY_STATUSES as readonly string[]).includes(v) ? (v as DeliveryStatus) : null;
-}
+import { applyStatus, knownStatus } from "../store/deliveries";
 
 export function webhookRoutes(): App {
   const r: App = new Hono();

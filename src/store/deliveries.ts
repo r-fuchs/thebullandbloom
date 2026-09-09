@@ -5,6 +5,14 @@ export type DeliveryStatus =
 /** A delivery in one of these is over; Anthony may request a new courier for the order. */
 export const TERMINAL_STATUSES: readonly DeliveryStatus[] = ["canceled", "returned"];
 
+const DELIVERY_STATUSES: readonly DeliveryStatus[] =
+  ["pending", "pickup", "pickup_complete", "dropoff", "delivered", "canceled", "returned"];
+
+/** Only statuses we model; anything else (a new Uber value, a typo) is acknowledged and dropped. */
+export function knownStatus(v: unknown): DeliveryStatus | null {
+  return typeof v === "string" && (DELIVERY_STATUSES as readonly string[]).includes(v) ? (v as DeliveryStatus) : null;
+}
+
 export interface Delivery {
   id: string; orderId: string; uberDeliveryId: string; status: DeliveryStatus;
   quotedCents: number; feeCents: number; trackingUrl: string;
@@ -88,7 +96,7 @@ export async function deliveriesForDate(db: D1Database, date: string): Promise<M
 const STATUS_RANK: Record<DeliveryStatus, number> = {
   pending: 0, pickup: 1, pickup_complete: 2, dropoff: 3, delivered: 4, canceled: 5, returned: 5,
 };
-const RANK_CASE = `CASE status ${Object.entries(STATUS_RANK).map(([s, rank]) => `WHEN '${s}' THEN ${rank}`).join(" ")} END`;
+const RANK_CASE = `CASE status ${Object.entries(STATUS_RANK).map(([s, rank]) => `WHEN '${s}' THEN ${rank}`).join(" ")} ELSE -1 END`;
 
 /**
  * Move a delivery to `status`, refusing a move to a lower rank (see `STATUS_RANK`) so an

@@ -87,6 +87,16 @@ describe("POST /admin/api/orders/:id/dispatch", () => {
     expect((await as("/admin/api/orders/nope/dispatch", { method: "POST" })).status).toBe(404);
   });
 
+  it("stores a known status when Uber reports one it does not model, rather than freezing the row", async () => {
+    await order("d5b");
+    const { fetch, uber } = testApp();
+    uber.nextStatus = "teleported";
+    const as = await login(fetch);
+    expect((await as("/admin/api/orders/d5b/dispatch", { method: "POST" })).status).toBe(200);
+    const row = await env.DB.prepare("SELECT status FROM deliveries WHERE order_id = 'd5b'").first<any>();
+    expect(row.status).toBe("pending");
+  });
+
   it("refuses a second courier while one is live, and allows one after a cancellation", async () => {
     await order("d5");
     const { fetch } = testApp();
