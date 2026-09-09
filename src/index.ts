@@ -3,8 +3,9 @@ import { buildApp, type Services } from "./app";
 import { loadConfig } from "./config";
 import { StripePayments } from "./adapters/stripe";
 import { GoogleApi } from "./adapters/google-api";
-import { UberError, type Uber } from "./adapters/uber";
+import { UberApi } from "./adapters/uber-api";
 import { connectionSource } from "./store/google";
+import { tokenCache } from "./store/uber";
 import { runScheduled } from "./scheduled";
 
 let services: Services | null = null;
@@ -14,11 +15,10 @@ export function servicesFor(env: Env): Services {
   if (!services) {
     const payments = new StripePayments(env.STRIPE_SECRET_KEY, env.STRIPE_WEBHOOK_SECRET);
     const google = new GoogleApi(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET, connectionSource(env.DB, env.ADMIN_SECRET));
-    const uber: Uber = {
-      configured: () => false,
-      async quote() { throw new UberError("unconfigured", "uber: adapter not built yet (Plan 3 Task 4)"); },
-      async createDelivery() { throw new UberError("unconfigured", "uber: adapter not built yet (Plan 3 Task 4)"); },
-    };
+    const uber = new UberApi(
+      env.UBER_CLIENT_ID, env.UBER_CLIENT_SECRET, env.UBER_CUSTOMER_ID,
+      tokenCache(env.DB), env.UBER_ROBOCOURIER === "1",
+    );
     services = { payments, google, uber, clock: () => new Date(), config: loadConfig() };
   }
   return services;
