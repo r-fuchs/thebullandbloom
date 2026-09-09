@@ -73,14 +73,28 @@ export function registerDeliveryAdmin(r: App): void {
       return c.json({ error: "dispatch_failed", code, message }, 502);
     }
 
-    await c.env.DB.batch([
-      insertDeliveryStatement(c.env.DB, {
-        id: crypto.randomUUID(), orderId: order.id, uberDeliveryId: delivery.id,
-        status: (delivery.status || "pending") as never,
-        quotedCents, feeCents: delivery.feeCents, trackingUrl: delivery.trackingUrl, at: nowSec,
-      }),
-      enqueueCourierEmailStatement(c.env.DB, order.id, nowSec),
-    ]);
+    try {
+      await c.env.DB.batch([
+        insertDeliveryStatement(c.env.DB, {
+          id: crypto.randomUUID(), orderId: order.id, uberDeliveryId: delivery.id,
+          status: (delivery.status || "pending") as never,
+          quotedCents, feeCents: delivery.feeCents, trackingUrl: delivery.trackingUrl, at: nowSec,
+        }),
+        enqueueCourierEmailStatement(c.env.DB, order.id, nowSec),
+      ]);
+    } catch (err) {
+      // Uber already has this courier — the order stays paid, and pressing the button again
+      // is safe: the idempotency key is unchanged, so Uber hands back the same delivery and
+      // the (OR IGNORE) insert then succeeds. Nothing else is written here.
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`dispatch: order ${order.id} booked Uber delivery ${delivery.id} but could not save the record`, message);
+      return c.json({
+        error: "record_not_saved",
+        code: "record_not_saved",
+        delivery: { id: delivery.id, trackingUrl: delivery.trackingUrl, status: delivery.status },
+        message: `The courier is booked (Uber delivery ${delivery.id}) but the store could not save the record. Press Request courier again — Uber will return the same courier, not a second one.`,
+      }, 500);
+    }
 
     await background(c, drainOutbox({ db: c.env.DB, google, config, siteUrl: c.env.SITE_URL }, now));
     return c.json({ ok: true, delivery, variance: await varianceTotal(c.env.DB) });

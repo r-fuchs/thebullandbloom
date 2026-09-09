@@ -130,6 +130,39 @@ describe("POST /admin/api/orders/:id/dispatch", () => {
     expect((await as("/admin/api/orders/d8/dispatch", { method: "POST" })).status).toBe(409);
     expect((await as("/admin/api/orders/d9/dispatch", { method: "POST" })).status).toBe(409);
   });
+
+  it("reports a booked courier when the record fails to save, so Anthony knows to retry rather than drive blind", async () => {
+    await order("d10");
+    const { fetch, uber } = testApp();
+    const as = await login(fetch);
+    // Force just the batch write to fail, deterministically, after Uber has already accepted
+    // the job — dropping `deliveries` itself would also break the earlier activeDeliveryFor()
+    // check the route makes before ever calling Uber, which is a different (already-covered)
+    // path. Dropping `outbox` instead only breaks the batch's second statement. Without
+    // poisoning later tests: the table is recreated in `finally` before this test ends, so
+    // every test after it still finds `outbox` present. (D1's exec() runs one statement per
+    // line, so the CREATE TABLE below must stay on a single line.)
+    await env.DB.exec("DROP TABLE outbox");
+    try {
+      const r = await as("/admin/api/orders/d10/dispatch", { method: "POST" });
+      expect(r.status).toBe(500);
+      const body = await r.json() as any;
+      expect(body.error).toBe("record_not_saved");
+      expect(body.delivery.id).toBe("del_fake_2");
+      expect(body.message).toContain("Press Request courier again");
+      expect(uber.created.length).toBe(1);
+      const o = await env.DB.prepare("SELECT status FROM orders WHERE id = 'd10'").first<any>();
+      expect(o.status).toBe("paid");
+      // the batch is atomic: the outbox half failing means the deliveries half never landed either
+      const n = await env.DB.prepare("SELECT COUNT(*) AS n FROM deliveries WHERE order_id = 'd10'").first<any>();
+      expect(n.n).toBe(0);
+    } finally {
+      await env.DB.exec(
+        "CREATE TABLE outbox (id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK (kind IN ('calendar_event','email_customer','email_owner','courier_email')), order_id TEXT NOT NULL, created_at INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at INTEGER, last_error TEXT, done_at INTEGER, UNIQUE (order_id, kind))",
+      );
+      await env.DB.exec("CREATE INDEX outbox_due ON outbox (done_at, next_attempt_at)");
+    }
+  });
 });
 
 describe("GET /admin/api/delivery/status", () => {
