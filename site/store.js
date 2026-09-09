@@ -140,6 +140,8 @@
   }
 
   function scheduleQuote() {
+    quote = null;
+    refreshTotal();
     if (quoteTimer) clearTimeout(quoteTimer);
     quoteTimer = setTimeout(askForQuote, 400);
   }
@@ -152,7 +154,7 @@
   });
   form.addEventListener('input', function (e) {
     var n = e.target.name;
-    if (n === 'street' || n === 'city' || n === 'state' || n === 'zip') scheduleQuote();
+    if (n === 'street' || n === 'unit' || n === 'city' || n === 'state' || n === 'zip') scheduleQuote();
   });
 
   function load() {
@@ -189,9 +191,9 @@
       .then(function (r) {
         if (r.ok) { window.location.href = r.body.url; return; }
         pay.disabled = false;
-        if (r.status === 409) { status.textContent = 'That day just filled up. Pick another.'; load(); }
+        if (r.body && r.body.error === 'quote_expired') { status.textContent = 'That delivery price has expired. We are getting a fresh one.'; quote = null; askForQuote(); }
+        else if (r.status === 409) { status.textContent = 'That day just filled up. Pick another.'; load(); }
         else if (r.status === 503) { status.textContent = 'Payments are briefly unavailable. Try again in a minute.'; }
-        else if (r.body.error === 'quote_expired') { status.textContent = 'That delivery price has expired. We are getting a fresh one.'; quote = null; askForQuote(); }
         else { status.textContent = r.body.error || 'Something went wrong.'; }
       })
       .catch(function () { pay.disabled = false; status.textContent = 'Something went wrong. Try again.'; });
