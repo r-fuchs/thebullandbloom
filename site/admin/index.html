@@ -41,7 +41,7 @@
     <div class="row">
       <button id="prev">‹</button><strong id="month-label"></strong><button id="next">›</button>
       <span style="flex:1"></span>
-      <button id="settings-btn">Settings</button><button id="logout">Sign out</button>
+      <button id="settings-btn">Settings</button><button id="google-btn">Google</button><button id="logout">Sign out</button>
     </div>
     <div class="grid" id="grid"></div>
     <p class="status">Tap a day. Number is one-time orders / cap; “+n” is subscription bouquets. Pink = closed, yellow = full.</p>
@@ -66,6 +66,19 @@
       <div class="row"><label>Same-day cutoff <input type="time" id="s-cutoff"></label></div>
       <div class="row" id="s-days"></div>
       <div class="row"><button id="s-save">Save</button><span class="status" id="s-status"></span></div>
+    </div>
+
+    <div class="panel" id="google-panel" hidden>
+      <h2 style="margin:0 0 .5rem;font-size:1.1rem;font-weight:500">Google calendar and email</h2>
+      <p id="g-summary" class="status"></p>
+      <div class="row">
+        <button id="g-connect" hidden>Connect Google</button>
+        <button id="g-sync" hidden>Check the Closed calendar now</button>
+        <button id="g-retry" hidden>Retry waiting messages</button>
+        <button id="g-disconnect" hidden>Disconnect</button>
+        <span class="status" id="g-status"></span>
+      </div>
+      <p class="status">Close a day by adding any event to the calendar named “Bull and Bloom: Closed”. Paid orders appear on “Bull and Bloom: Orders” and are emailed to you and the customer.</p>
     </div>
   </section>
 </main>
@@ -117,7 +130,7 @@
 
   function loadDay() {
     var d = cache[selected]; if (!d) return;
-    $('#day-panel').hidden = false; $('#settings-panel').hidden = true;
+    $('#day-panel').hidden = false; $('#settings-panel').hidden = true; $('#google-panel').hidden = true;
     $('#day-title').textContent = new Date(selected + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
     $('#day-cap').value = d.overrideCap === null ? '' : d.overrideCap;
     $('#day-cap').placeholder = 'default';
@@ -147,7 +160,7 @@
   }
 
   function loadSettings() {
-    $('#settings-panel').hidden = false; $('#day-panel').hidden = true;
+    $('#settings-panel').hidden = false; $('#day-panel').hidden = true; $('#google-panel').hidden = true;
     api('/settings').then(function (s) {
       $('#s-cap').value = s.cap; $('#s-cutoff').value = s.cutoff;
       var box = $('#s-days'); box.innerHTML = '';
@@ -160,6 +173,47 @@
       });
     });
   }
+
+  function ago(sec) {
+    if (!sec) return 'never';
+    var m = Math.round((Date.now() / 1000 - sec) / 60);
+    return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : Math.round(m / 60) + ' h ago';
+  }
+  function loadGoogle() {
+    $('#google-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true;
+    return api('/google/status').then(function (s) {
+      var text;
+      if (!s.configured) text = 'Not set up yet (Ryan needs to add the Google client keys).';
+      else if (!s.connected) text = 'Not connected. Connect while signed in to Google as the shop account.';
+      else text = 'Connected as ' + s.account + '. Closed calendar last checked ' + ago(s.lastSyncAt) +
+        (s.lastSyncError ? ' (last check failed: ' + s.lastSyncError + ')' : '') + '.' +
+        (s.outbox.pending ? ' ' + s.outbox.pending + ' message(s) waiting to send.' : '') +
+        (s.outbox.failed ? ' ' + s.outbox.failed + ' message(s) could not be sent.' : '');
+      $('#g-summary').textContent = text;
+      $('#g-connect').hidden = !(s.configured && !s.connected);
+      $('#g-sync').hidden = !s.connected;
+      $('#g-disconnect').hidden = !s.connected;
+      $('#g-retry').hidden = !(s.connected && s.outbox.failed > 0);
+    });
+  }
+  $('#google-btn').addEventListener('click', loadGoogle);
+  $('#g-connect').addEventListener('click', function () { window.location.href = '/admin/api/google/start'; });
+  $('#g-sync').addEventListener('click', function () {
+    $('#g-status').textContent = 'Checking…';
+    api('/google/sync', { method: 'POST' }).then(function (r) {
+      $('#g-status').textContent = r.status === 'ok' ? 'Done: ' + r.closed + ' closed day(s) in the next 90 days.' : (r.error || r.status);
+      return loadMonth();
+    }).then(loadGoogle).catch(function (e) { $('#g-status').textContent = e.message; });
+  });
+  $('#g-retry').addEventListener('click', function () {
+    $('#g-status').textContent = 'Sending…';
+    api('/google/retry', { method: 'POST' }).then(function (r) {
+      $('#g-status').textContent = 'Sent ' + r.drain.delivered + ', still failing ' + r.drain.failed + '.';
+    }).then(loadGoogle).catch(function (e) { $('#g-status').textContent = e.message; });
+  });
+  $('#g-disconnect').addEventListener('click', function () {
+    api('/google/disconnect', { method: 'POST' }).then(loadGoogle).catch(function (e) { $('#g-status').textContent = e.message; });
+  });
 
   $('#login').addEventListener('submit', function (e) {
     e.preventDefault();
@@ -207,7 +261,21 @@
       .catch(function (e) { $('#s-status').textContent = e.message; });
   });
 
-  api('/settings').then(function () { show(true); loadMonth(); }).catch(function () { show(false); });
+  var hashDate = /^#(\d{4})-(\d{2})-(\d{2})$/.exec(location.hash);
+  if (hashDate) { view = new Date(Number(hashDate[1]), Number(hashDate[2]) - 1, 1); selected = location.hash.slice(1); }
+  var flash = /[?&]google=(\w+)/.exec(location.search);
+  api('/settings').then(function () {
+    show(true);
+    return loadMonth();
+  }).then(function () {
+    if (selected) loadDay();
+    if (flash) {
+      loadGoogle().then(function () {
+        $('#g-status').textContent = flash[1] === 'connected' ? 'Connected.' : flash[1] === 'denied' ? 'Google access was declined.' : 'Connecting failed; try again.';
+      });
+      history.replaceState(null, '', '/admin/');
+    }
+  }).catch(function () { show(false); });
 })();
 </script>
 </body>
