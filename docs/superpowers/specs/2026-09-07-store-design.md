@@ -317,8 +317,18 @@ Plan 1 (core store), verified 2026-09-08 on the preview deployment:
 - Stripe sandbox (Anthony's account) end to end: checkout created a session, a test-card payment completed, the webhook flipped the order to `paid` with the payment intent recorded and the hold cleared. A checkout against a bad key returned 503 and released its hold.
 - Same-day cutoff observed live: at 18:25 Eastern the current day was open but not orderable.
 
-Still to verify in later plans: Uber sandbox dispatch, Instagram feed, Closed-calendar sync, subscription portal, and the Cloudflare rate-limit rules (need the zone, so at DNS cutover).
+Plan 2 (Google calendars and Gmail), verified 2026-09-09 on the preview deployment:
+
+- 142 tests green (workerd, throwaway D1); typecheck clean. Whole-branch review (Opus) plus one fix wave; two Important findings closed (admin panel error surfacing, Disconnect clears calendar-mirrored days).
+- Google Cloud project `bull-and-bloom-store` under Ryan's fuchsassociates.com account; consent screen External, "In production", unverified (D22). Publishing was gated on a privacy policy link, so `/privacy` was added to the site.
+- `scripts/google-setup.sh`: outbox migration applied remotely, both OAuth secrets uploaded, preview redeployed with `SITE_URL` at the workers.dev URL.
+- Anthony connected as thebullandbloom@gmail.com through the "unverified app" interstitial; the store created "Bull and Bloom: Closed" and "Bull and Bloom: Orders" (D19).
+- Closed-calendar sync: five all-day events (Sept 23–27) became five closed days in admin and left the storefront picker; deleting one reopened that day; admin-closed days (Sept 10–13) were untouched. The 15-minute cron advanced "last checked" on its own.
+- Order path: a sandbox purchase (Bouquet, pickup, Sept 17) flipped to `paid`, got its Orders-calendar event id, and drained the outbox to zero; the customer confirmation arrived from thebullandbloom@gmail.com with size, day, pickup text, price, and note.
+- Manual step found (should be app behavior): the preview admin passcode had to be re-uploaded with `wrangler secret put` because the Plan 1 value was recorded nowhere retrievable.
+
+Still to verify: the disconnect → buy → reconnect retry path (needs Anthony to reconnect; queue counts and the Retry button are covered by tests), Uber sandbox dispatch, Instagram feed, subscription portal, and the Cloudflare rate-limit rules (need the zone, so at DNS cutover).
 
 ## 9. Outcome
 
-Plan 1 shipped to a preview URL on 2026-09-08 (branch `feat/store`, not merged; merge is the cutover because the page moved into `site/`). What Anthony would notice: a menu with three sizes and a day picker on his site, Stripe taking payment, and an admin page where closing a day takes it off the market instantly. Prices, cap, cutoff, and studio address are SAMPLE values until he supplies his (§7). Plan 2 (Google calendar and email) is next so he learns of orders without opening admin.
+Plan 1 shipped to a preview URL on 2026-09-08 (branch `feat/store`, not merged; merge is the cutover because the page moved into `site/`). What Anthony would notice: a menu with three sizes and a day picker on his site, Stripe taking payment, and an admin page where closing a day takes it off the market instantly. Prices, cap, cutoff, and studio address are SAMPLE values until he supplies his (§7). Plan 2 reached the preview on 2026-09-09. What Anthony would notice now: every paid order appears as an all-day item on his phone's "Bull and Bloom: Orders" calendar with the customer's name and a link into admin; the customer gets a confirmation from his store Gmail and he gets a "New order" copy; an out-of-office on his "Bull and Bloom: Closed" calendar takes those days off the market within fifteen minutes, and admin's own closures always win. Before cutover: Anthony's real prices, cap, pickup text and address (§7), the live Stripe key, trimming Stripe's payment methods, rate-limit rules, and a `/privacy` page that resolves on thebullandbloom.com (the consent screen links to it). Plan 3 (Uber Direct delivery) or DNS cutover is next.

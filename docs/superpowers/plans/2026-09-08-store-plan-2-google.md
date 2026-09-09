@@ -207,7 +207,7 @@ In `tests/setup.ts` add the same two optional lines to the `Cloudflare.Env` decl
             GOOGLE_CLIENT_SECRET: "test-client-secret",
 ```
 
-- [ ] **Step 4: Wire `google` into Services and build services once**
+- [x] **Step 4: Wire `google` into Services and build services once**
 
 `src/app.ts`: change the `Services` line and its import:
 
@@ -2628,11 +2628,11 @@ git commit -m "feat(admin): Google panel (connect, sync, retry) and #date deep l
 
 This task is mostly console clicks and commands and stays in the main session with Ryan. Credentialed commands run through Ryan's terminal (`! npx wrangler login` if the session lapsed). Nothing here touches DNS.
 
-- [ ] **Step 1: Resolve the pending decisions**
+- [x] **Step 1: Resolve the pending decisions**
 
 Ryan answers the four items in "Pending decisions for Ryan" at the top of this plan (owner account, who clicks Connect, email copy, event title). Copy or title changes go into `src/core/messages.ts` and its test before continuing.
 
-- [ ] **Step 2: Google Cloud console (one time, ~15 minutes)**
+- [x] **Step 2: Google Cloud console (one time, ~15 minutes)**
 
 Signed in as the account chosen in Step 1, at https://console.cloud.google.com:
 
@@ -2649,7 +2649,7 @@ GOOGLE_CLIENT_ID=….apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=GOCSPX-…
 ```
 
-- [ ] **Step 3: Write and run the setup script**
+- [x] **Step 3: Write and run the setup script**
 
 `scripts/google-setup.sh`:
 
@@ -2702,7 +2702,7 @@ In the preview admin: Google → Connect Google, signed in as thebullandbloom@gm
 
 If Google refuses the consent flow outright (error `access_denied` with a message about verification) rather than showing the interstitial, D22's fallback applies: switch the app back to Testing, add thebullandbloom@gmail.com as a test user, connect, and file for verification. Record whichever path happened in the spec's D22 row.
 
-- [ ] **Step 5: Acceptance walk-through (spec §4.6 items for this plan)**
+- [x] **Step 5: Acceptance walk-through (spec §4.6 items for this plan)**
 
 1. **Closed day via calendar.** In Google Calendar, add an all-day event on the Closed calendar for a weekday two weeks out. Admin → Google → "Check the Closed calendar now": the day turns pink in the grid; the storefront picker no longer offers it. Delete the event, check again: the day reopens. Then leave a closed event in place and wait for the cron (up to 15 minutes) to confirm sync runs on its own (the panel's "last checked" time advances).
 2. **Admin close still wins alone.** Close a different day from admin: closed with no calendar event. Sync again: it stays closed (calendar sync never touches admin rows).
@@ -2710,7 +2710,7 @@ If Google refuses the consent flow outright (error `access_denied` with a messag
 4. **Retry path.** In admin → Google → Disconnect, buy again, confirm the panel later shows "3 message(s) waiting to send" and the order is still `paid`. Reconnect: within 15 minutes (or via "Retry waiting messages" if any show as failed) the event and emails arrive. Note (final review, 2026-09-08): Disconnect also clears every calendar-mirrored closed day, so the day closed in step 1 reopens until the next sync after reconnecting; admin-closed days are untouched.
 5. **Plan 1 regression.** Repeat Plan 1 Task 15 Step 5 items 1 and 3 (buy; close today in admin).
 
-- [ ] **Step 6: Record and commit**
+- [x] **Step 6: Record and commit**
 
 README, under "Local development", change step 1 to name six secrets and add:
 
