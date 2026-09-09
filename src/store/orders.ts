@@ -62,14 +62,23 @@ export async function getOrder(db: D1Database, id: string): Promise<Order | null
   return r ? fromRow(r) : null;
 }
 
-export async function markPaidBySession(db: D1Database, sessionId: string, paymentIntent: string): Promise<Order | null> {
-  const res = await db.prepare(
-    `UPDATE orders SET status = 'paid', stripe_payment_intent = ?, hold_expires_at = NULL
-     WHERE stripe_session_id = ? AND status IN ('held', 'cancelled')`,
-  ).bind(paymentIntent, sessionId).run();
-  if (res.meta.changes !== 1) return null;
+export async function markPaidBySession(
+  db: D1Database, sessionId: string, paymentIntent: string, extra: D1PreparedStatement[] = [],
+): Promise<Order | null> {
+  const [upd] = await db.batch([
+    db.prepare(
+      `UPDATE orders SET status = 'paid', stripe_payment_intent = ?, hold_expires_at = NULL
+       WHERE stripe_session_id = ? AND status IN ('held', 'cancelled')`,
+    ).bind(paymentIntent, sessionId),
+    ...extra,
+  ]);
+  if (upd.meta.changes !== 1) return null;
   const r = await db.prepare(`SELECT ${COLS} FROM orders WHERE stripe_session_id = ?`).bind(sessionId).first<Row>();
   return r ? fromRow(r) : null;
+}
+
+export async function setCalendarEventId(db: D1Database, orderId: string, eventId: string): Promise<void> {
+  await db.prepare("UPDATE orders SET calendar_event_id = ? WHERE id = ?").bind(eventId, orderId).run();
 }
 
 export async function cancelHeldBySession(db: D1Database, sessionId: string): Promise<boolean> {

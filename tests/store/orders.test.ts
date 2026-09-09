@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
 import {
-  tryInsertHeldOrder, countUsed, attachSession, getOrder, markPaidBySession,
+  tryInsertHeldOrder, countUsed, attachSession, getOrder, markPaidBySession, setCalendarEventId,
   cancelHeldBySession, expireHolds, listOrders, setStatus, type NewOrder,
 } from "../../src/store/orders";
 
@@ -75,5 +75,25 @@ describe("orders", () => {
     await tryInsertHeldOrder(env.DB, a, 5, NOW, NOW + 1800);
     await tryInsertHeldOrder(env.DB, b, 5, NOW + 1, NOW + 1800);
     expect((await listOrders(env.DB, "2026-09-25")).map((o) => o.id)).toEqual([a.id, b.id]);
+  });
+});
+
+describe("markPaidBySession extras and calendar id", () => {
+  it("runs extra statements in the same batch as the flip", async () => {
+    await env.DB.prepare(
+      `INSERT INTO orders (id, created_at, status, date, size_id, fulfillment, customer_name, customer_email, bouquet_cents, stripe_session_id, hold_expires_at)
+       VALUES ('px1', 1, 'held', '2026-09-09', 'bouquet', 'pickup', 'Pat', 'pat@example.com', 8500, 'cs_px1', 99)`,
+    ).run();
+    const marker = env.DB.prepare("INSERT INTO settings (key, value_json) VALUES ('test.px1', '1')");
+    const o = await markPaidBySession(env.DB, "cs_px1", "pi_px1", [marker]);
+    expect(o?.status).toBe("paid");
+    expect(await env.DB.prepare("SELECT value_json FROM settings WHERE key = 'test.px1'").first()).toEqual({ value_json: "1" });
+    await env.DB.prepare("DELETE FROM settings WHERE key = 'test.px1'").run();
+    // a duplicate flip changes nothing and returns null; callers guard their extras (outbox uses INSERT OR IGNORE + a status check)
+    expect(await markPaidBySession(env.DB, "cs_px1", "pi_px1")).toBeNull();
+  });
+  it("stores the calendar event id", async () => {
+    await setCalendarEventId(env.DB, "px1", "bbpx1");
+    expect((await getOrder(env.DB, "px1"))?.calendarEventId).toBe("bbpx1");
   });
 });
