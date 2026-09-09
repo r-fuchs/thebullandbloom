@@ -77,7 +77,7 @@ export function webhookRoutes(): App {
       console.error("webhook: uber status for a delivery we do not have", deliveryId, status);
       return c.json({ received: true, applied: "unknown" });
     }
-    if (status === "delivered") await markDoneIfPaid(c.env.DB, delivery.orderId);
+    if (delivery.status === "delivered") await markDoneIfPaid(c.env.DB, delivery.orderId);
     return c.json({ received: true, applied: status });
   });
 

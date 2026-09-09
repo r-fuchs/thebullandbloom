@@ -176,6 +176,18 @@ describe("POST /webhooks/uber", () => {
     expect(row).toEqual({ status: "returned", last_error: "customer_unavailable" });
   });
 
+  it("closes the order on the applied status, not the wire status: a late delivered after canceled leaves the delivery canceled and the order paid", async () => {
+    await deliveryOrder("u4c", "del_4c");
+    const { fetch } = testApp();
+    const r1 = await uberHook(fetch, statusEvent("del_4c", "canceled", { undeliverable_reason: "studio cancelled" }));
+    expect(r1.status).toBe(200);
+    const r2 = await uberHook(fetch, statusEvent("del_4c", "delivered"));
+    expect(r2.status).toBe(200);
+    const row = await env.DB.prepare("SELECT status FROM deliveries WHERE uber_delivery_id = 'del_4c'").first<any>();
+    expect(row.status).toBe("canceled");
+    expect((await env.DB.prepare("SELECT status FROM orders WHERE id = 'u4c'").first<any>()).status).toBe("paid");
+  });
+
   it("accepts the legacy x-postmates-signature header", async () => {
     await deliveryOrder("u5", "del_5");
     const { fetch } = testApp();
