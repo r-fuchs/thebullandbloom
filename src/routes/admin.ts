@@ -7,6 +7,7 @@ import { isYmd, ymdRange } from "../core/time";
 import { loadDefaults, saveDefaults } from "../store/settings";
 import { getOverrides, putAdminOverride, clearAdminOverride } from "../store/overrides";
 import { countUsed, listOrders, getOrder, setStatus } from "../store/orders";
+import { registerGoogleAdmin } from "./admin-google";
 
 const TTL = 30 * 24 * 3600;
 const MAX_DAYS = 62;
@@ -141,6 +142,8 @@ export function adminRoutes(): App {
     await setStatus(c.env.DB, o.id, "paid");
     return c.json({ ok: true });
   });
+
+  registerGoogleAdmin(r);
 
   return r;
 }
