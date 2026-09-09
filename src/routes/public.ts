@@ -47,6 +47,8 @@ async function fallbackResponse(
   if (fee === null) return c.json({ available: false, reason: noFallbackReason });
   return c.json({
     available: true, feeCents: fee, kind: "fallback" as const,
+    // A flat config fee is never an estimate — it does not depend on when the courier can go.
+    estimate: false,
     quoteToken: await signQuote(secret, {
       feeCents: fee, quoteId: null, kind: "fallback", date, addr, exp: nowSec + FALLBACK_TTL_SECONDS,
     }),
@@ -134,7 +136,9 @@ export function publicRoutes(): App {
         const quoteToken = await signQuote(c.env.ADMIN_SECRET, {
           feeCents: q.feeCents, quoteId: q.id, kind: "uber", date: raw.date, addr, exp,
         });
-        return c.json({ available: true, feeCents: q.feeCents, kind: "uber", quoteToken });
+        // true when the date is past Uber's 30-day scheduling window, so this fee was priced
+        // as-of-now rather than for the studio's ready time on that day (D32).
+        return c.json({ available: true, feeCents: q.feeCents, kind: "uber", estimate: !ready.scheduled, quoteToken });
       } catch (err) {
         const code = err instanceof UberError ? err.code : "unavailable";
         console.error(`quote: uber ${code}`, err);

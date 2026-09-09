@@ -135,7 +135,7 @@ describe("POST /api/quote", () => {
     const r = await quoteFor(fetch, { date: "2026-09-16", address });
     expect(r.status).toBe(200);
     const body = await r.json() as any;
-    expect(body).toMatchObject({ available: true, feeCents: 1350, kind: "uber" });
+    expect(body).toMatchObject({ available: true, feeCents: 1350, kind: "uber", estimate: false });
     expect(typeof body.quoteToken).toBe("string");
     // 09:00 America/New_York on 2026-09-16 == 13:00 UTC
     expect(uber.quoted[0].window.pickupReadyAt.toISOString()).toBe("2026-09-16T13:00:00.000Z");
@@ -143,11 +143,24 @@ describe("POST /api/quote", () => {
     expect(uber.quoted[0].valueCents).toBeGreaterThan(0);
   });
 
+  it("marks the fee as an estimate when the date is past Uber's 30-day scheduling window (D32)", async () => {
+    // testApp()'s clock is 2026-09-08T14:00:00Z; 2026-10-18 is ~40 days out, past
+    // MAX_SCHEDULE_DAYS, so pickupReadyFor degrades to ASAP and the quote must say so.
+    const now = new Date("2026-09-08T14:00:00Z");
+    const { fetch, uber } = testApp(now);
+    const r = await quoteFor(fetch, { date: "2026-10-18", address });
+    expect(r.status).toBe(200);
+    const body = await r.json() as any;
+    expect(body).toMatchObject({ available: true, kind: "uber", estimate: true });
+    // ASAP: priced for right now, not for the studio's ready time on 2026-10-18.
+    expect(Math.abs(+uber.quoted[0].window.pickupReadyAt - +now)).toBeLessThan(60_000);
+  });
+
   it("offers the flat fallback fee for a listed zip when Uber says the address is undeliverable", async () => {
     const { fetch, uber } = testApp();
     uber.failWith("undeliverable", "not in a deliverable area");
     const body = await (await quoteFor(fetch, { date: "2026-09-16", address })).json() as any;
-    expect(body).toMatchObject({ available: true, kind: "fallback" });
+    expect(body).toMatchObject({ available: true, kind: "fallback", estimate: false });
     expect(body.feeCents).toBe(loadConfig().delivery.fallbackFeeCents);
   });
 
