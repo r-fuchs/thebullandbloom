@@ -27,4 +27,12 @@ describe("worker", () => {
     expect(body).toContain("thebullandbloom@gmail.com");
     expect(body).toContain("stripe.com/privacy");
   });
+  it("serves the order form with a pickup/delivery choice and address fields", async () => {
+    const r = await SELF.fetch("https://example.com/");
+    const body = await r.text();
+    expect(body).toContain('id="fulfillment-picker"');
+    expect(body).toContain('id="delivery-fields"');
+    expect(body).toContain('name="zip"');
+    expect(body).toContain('id="quote-note"');
+  });
 });

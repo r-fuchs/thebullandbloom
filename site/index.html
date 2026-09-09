@@ -146,7 +146,7 @@
   <section id="services">
     <p class="eyebrow">The menu</p>
     <h2>Designer's choice, three sizes</h2>
-    <p class="intro">Every bouquet is built from whatever is best that morning. Pick a size, pick a day, and Anthony does the rest. Pickup is free.</p>
+    <p class="intro">Every bouquet is built from whatever is best that morning. Pick a size, pick a day, and Anthony does the rest. Pickup is free; delivery is priced by address when you enter it.</p>
     <ul class="services menu" id="menu" aria-live="polite"></ul>
   </section>
 
@@ -156,11 +156,27 @@
     <form class="form" id="order-form" novalidate>
       <fieldset class="full sizes" id="size-picker"><legend>Size</legend></fieldset>
       <fieldset class="full days" id="day-picker"><legend>Day</legend><p class="form-note" id="day-note"></p></fieldset>
+      <fieldset class="full sizes" id="fulfillment-picker" hidden>
+        <legend>Pickup or delivery</legend>
+        <label><input type="radio" name="fulfillment" value="pickup" checked><span>Pickup — free</span></label>
+        <label><input type="radio" name="fulfillment" value="delivery"><span>Delivery</span></label>
+      </fieldset>
+      <div class="full" id="delivery-fields" hidden>
+        <div class="form" style="max-width:none">
+          <label class="full">Street address<input type="text" name="street" autocomplete="address-line1"></label>
+          <label>Apartment or unit <span class="opt">(optional)</span><input type="text" name="unit" autocomplete="address-line2"></label>
+          <label>City<input type="text" name="city" autocomplete="address-level2"></label>
+          <label>State<input type="text" name="state" maxlength="2" size="2" autocomplete="address-level1" placeholder="NY"></label>
+          <label>ZIP<input type="text" name="zip" inputmode="numeric" maxlength="5" autocomplete="postal-code"></label>
+          <label class="full">Where should we leave it? <span class="opt">(buzzer code, porch, front desk)</span><input type="text" name="deliveryNotes" maxlength="280"></label>
+        </div>
+        <p class="form-note" id="quote-note" role="status" aria-live="polite"></p>
+      </div>
       <label>Name<input type="text" name="name" required autocomplete="name"></label>
       <label>Email<input type="email" name="email" required autocomplete="email"></label>
-      <label>Phone <span class="opt">(optional)</span><input type="tel" name="phone" autocomplete="tel"></label>
+      <label>Phone <span class="opt" id="phone-hint">(optional)</span><input type="tel" name="phone" autocomplete="tel"></label>
       <label class="full">Anything for Anthony? <span class="opt">(colors you love, the occasion, a card message)</span><textarea name="note" rows="3" maxlength="500"></textarea></label>
-      <div class="full"><button class="btn" type="submit" id="pay-btn" disabled>Continue to payment</button><p class="form-status" role="status" aria-live="polite" id="order-status"></p></div>
+      <div class="full"><button class="btn" type="submit" id="pay-btn" disabled>Continue to payment</button><p class="form-note" id="order-total"></p><p class="form-status" role="status" aria-live="polite" id="order-status"></p></div>
     </form>
   </section>
 
