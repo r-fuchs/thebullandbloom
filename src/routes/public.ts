@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { App } from "../app";
 import { availabilityFor, capFor, isOrderable } from "../core/capacity";
-import { isYmd, weekdayOf, ymdRange, addDays, ymdIn } from "../core/time";
+import { isYmd, ymdRange, addDays, ymdIn, humanDate } from "../core/time";
 import { loadDefaults } from "../store/settings";
 import { getOverrides } from "../store/overrides";
 import { countUsed, tryInsertHeldOrder, attachSession, cancelOrder } from "../store/orders";
@@ -9,13 +9,8 @@ import { sizeById } from "../config";
 
 const MAX_DAYS = 62;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-export function humanDate(ymd: string): string {
-  const [, m, d] = ymd.split("-").map(Number);
-  return `${DAY[weekdayOf(ymd)]} ${MON[m - 1]} ${d}`;
-}
+export { humanDate };
 
 interface CheckoutBody {
   sizeId: string; date: string; fulfillment: "pickup";

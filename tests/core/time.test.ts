@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ymdIn, hmIn, weekdayOf, addDays, isYmd, ymdRange } from "../../src/core/time";
+import { ymdIn, hmIn, weekdayOf, addDays, isYmd, ymdRange, humanDate, longDate } from "../../src/core/time";
 
 const NY = "America/New_York";
 
@@ -32,5 +32,10 @@ describe("time", () => {
   it("builds inclusive ranges", () => {
     expect(ymdRange("2026-09-07", "2026-09-09")).toEqual(["2026-09-07", "2026-09-08", "2026-09-09"]);
     expect(ymdRange("2026-09-09", "2026-09-07")).toEqual([]);
+  });
+  it("formats human and long dates", () => {
+    expect(humanDate("2026-09-09")).toBe("Wed Sep 9");
+    expect(longDate("2026-09-09")).toBe("Wednesday, September 9");
+    expect(longDate("2026-11-01")).toBe("Sunday, November 1");
   });
 });

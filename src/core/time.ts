@@ -43,3 +43,20 @@ export function ymdRange(from: string, to: string): string[] {
   for (let d = from; d <= to; d = addDays(d, 1)) out.push(d);
   return out;
 }
+
+const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAY_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MON_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** "Wed Sep 9" */
+export function humanDate(ymd: string): string {
+  const [, m, d] = ymd.split("-").map(Number);
+  return `${DAY[weekdayOf(ymd)]} ${MON[m - 1]} ${d}`;
+}
+
+/** "Wednesday, September 9" */
+export function longDate(ymd: string): string {
+  const [, m, d] = ymd.split("-").map(Number);
+  return `${DAY_LONG[weekdayOf(ymd)]}, ${MON_LONG[m - 1]} ${d}`;
+}
