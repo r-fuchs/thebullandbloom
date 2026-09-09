@@ -79,6 +79,19 @@ describe("admin google", () => {
     expect(await loadState(env.DB)).toBeNull();
   });
 
+  it("clears a saved connection when calendar creation fails after the exchange", async () => {
+    const { fetch, google } = testApp(NOW);
+    const api = await login(fetch);
+    const state = new URL((await api("/admin/api/google/start")).headers.get("location")!).searchParams.get("state")!;
+    let calls = 0;
+    google.ensureCalendar = async () => { calls += 1; if (calls === 2) throw new Error("calendar api down"); return "cal_1"; };
+    const cb = await fetch(`/admin/google/callback?code=good-code&state=${encodeURIComponent(state)}`, { redirect: "manual" });
+    expect(cb.status).toBe(302);
+    expect(cb.headers.get("location")).toBe("/admin/?google=failed");
+    expect(await loadConnection(env.DB, env.ADMIN_SECRET)).toBeNull();
+    expect(await loadState(env.DB)).toBeNull();
+  });
+
   it("returns 503 from start when the client is not configured", async () => {
     const { fetch, google } = testApp(NOW);
     google.isConfigured = false;
