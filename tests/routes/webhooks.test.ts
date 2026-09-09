@@ -1,8 +1,9 @@
 import { env } from "cloudflare:test";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { testApp } from "../helpers";
 import { saveState, clearConnection } from "../../src/store/google";
 import { counts } from "../../src/store/outbox";
+import { insertDelivery } from "../../src/store/deliveries";
 
 async function heldOrder(id: string, session: string) {
   await env.DB.prepare(
@@ -83,5 +84,114 @@ describe("POST /webhooks/stripe → outbox", () => {
     expect(await counts(env.DB)).toEqual({ pending: 1, failed: 0 });
     const row = await env.DB.prepare("SELECT status FROM orders WHERE id = 'w6'").first<any>();
     expect(row.status).toBe("paid");
+  });
+});
+
+/** Sign a body exactly as Uber does: HMAC-SHA256 of the raw body, lowercase hex. */
+async function uberSign(secret: string, body: string): Promise<string> {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body)));
+  return Array.from(sig).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function uberHook(fetch: any, payload: unknown, opts: { header?: string; signature?: string } = {}) {
+  const body = JSON.stringify(payload);
+  const sig = opts.signature ?? await uberSign("test-webhook-secret", body);
+  const header = opts.header ?? "x-uber-signature";
+  return fetch("/webhooks/uber", { method: "POST", headers: { [header]: sig, "content-type": "application/json" }, body });
+}
+
+async function deliveryOrder(id: string, uberId: string, status = "paid") {
+  await env.DB.prepare(
+    `INSERT OR REPLACE INTO orders (id, created_at, status, date, size_id, fulfillment, customer_name, customer_email,
+       customer_phone, address_json, bouquet_cents, delivery_cents)
+     VALUES (?, 1, ?, '2026-09-23', 'bouquet', 'delivery', 'Pat', 'pat@example.com', '+15185550100',
+       '{"street":"5 Elm St","unit":"","city":"Hudson","state":"NY","zip":"12534","notes":""}', 8500, 1200)`,
+  ).bind(id, status).run();
+  await insertDelivery(env.DB, {
+    id: `row_${uberId}`, orderId: id, uberDeliveryId: uberId, status: "pending",
+    quotedCents: 1200, feeCents: 1250, trackingUrl: `https://t.test/${uberId}`, at: 100,
+  });
+}
+
+const statusEvent = (deliveryId: string, status: string, extra: Record<string, unknown> = {}) => ({
+  kind: "event.delivery_status", delivery_id: deliveryId, status,
+  created: "2026-09-23T15:20:00Z", customer_id: "cus_test", live_mode: true,
+  data: { id: deliveryId, status, ...extra },
+});
+
+describe("POST /webhooks/uber", () => {
+  beforeEach(async () => {
+    await env.DB.prepare("DELETE FROM deliveries").run();
+    await env.DB.prepare("DELETE FROM orders").run();
+  });
+
+  it("moves the delivery through its statuses and is idempotent", async () => {
+    await deliveryOrder("u1", "del_1");
+    const { fetch } = testApp(new Date("2026-09-23T15:30:00Z"));
+    for (const s of ["pickup", "pickup_complete", "dropoff"]) {
+      const r = await uberHook(fetch, statusEvent("del_1", s));
+      expect(r.status).toBe(200);
+      expect(await r.json()).toEqual({ received: true, applied: s });
+    }
+    await uberHook(fetch, statusEvent("del_1", "dropoff"));
+    const rows = await env.DB.prepare("SELECT status, updated_at FROM deliveries WHERE uber_delivery_id = 'del_1'").all<any>();
+    expect(rows.results).toEqual([{ status: "dropoff", updated_at: Math.floor(new Date("2026-09-23T15:30:00Z").getTime() / 1000) }]);
+  });
+
+  it("marks the order done when the bouquet is delivered, once", async () => {
+    await deliveryOrder("u2", "del_2");
+    const { fetch } = testApp();
+    expect(await (await uberHook(fetch, statusEvent("del_2", "delivered"))).json()).toEqual({ received: true, applied: "delivered" });
+    expect((await env.DB.prepare("SELECT status FROM orders WHERE id = 'u2'").first<any>()).status).toBe("done");
+    // a replay must not resurrect anything or throw
+    expect((await uberHook(fetch, statusEvent("del_2", "delivered"))).status).toBe(200);
+    expect((await env.DB.prepare("SELECT status FROM orders WHERE id = 'u2'").first<any>()).status).toBe("done");
+  });
+
+  it("never un-cancels an order that was refunded before the courier finished", async () => {
+    await deliveryOrder("u3", "del_3", "refunded");
+    const { fetch } = testApp();
+    await uberHook(fetch, statusEvent("del_3", "delivered"));
+    expect((await env.DB.prepare("SELECT status FROM orders WHERE id = 'u3'").first<any>()).status).toBe("refunded");
+  });
+
+  it("records the reason on a canceled or returned delivery so admin can show it", async () => {
+    await deliveryOrder("u4", "del_4");
+    const { fetch } = testApp();
+    await uberHook(fetch, statusEvent("del_4", "returned", { undeliverable_reason: "customer_unavailable" }));
+    const row = await env.DB.prepare("SELECT status, last_error FROM deliveries WHERE uber_delivery_id = 'del_4'").first<any>();
+    expect(row).toEqual({ status: "returned", last_error: "customer_unavailable" });
+    expect((await env.DB.prepare("SELECT status FROM orders WHERE id = 'u4'").first<any>()).status).toBe("paid");
+  });
+
+  it("accepts the legacy x-postmates-signature header", async () => {
+    await deliveryOrder("u5", "del_5");
+    const { fetch } = testApp();
+    const r = await uberHook(fetch, statusEvent("del_5", "pickup"), { header: "x-postmates-signature" });
+    expect(r.status).toBe(200);
+  });
+
+  it("rejects a wrong signature and a missing one", async () => {
+    const { fetch } = testApp();
+    expect((await uberHook(fetch, statusEvent("del_x", "pickup"), { signature: "deadbeef" })).status).toBe(400);
+    const r = await fetch("/webhooks/uber", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+    expect(r.status).toBe(400);
+  });
+
+  it("acknowledges a delivery it has never heard of, and other event kinds, without touching anything", async () => {
+    const { fetch } = testApp();
+    expect(await (await uberHook(fetch, statusEvent("del_unknown", "pickup"))).json()).toEqual({ received: true, applied: "unknown" });
+    expect(await (await uberHook(fetch, { kind: "event.courier_update", delivery_id: "del_1", location: {} })).json())
+      .toEqual({ received: true, applied: "ignored" });
+    expect(await (await uberHook(fetch, { kind: "event.refund_request", delivery_id: "del_1" })).json())
+      .toEqual({ received: true, applied: "ignored" });
+  });
+
+  it("ignores a status value it does not know rather than writing it", async () => {
+    await deliveryOrder("u6", "del_6");
+    const { fetch } = testApp();
+    expect(await (await uberHook(fetch, statusEvent("del_6", "teleported"))).json()).toEqual({ received: true, applied: "ignored" });
+    expect((await env.DB.prepare("SELECT status FROM deliveries WHERE uber_delivery_id = 'del_6'").first<any>()).status).toBe("pending");
   });
 });

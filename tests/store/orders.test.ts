@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
 import {
   tryInsertHeldOrder, countUsed, attachSession, getOrder, markPaidBySession, setCalendarEventId,
-  cancelHeldBySession, expireHolds, listOrders, setStatus, type NewOrder,
+  cancelHeldBySession, expireHolds, listOrders, setStatus, markDoneIfPaid, type NewOrder,
 } from "../../src/store/orders";
 
 let n = 0;
@@ -109,5 +109,19 @@ describe("markPaidBySession extras and calendar id", () => {
   it("stores the calendar event id", async () => {
     await setCalendarEventId(env.DB, "px1", "bbpx1");
     expect((await getOrder(env.DB, "px1"))?.calendarEventId).toBe("bbpx1");
+  });
+});
+
+describe("markDoneIfPaid", () => {
+  it("marks an order done only from paid", async () => {
+    await env.DB.prepare(
+      `INSERT INTO orders (id, created_at, status, date, size_id, fulfillment, customer_name, customer_email, bouquet_cents)
+       VALUES ('md1', 1, 'paid', '2026-10-07', 'bouquet', 'delivery', 'A', 'a@example.com', 8500),
+              ('md2', 1, 'refunded', '2026-10-07', 'bouquet', 'delivery', 'B', 'b@example.com', 8500)`,
+    ).run();
+    expect(await markDoneIfPaid(env.DB, "md1")).toBe(true);
+    expect(await markDoneIfPaid(env.DB, "md1")).toBe(false);
+    expect(await markDoneIfPaid(env.DB, "md2")).toBe(false);
+    expect((await getOrder(env.DB, "md2"))!.status).toBe("refunded");
   });
 });

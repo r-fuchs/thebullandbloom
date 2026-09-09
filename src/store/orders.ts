@@ -116,3 +116,10 @@ export async function setStatus(db: D1Database, id: string, status: OrderStatus)
   const res = await db.prepare("UPDATE orders SET status = ? WHERE id = ?").bind(status, id).run();
   return res.meta.changes === 1;
 }
+
+/** `delivered` from Uber closes a paid order. Guarded so a replay, or a refund that beat the
+ *  courier's last event, is never overwritten. */
+export async function markDoneIfPaid(db: D1Database, id: string): Promise<boolean> {
+  const res = await db.prepare("UPDATE orders SET status = 'done' WHERE id = ? AND status = 'paid'").bind(id).run();
+  return res.meta.changes === 1;
+}
