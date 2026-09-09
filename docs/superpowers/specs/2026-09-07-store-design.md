@@ -327,7 +327,7 @@ Plan 2 (Google calendars and Gmail), verified 2026-09-09 on the preview deployme
 - Order path: a sandbox purchase (Bouquet, pickup, Sept 17) flipped to `paid`, got its Orders-calendar event id, and drained the outbox to zero; the customer confirmation arrived from thebullandbloom@gmail.com with size, day, pickup text, price, and note.
 - Manual step found (should be app behavior): the preview admin passcode had to be re-uploaded with `wrangler secret put` because the Plan 1 value was recorded nowhere retrievable.
 
-Still to verify: the disconnect → buy → reconnect retry path (needs Anthony to reconnect; queue counts and the Retry button are covered by tests), Uber sandbox dispatch, Instagram feed, subscription portal, and the Cloudflare rate-limit rules (need the zone, so at DNS cutover).
+Still to verify: the disconnect → buy → reconnect retry path (needs Anthony to reconnect; queue counts and the Retry button are covered by tests), Uber sandbox dispatch, Instagram feed, subscription portal, and the Cloudflare rate-limit rules (need the zone, so at DNS cutover). That rule list must include `/api/quote`: it is unauthenticated and calls Uber's metered quote API, so abuse would return `429 customer_limited` and degrade every customer to the fallback fee.
 
 ## 9. Outcome
 
