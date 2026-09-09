@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { env } from "cloudflare:test";
 import { testApp, seedAdminOverride, peekNextSessionId } from "../helpers";
+import { loadConfig } from "../../src/config";
 
 describe("GET /api/config", () => {
   it("returns sizes and timezone without the studio address", async () => {
@@ -11,6 +12,7 @@ describe("GET /api/config", () => {
     expect(body.timezone).toBe("America/New_York");
     expect(body.sizes[0]).toHaveProperty("priceCents");
     expect(JSON.stringify(body)).not.toContain("pickupAddress");
+    expect(body.delivery).toEqual({ offered: true });
   });
 });
 
@@ -118,5 +120,64 @@ describe("POST /api/checkout", () => {
     expect(payments.created.length).toBe(1);
     const row = await env.DB.prepare("SELECT status FROM orders WHERE date = '2026-09-22'").first<any>();
     expect(row.status).toBe("cancelled");
+  });
+});
+
+const address = { street: "5 Elm Street", unit: "", city: "Hudson", state: "NY", zip: "12534" };
+const outside = { ...address, zip: "10001" };
+const quoteFor = (fetch: any, body: unknown) =>
+  fetch("/api/quote", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+
+describe("POST /api/quote", () => {
+  it("prices a delivery from Uber, scheduled for the studio ready time on the order date", async () => {
+    const { fetch, uber } = testApp();
+    uber.quoteFee = 1350;
+    const r = await quoteFor(fetch, { date: "2026-09-16", address });
+    expect(r.status).toBe(200);
+    const body = await r.json() as any;
+    expect(body).toMatchObject({ available: true, feeCents: 1350, kind: "uber" });
+    expect(typeof body.quoteToken).toBe("string");
+    // 09:00 America/New_York on 2026-09-16 == 13:00 UTC
+    expect(uber.quoted[0].window.pickupReadyAt.toISOString()).toBe("2026-09-16T13:00:00.000Z");
+    expect(uber.quoted[0].dropoff.address.zip).toBe("12534");
+    expect(uber.quoted[0].valueCents).toBeGreaterThan(0);
+  });
+
+  it("offers the flat fallback fee for a listed zip when Uber says the address is undeliverable", async () => {
+    const { fetch, uber } = testApp();
+    uber.failWith("undeliverable", "not in a deliverable area");
+    const body = await (await quoteFor(fetch, { date: "2026-09-16", address })).json() as any;
+    expect(body).toMatchObject({ available: true, kind: "fallback" });
+    expect(body.feeCents).toBe(loadConfig().delivery.fallbackFeeCents);
+  });
+
+  it("offers the fallback when Uber is not configured at all", async () => {
+    const { fetch, uber } = testApp();
+    uber.isConfigured = false;
+    const body = await (await quoteFor(fetch, { date: "2026-09-16", address })).json() as any;
+    expect(body).toMatchObject({ available: true, kind: "fallback" });
+    expect(uber.quoted).toHaveLength(0);
+  });
+
+  it("says outside_area when Uber refuses and the zip is not on the fallback list", async () => {
+    const { fetch, uber } = testApp();
+    uber.failWith("undeliverable", "nope");
+    const body = await (await quoteFor(fetch, { date: "2026-09-16", address: outside })).json() as any;
+    expect(body).toEqual({ available: false, reason: "outside_area" });
+  });
+
+  it("says unavailable when Uber breaks and there is no fallback for the zip", async () => {
+    const { fetch, uber } = testApp();
+    uber.failWith("unavailable", "uber 500");
+    const body = await (await quoteFor(fetch, { date: "2026-09-16", address: outside })).json() as any;
+    expect(body).toEqual({ available: false, reason: "unavailable" });
+  });
+
+  it("validates the date and the address", async () => {
+    const { fetch } = testApp();
+    expect((await quoteFor(fetch, { date: "nope", address })).status).toBe(400);
+    expect((await quoteFor(fetch, { date: "2026-09-16", address: { ...address, zip: "abc" } })).status).toBe(400);
+    expect((await quoteFor(fetch, { date: "2099-01-01", address })).status).toBe(400);
+    expect((await fetch("/api/quote", { method: "POST", body: "not json" })).status).toBe(400);
   });
 });

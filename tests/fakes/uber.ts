@@ -39,7 +39,7 @@ export class FakeUber implements Uber {
   }
 
   /** convenience for tests that want the failure path */
-  failWith(code: UberFailureCode, message = code) { this.failNext = { code, message }; }
+  failWith(code: UberFailureCode, message: string = code) { this.failNext = { code, message }; }
 
   private maybeFail() {
     if (this.failNext) {

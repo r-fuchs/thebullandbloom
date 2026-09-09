@@ -1,16 +1,57 @@
 import { Hono } from "hono";
-import type { App } from "../app";
+import type { Context } from "hono";
+import type { App, Services } from "../app";
+import type { Env } from "../env";
+import type { StoreConfig } from "../config";
 import { availabilityFor, capFor, isOrderable } from "../core/capacity";
 import { isYmd, ymdRange, addDays, ymdIn, humanDate } from "../core/time";
 import { loadDefaults } from "../store/settings";
 import { getOverrides } from "../store/overrides";
 import { countUsed, tryInsertHeldOrder, attachSession, cancelOrder } from "../store/orders";
 import { sizeById } from "../config";
+import { UberError } from "../adapters/uber";
+import { addressKey, deliveryWindow, fallbackFeeFor, parseAddress, pickupReadyFor } from "../core/delivery";
+import { signQuote } from "../core/quote-token";
 
 const MAX_DAYS = 62;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** How long a signed quote is honoured. Uber's own quotes live about 15 minutes. */
+const QUOTE_TTL_SECONDS = 15 * 60;
+/** A config fallback fee does not expire in any real sense; half an hour keeps a stale tab honest. */
+const FALLBACK_TTL_SECONDS = 30 * 60;
 
 export { humanDate };
+
+type Ctx = Context<{ Bindings: Env; Variables: { services: Services } }>;
+
+/** The value we declare to the courier when no size has been chosen yet: the cheapest bouquet. */
+function lowestPriceCents(cfg: { sizes: Array<{ priceCents: number }> }): number {
+  return Math.min(...cfg.sizes.map((s) => s.priceCents));
+}
+
+/** True when a customer can be shown a delivery option at all (spec §4.5). */
+function deliveryOffered(uberConfigured: boolean, cfg: { delivery: { fallbackZips: string[] } }): boolean {
+  return uberConfigured || cfg.delivery.fallbackZips.length > 0;
+}
+
+/**
+ * The config fallback quote, signed and returned — or `outside_area`/`unavailable` when the zip
+ * has no fallback fee either. Shared by the no-Uber path and the catch after a failed Uber quote
+ * so the signed-fallback shape lives in exactly one place (both call sites answer the same JSON).
+ */
+async function fallbackResponse(
+  c: Ctx, config: StoreConfig, secret: string, zip: string, date: string, addr: string, nowSec: number,
+  noFallbackReason: "outside_area" | "unavailable" = "outside_area",
+) {
+  const fee = fallbackFeeFor(config, zip);
+  if (fee === null) return c.json({ available: false, reason: noFallbackReason });
+  return c.json({
+    available: true, feeCents: fee, kind: "fallback" as const,
+    quoteToken: await signQuote(secret, {
+      feeCents: fee, quoteId: null, kind: "fallback", date, addr, exp: nowSec + FALLBACK_TTL_SECONDS,
+    }),
+  });
+}
 
 interface CheckoutBody {
   sizeId: string; date: string; fulfillment: "pickup";
@@ -36,11 +77,12 @@ export function publicRoutes(): App {
   const r: App = new Hono();
 
   r.get("/api/config", (c) => {
-    const { config } = c.get("services");
+    const { config, uber } = c.get("services");
     return c.json({
       timezone: config.timezone,
       sizes: config.sizes,
       studio: { pickupInstructions: config.studio.pickupInstructions },
+      delivery: { offered: deliveryOffered(uber.configured(), config) },
     });
   });
 
@@ -58,6 +100,50 @@ export function publicRoutes(): App {
     const clk = { now: clock(), tz: config.timezone };
     const days = dates.map((d) => availabilityFor(d, defaults, overrides.get(d) ?? null, used.get(d) ?? 0, clk));
     return c.json({ days });
+  });
+
+  r.post("/api/quote", async (c) => {
+    const { config, clock, uber } = c.get("services");
+    let raw: any;
+    try { raw = await c.req.json(); } catch { return c.json({ error: "invalid JSON" }, 400); }
+    if (!isYmd(raw?.date)) return c.json({ error: "date must be YYYY-MM-DD" }, 400);
+    const parsed = parseAddress(raw?.address);
+    if (!parsed.ok) return c.json({ error: parsed.error }, 400);
+
+    const now = clock();
+    const today = ymdIn(config.timezone, now);
+    if (raw.date < today || raw.date > addDays(today, MAX_DAYS)) return c.json({ error: "date is outside the ordering window" }, 400);
+
+    const nowSec = Math.floor(now.getTime() / 1000);
+    const addr = addressKey(parsed.address);
+    const value = lowestPriceCents(config);
+
+    if (uber.configured()) {
+      const ready = pickupReadyFor(config, raw.date, now);
+      try {
+        const q = await uber.quote({
+          pickup: {
+            name: "The Bull and Bloom", phone: config.studio.phone,
+            businessName: "The Bull and Bloom", address: config.studio.address,
+          },
+          dropoff: { name: "Customer", phone: config.studio.phone, address: parsed.address },
+          window: deliveryWindow(ready.at, now),
+          valueCents: value,
+        });
+        const exp = Math.min(q.expiresAt, nowSec + QUOTE_TTL_SECONDS);
+        const quoteToken = await signQuote(c.env.ADMIN_SECRET, {
+          feeCents: q.feeCents, quoteId: q.id, kind: "uber", date: raw.date, addr, exp,
+        });
+        return c.json({ available: true, feeCents: q.feeCents, kind: "uber", quoteToken });
+      } catch (err) {
+        const code = err instanceof UberError ? err.code : "unavailable";
+        console.error(`quote: uber ${code}`, err);
+        return fallbackResponse(c, config, c.env.ADMIN_SECRET, parsed.address.zip, raw.date, addr, nowSec,
+          code === "undeliverable" ? "outside_area" : "unavailable");
+      }
+    }
+
+    return fallbackResponse(c, config, c.env.ADMIN_SECRET, parsed.address.zip, raw.date, addr, nowSec);
   });
 
   r.post("/api/checkout", async (c) => {
