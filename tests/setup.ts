@@ -17,6 +17,11 @@ declare global {
       ADMIN_SECRET: string;
       GOOGLE_CLIENT_ID?: string;
       GOOGLE_CLIENT_SECRET?: string;
+      UBER_CLIENT_ID?: string;
+      UBER_CLIENT_SECRET?: string;
+      UBER_CUSTOMER_ID?: string;
+      UBER_WEBHOOK_SECRET?: string;
+      UBER_ROBOCOURIER?: string;
       TEST_MIGRATIONS: D1Migration[];
     }
   }

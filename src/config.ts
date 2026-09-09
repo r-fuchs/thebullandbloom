@@ -1,6 +1,8 @@
 import raw from "../store.config.json";
 
 export interface Size { id: string; name: string; description: string; priceCents: number }
+/** Structured address, the shape the Uber adapter and the storefront both use. */
+export interface PostalAddress { street: string; unit: string; city: string; state: string; zip: string }
 export interface StoreConfig {
   timezone: string;
   studio: { pickupAddress: string; pickupInstructions: string; ownerEmail: string };
