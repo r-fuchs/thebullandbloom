@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import type { App, Services } from "../app";
 import type { Env } from "../env";
-import type { StoreConfig } from "../config";
+import type { StoreConfig, PostalAddress } from "../config";
 import { availabilityFor, capFor, isOrderable } from "../core/capacity";
 import { isYmd, ymdRange, addDays, ymdIn, humanDate } from "../core/time";
 import { loadDefaults } from "../store/settings";
@@ -10,8 +10,8 @@ import { getOverrides } from "../store/overrides";
 import { countUsed, tryInsertHeldOrder, attachSession, cancelOrder } from "../store/orders";
 import { sizeById } from "../config";
 import { UberError } from "../adapters/uber";
-import { addressKey, deliveryWindow, fallbackFeeFor, parseAddress, pickupReadyFor } from "../core/delivery";
-import { signQuote } from "../core/quote-token";
+import { addressKey, deliveryWindow, fallbackFeeFor, normalizePhone, parseAddress, pickupReadyFor } from "../core/delivery";
+import { signQuote, verifyQuote } from "../core/quote-token";
 
 const MAX_DAYS = 62;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -55,9 +55,11 @@ async function fallbackResponse(
   });
 }
 
+interface DeliveryBody { address: PostalAddress; notes?: string; quoteToken: string }
 interface CheckoutBody {
-  sizeId: string; date: string; fulfillment: "pickup";
+  sizeId: string; date: string; fulfillment: "pickup" | "delivery";
   customer: { name: string; email: string; phone?: string }; note?: string;
+  delivery?: DeliveryBody;
 }
 
 function parseCheckout(raw: unknown): { ok: true; body: CheckoutBody } | { ok: false; error: string } {
@@ -65,14 +67,30 @@ function parseCheckout(raw: unknown): { ok: true; body: CheckoutBody } | { ok: f
   if (!b || typeof b !== "object") return { ok: false, error: "body must be an object" };
   if (typeof b.sizeId !== "string") return { ok: false, error: "sizeId required" };
   if (!isYmd(b.date)) return { ok: false, error: "date must be YYYY-MM-DD" };
-  if (b.fulfillment !== "pickup") return { ok: false, error: "only pickup is available right now" };
+  if (b.fulfillment !== "pickup" && b.fulfillment !== "delivery") return { ok: false, error: "fulfillment must be pickup or delivery" };
   const c = b.customer;
   if (!c || typeof c.name !== "string" || c.name.trim().length < 1 || c.name.trim().length > 120) return { ok: false, error: "name required" };
   if (typeof c.email !== "string" || !EMAIL.test(c.email) || c.email.length > 200) return { ok: false, error: "valid email required" };
   if (c.phone !== undefined && (typeof c.phone !== "string" || c.phone.length > 40)) return { ok: false, error: "phone too long" };
   if (b.note !== undefined && (typeof b.note !== "string" || b.note.length > 500)) return { ok: false, error: "note must be 500 characters or fewer" };
-  return { ok: true, body: { sizeId: b.sizeId, date: b.date, fulfillment: "pickup",
-    customer: { name: c.name.trim(), email: c.email.trim(), phone: c.phone?.trim() || undefined }, note: b.note?.trim() || undefined } };
+
+  let delivery: DeliveryBody | undefined;
+  if (b.fulfillment === "delivery") {
+    const d = b.delivery;
+    if (!d || typeof d !== "object") return { ok: false, error: "delivery details required" };
+    if (typeof d.quoteToken !== "string" || d.quoteToken === "") return { ok: false, error: "a delivery price is required" };
+    const addr = parseAddress(d.address);
+    if (!addr.ok) return { ok: false, error: addr.error };
+    if (d.notes !== undefined && (typeof d.notes !== "string" || d.notes.length > 280)) return { ok: false, error: "delivery instructions must be 280 characters or fewer" };
+    // Uber needs a number the courier can call; Plan 1 left the phone optional for pickup.
+    if (normalizePhone(c.phone) === null) return { ok: false, error: "a phone number we can dial is required for delivery" };
+    delivery = { address: addr.address, notes: d.notes?.trim() || undefined, quoteToken: d.quoteToken };
+  }
+
+  return { ok: true, body: {
+    sizeId: b.sizeId, date: b.date, fulfillment: b.fulfillment,
+    customer: { name: c.name.trim(), email: c.email.trim(), phone: c.phone?.trim() || undefined },
+    note: b.note?.trim() || undefined, delivery } };
 }
 
 export function publicRoutes(): App {
@@ -176,6 +194,27 @@ export function publicRoutes(): App {
     }
 
     const nowSec = Math.floor(now.getTime() / 1000);
+
+    let deliveryCents = 0;
+    let addressJson: string | null = null;
+    let uberQuoteId: string | null = null;
+    let phone = body.customer.phone ?? null;
+
+    if (body.fulfillment === "delivery") {
+      const d = body.delivery!;
+      const claim = await verifyQuote(c.env.ADMIN_SECRET, d.quoteToken, nowSec);
+      if (!claim) return c.json({ error: "quote_expired" }, 409);
+      if (claim.date !== body.date || claim.addr !== addressKey(d.address)) {
+        // The customer changed the day or the address after we priced it; the storefront asks again.
+        return c.json({ error: "quote_expired" }, 409);
+      }
+      // D8: this fee is the one the customer pays, whatever the courier costs on the day.
+      deliveryCents = claim.feeCents;
+      uberQuoteId = typeof claim.quoteId === "string" ? claim.quoteId : null;
+      addressJson = JSON.stringify({ ...d.address, notes: d.notes ?? "" });
+      phone = normalizePhone(body.customer.phone);
+    }
+
     // D16: pad Stripe's own expiry 60s past the nominal hold window, and let our hold outlive
     // the Stripe session by a further 120s so a session expiring right at the edge can't race
     // ahead of a still-live hold.
@@ -183,17 +222,21 @@ export function publicRoutes(): App {
     const holdUntil = stripeExpiresAt + 120;
     const orderId = crypto.randomUUID();
     const inserted = await tryInsertHeldOrder(c.env.DB, {
-      id: orderId, date: body.date, sizeId: size.id, fulfillment: "pickup",
-      customerName: body.customer.name, customerEmail: body.customer.email, customerPhone: body.customer.phone ?? null,
-      addressJson: null, note: body.note ?? null, bouquetCents: size.priceCents, deliveryCents: 0, uberQuoteId: null,
+      id: orderId, date: body.date, sizeId: size.id, fulfillment: body.fulfillment,
+      customerName: body.customer.name, customerEmail: body.customer.email, customerPhone: phone,
+      addressJson, note: body.note ?? null, bouquetCents: size.priceCents, deliveryCents, uberQuoteId,
     }, cap, nowSec, holdUntil);
     if (!inserted) return c.json({ error: "sold_out" }, 409);
+
+    const lineItems = [
+      { name: `${size.name} — ${body.fulfillment} ${humanDate(body.date)}`, amountCents: size.priceCents, quantity: 1 },
+    ];
+    if (deliveryCents > 0) lineItems.push({ name: `Delivery — ${humanDate(body.date)}`, amountCents: deliveryCents, quantity: 1 });
 
     let session;
     try {
       session = await payments.createCheckout({
-        orderId, customerEmail: body.customer.email,
-        lineItems: [{ name: `${size.name} — pickup ${humanDate(body.date)}`, amountCents: size.priceCents, quantity: 1 }],
+        orderId, customerEmail: body.customer.email, lineItems,
         successUrl: `${c.env.SITE_URL}/thanks?order=${orderId}`,
         cancelUrl: `${c.env.SITE_URL}/#order`,
         expiresAt: stripeExpiresAt,

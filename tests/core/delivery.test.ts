@@ -2,7 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   MAX_SCHEDULE_DAYS, addressKey, deliveryItemName, deliveryWindow, fallbackFeeFor, parseAddress, pickupReadyFor,
 } from "../../src/core/delivery";
+import { normalizePhone } from "../../src/core/delivery";
 import { loadConfig } from "../../src/config";
+
 
 const cfg = loadConfig();
 const min = (n: number) => n * 60_000;
@@ -95,5 +97,22 @@ describe("fallbackFeeFor", () => {
 describe("deliveryItemName", () => {
   it("names the parcel for the courier without revealing the customer", () => {
     expect(deliveryItemName("Bouquet")).toBe("Bouquet — hand-tied flowers");
+  });
+});
+
+describe("normalizePhone", () => {
+  it("turns the ways people type a US number into E.164", () => {
+    for (const raw of ["518-555-0100", "(518) 555-0100", "5185550100", "1 518 555 0100", "+1 (518) 555-0100"]) {
+      expect(normalizePhone(raw)).toBe("+15185550100");
+    }
+  });
+  it("keeps an already-international number", () => {
+    expect(normalizePhone("+442071838750")).toBe("+442071838750");
+  });
+  it("returns null for anything it cannot make sense of", () => {
+    expect(normalizePhone("")).toBeNull();
+    expect(normalizePhone("555-0100")).toBeNull();
+    expect(normalizePhone("call the shop")).toBeNull();
+    expect(normalizePhone("+1")).toBeNull();
   });
 });

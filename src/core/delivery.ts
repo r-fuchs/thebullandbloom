@@ -73,3 +73,21 @@ export function fallbackFeeFor(cfg: StoreConfig, zip: string): number | null {
 export function deliveryItemName(sizeName: string): string {
   return `${sizeName} — hand-tied flowers`;
 }
+
+/**
+ * E.164 or nothing. Uber's phone fields match `^\+[0-9]+$` and reject anything else, so a number
+ * typed as "(518) 555-0100" has to be converted before it ever reaches a delivery request.
+ * A bare 10-digit number is assumed to be US (+1); that is the only country the studio serves.
+ */
+export function normalizePhone(raw: string | undefined | null): string | null {
+  const s = (raw ?? "").trim();
+  if (s === "") return null;
+  if (s.startsWith("+")) {
+    const digits = s.slice(1).replace(/\D/g, "");
+    return digits.length >= 8 && digits.length <= 15 ? `+${digits}` : null;
+  }
+  const digits = s.replace(/\D/g, "");
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return null;
+}

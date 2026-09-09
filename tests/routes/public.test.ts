@@ -194,3 +194,94 @@ describe("POST /api/quote", () => {
     expect((await fetch("/api/quote", { method: "POST", body: "not json" })).status).toBe(400);
   });
 });
+
+async function deliveryBody(fetch: any, over: Record<string, unknown> = {}) {
+  const q = await (await fetch("/api/quote", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ date: "2026-09-23", address }),
+  })).json() as any;
+  return {
+    sizeId: "bouquet", date: "2026-09-23", fulfillment: "delivery",
+    customer: { name: "Pat Lee", email: "pat@example.com", phone: "(518) 555-0100" },
+    note: "yellows please",
+    delivery: { address, notes: "porch, behind the planter", quoteToken: q.quoteToken },
+    ...over,
+  };
+}
+
+describe("POST /api/checkout — delivery", () => {
+  it("locks the quoted fee on the order, stores the address, and adds a Delivery line item", async () => {
+    const { fetch, payments, uber } = testApp();
+    uber.quoteFee = 1350;
+    const r = await post(fetch, await deliveryBody(fetch));
+    expect(r.status).toBe(200);
+    const c = payments.created[payments.created.length - 1];
+    expect(c.lineItems).toEqual([
+      { name: "Bouquet — delivery Wed Sep 23", amountCents: 8500, quantity: 1 },
+      { name: "Delivery — Wed Sep 23", amountCents: 1350, quantity: 1 },
+    ]);
+    const row = await env.DB.prepare(
+      "SELECT fulfillment, delivery_cents, uber_quote_id, customer_phone, address_json FROM orders WHERE id = ?",
+    ).bind(c.orderId).first<any>();
+    expect(row.fulfillment).toBe("delivery");
+    expect(row.delivery_cents).toBe(1350);
+    expect(row.uber_quote_id).toBe("dqt_fake_1");
+    expect(row.customer_phone).toBe("+15185550100");
+    expect(JSON.parse(row.address_json)).toEqual({
+      street: "5 Elm Street", unit: "", city: "Hudson", state: "NY", zip: "12534",
+      notes: "porch, behind the planter",
+    });
+  });
+
+  it("refuses a delivery order with no phone", async () => {
+    const { fetch } = testApp();
+    const body = await deliveryBody(fetch, { customer: { name: "Pat Lee", email: "pat@example.com" } });
+    const r = await post(fetch, body);
+    expect(r.status).toBe(400);
+    expect((await r.json() as any).error).toMatch(/phone/);
+  });
+
+  it("refuses a phone it cannot dial", async () => {
+    const { fetch } = testApp();
+    const body = await deliveryBody(fetch, { customer: { name: "Pat Lee", email: "pat@example.com", phone: "call me" } });
+    expect((await post(fetch, body)).status).toBe(400);
+  });
+
+  it("refuses a fee the browser edited: the token, not the body, carries the price", async () => {
+    const { fetch, payments } = testApp();
+    const body = await deliveryBody(fetch);
+    const before = payments.created.length;
+    const r = await post(fetch, { ...body, deliveryCents: 1, delivery: { ...(body as any).delivery, feeCents: 1 } });
+    // The extra fields are simply ignored; the order is created at the signed fee.
+    expect(r.status).toBe(200);
+    const c = payments.created[payments.created.length - 1];
+    expect(payments.created.length).toBe(before + 1);
+    expect(c.lineItems[1].amountCents).toBe(1200);
+  });
+
+  it("rejects a quote for a different address or a different day", async () => {
+    const { fetch } = testApp();
+    const body = await deliveryBody(fetch);
+    expect((await post(fetch, { ...body, date: "2026-09-24" })).status).toBe(409);
+    const moved = { ...(body as any).delivery, address: { ...address, street: "9 Oak Street" } };
+    expect((await post(fetch, { ...body, delivery: moved })).status).toBe(409);
+  });
+
+  it("rejects a forged or expired token with quote_expired", async () => {
+    const { fetch } = testApp();
+    const body = await deliveryBody(fetch);
+    const r = await post(fetch, { ...body, delivery: { ...(body as any).delivery, quoteToken: "forged.token" } });
+    expect(r.status).toBe(409);
+    expect(await r.json()).toEqual({ error: "quote_expired" });
+  });
+
+  it("still accepts a pickup order with no delivery block, unchanged from Plan 1", async () => {
+    const { fetch, payments } = testApp();
+    const r = await post(fetch, { ...good, date: "2026-09-25" });
+    expect(r.status).toBe(200);
+    const c = payments.created[payments.created.length - 1];
+    expect(c.lineItems).toEqual([{ name: "Bouquet — pickup Fri Sep 25", amountCents: 8500, quantity: 1 }]);
+    const row = await env.DB.prepare("SELECT delivery_cents, address_json FROM orders WHERE id = ?").bind(c.orderId).first<any>();
+    expect(row).toEqual({ delivery_cents: 0, address_json: null });
+  });
+});
