@@ -19,4 +19,12 @@ describe("worker", () => {
     expect(body).toContain("querySelector('#subscribe-form')");
     expect(body).not.toContain("querySelector('.form')");
   });
+  it("serves the privacy policy at its clean URL (html_handling: auto-trailing-slash strips .html)", async () => {
+    const r = await SELF.fetch("https://example.com/privacy");
+    expect(r.status).toBe(200);
+    const body = await r.text();
+    expect(body).toContain("Privacy");
+    expect(body).toContain("thebullandbloom@gmail.com");
+    expect(body).toContain("stripe.com/privacy");
+  });
 });
