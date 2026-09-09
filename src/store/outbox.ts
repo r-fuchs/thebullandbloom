@@ -1,6 +1,8 @@
 export type OutboxKind = "calendar_event" | "email_customer" | "email_owner";
 export const ORDER_PAID_KINDS: readonly OutboxKind[] = ["calendar_event", "email_customer", "email_owner"];
 export const MAX_ATTEMPTS = 24;
+/** How long a claimed item's lease lasts before it becomes due again (e.g. a crashed worker mid-delivery). */
+export const CLAIM_LEASE_SECONDS = 300;
 
 export interface OutboxItem {
   id: string; kind: OutboxKind; orderId: string; createdAt: number; attempts: number;
@@ -35,6 +37,18 @@ export async function dueItems(db: D1Database, now: number, limit = 20): Promise
      ORDER BY created_at, kind LIMIT ?`,
   ).bind(now, limit).all<Row>();
   return rows.results.map(fromRow);
+}
+
+/**
+ * Atomically claims a due item by moving its lease forward, so two overlapping drains
+ * (webhook + cron, or two near-simultaneous checkouts) never both deliver the same row.
+ * Succeeds only if `next_attempt_at` still matches what the caller read from `dueItems`.
+ */
+export async function claimItem(db: D1Database, id: string, expectedNextAttemptAt: number, leaseUntil: number): Promise<boolean> {
+  const res = await db.prepare(
+    "UPDATE outbox SET next_attempt_at = ? WHERE id = ? AND done_at IS NULL AND next_attempt_at = ?",
+  ).bind(leaseUntil, id, expectedNextAttemptAt).run();
+  return res.meta.changes === 1;
 }
 
 export async function markDone(db: D1Database, id: string, now: number): Promise<void> {

@@ -78,7 +78,7 @@ export async function markPaidBySession(
 }
 
 export async function setCalendarEventId(db: D1Database, orderId: string, eventId: string): Promise<void> {
-  await db.prepare("UPDATE orders SET calendar_event_id = ? WHERE id = ?").bind(eventId, orderId).run();
+  await db.prepare("UPDATE orders SET calendar_event_id = ? WHERE id = ? AND calendar_event_id IS NULL").bind(eventId, orderId).run();
 }
 
 export async function cancelHeldBySession(db: D1Database, sessionId: string): Promise<boolean> {

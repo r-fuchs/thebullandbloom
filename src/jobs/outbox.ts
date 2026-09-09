@@ -3,7 +3,7 @@ import type { StoreConfig } from "../config";
 import { customerEmail, orderEvent, ownerEmail } from "../core/messages";
 import { loadState, type GoogleState } from "../store/google";
 import { getOrder, setCalendarEventId, type Order } from "../store/orders";
-import { backoff, dueItems, markDone, markFailed, type OutboxItem } from "../store/outbox";
+import { backoff, claimItem, CLAIM_LEASE_SECONDS, dueItems, markDone, markFailed, type OutboxItem } from "../store/outbox";
 
 export interface OutboxDeps { db: D1Database; google: Google; config: StoreConfig; siteUrl: string }
 export interface DrainResult { status: "skipped" | "ok"; delivered: number; failed: number }
@@ -15,18 +15,36 @@ export async function drainOutbox(deps: OutboxDeps, now: Date): Promise<DrainRes
   const nowSec = Math.floor(now.getTime() / 1000);
   let delivered = 0, failed = 0;
   for (const item of await dueItems(deps.db, nowSec)) {
+    // Claim the row before delivering: an overlapping drain (webhook + cron, or two
+    // near-simultaneous checkouts) racing on the same SELECT must not both send.
+    // A lost claim means someone else has it — neither delivered nor failed here.
+    if (item.nextAttemptAt === null) continue;
+    if (!(await claimItem(deps.db, item.id, item.nextAttemptAt, nowSec + CLAIM_LEASE_SECONDS))) continue;
+
+    let sent: boolean;
     try {
-      const sent = await deliver(deps, state, item);
-      await markDone(deps.db, item.id, nowSec);
-      if (sent) delivered++;
+      sent = await deliver(deps, state, item);
     } catch (e) {
       const attempts = item.attempts + 1;
       const next = backoff(attempts, nowSec);
       const msg = e instanceof Error ? e.message : String(e);
       console.error(`outbox: ${item.kind} for order ${item.orderId} failed (attempt ${attempts}${next === null ? ", giving up" : ""})`, msg);
-      await markFailed(deps.db, item.id, attempts, next, msg);
+      try {
+        await markFailed(deps.db, item.id, attempts, next, msg);
+      } catch (e2) {
+        console.error("outbox: could not record failure", item.id, e2);
+      }
       failed++;
+      continue;
     }
+    // The send already happened; a bookkeeping failure here must be logged, never
+    // turned into a retry (that would resend a mail that already went out).
+    try {
+      await markDone(deps.db, item.id, nowSec);
+    } catch (e) {
+      console.error("outbox: delivered but could not mark done", item.id, e);
+    }
+    if (sent) delivered++;
   }
   return { status: "ok", delivered, failed };
 }

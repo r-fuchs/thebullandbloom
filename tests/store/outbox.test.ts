@@ -1,7 +1,8 @@
 import { env } from "cloudflare:test";
 import { describe, it, expect, beforeEach } from "vitest";
 import {
-  ORDER_PAID_KINDS, backoff, counts, dueItems, enqueueForSessionStatements, markDone, markFailed, retryFailed,
+  ORDER_PAID_KINDS, CLAIM_LEASE_SECONDS, backoff, claimItem, counts, dueItems, enqueueForSessionStatements,
+  markDone, markFailed, retryFailed,
 } from "../../src/store/outbox";
 
 async function order(id: string, session: string, status: string) {
@@ -55,6 +56,17 @@ describe("store/outbox", () => {
     expect((await dueItems(env.DB, 5000)).map((i) => i.id).sort()).toEqual([b.id, c.id].sort());
     const reset = await env.DB.prepare("SELECT attempts, next_attempt_at FROM outbox WHERE id = ?").bind(c.id).first<any>();
     expect(reset).toEqual({ attempts: 0, next_attempt_at: 5000 });
+  });
+
+  it("claims an item atomically: one caller wins, a stale expected value loses, and the lease makes it due again later", async () => {
+    await order("o1", "cs_o1", "paid");
+    await env.DB.batch(enqueueForSessionStatements(env.DB, "cs_o1", ORDER_PAID_KINDS, 1000));
+    const [a] = await dueItems(env.DB, 1000);
+    expect(await claimItem(env.DB, a.id, 1000, 1000 + CLAIM_LEASE_SECONDS)).toBe(true);
+    // a second caller racing on the same stale expected value (1000) loses
+    expect(await claimItem(env.DB, a.id, 1000, 1000 + CLAIM_LEASE_SECONDS)).toBe(false);
+    expect((await dueItems(env.DB, 1000)).map((i) => i.id)).not.toContain(a.id);
+    expect((await dueItems(env.DB, 1000 + CLAIM_LEASE_SECONDS)).map((i) => i.id)).toContain(a.id);
   });
 
   it("backs off exponentially, caps the delay, and gives up after 24 attempts", () => {

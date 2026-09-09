@@ -97,4 +97,15 @@ describe("drainOutbox", () => {
     expect(g.sent).toHaveLength(0);
     expect(await counts(env.DB)).toEqual({ pending: 0, failed: 0 });
   });
+
+  it("never double-sends when two drains race over the same paid order (webhook + cron, or two near-simultaneous checkouts)", async () => {
+    await saveState(env.DB, STATE);
+    await paidOrder("d7", "cs_d7");
+    const g = new FakeGoogle();
+    const [r1, r2] = await Promise.all([drainOutbox(deps(g), NOW), drainOutbox(deps(g), NOW)]);
+    expect(g.inserted).toHaveLength(1);
+    expect(g.sent).toHaveLength(2);
+    expect(await counts(env.DB)).toEqual({ pending: 0, failed: 0 });
+    expect(r1.delivered + r2.delivered).toBe(3);
+  });
 });
