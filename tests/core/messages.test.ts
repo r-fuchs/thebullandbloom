@@ -9,7 +9,7 @@ const order: Order = {
   id: "7a1b2c3d-0000-4000-8000-123456789abc", createdAt: 1, status: "paid", date: "2026-09-09", sizeId: "bouquet",
   fulfillment: "pickup", customerName: "Pat Smith", customerEmail: "pat@example.com", customerPhone: "518-555-0100",
   addressJson: null, note: "For my mother. Something soft.", stripeSessionId: "cs_1", stripePaymentIntent: "pi_1",
-  bouquetCents: 8500, deliveryCents: 0, source: "one_time", holdExpiresAt: null, calendarEventId: null,
+  bouquetCents: 8500, deliveryCents: 0, uberQuoteId: null, source: "one_time", holdExpiresAt: null, calendarEventId: null,
 };
 
 describe("dollars", () => {

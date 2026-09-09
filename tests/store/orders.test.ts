@@ -10,8 +10,8 @@ function fresh(date = "2026-09-10"): NewOrder {
   n += 1;
   return {
     id: `o${n}`, date, sizeId: "bouquet", fulfillment: "pickup",
-    customerName: "Pat", customerEmail: "pat@example.com", customerPhone: null, note: null,
-    bouquetCents: 8500, deliveryCents: 0,
+    customerName: "Pat", customerEmail: "pat@example.com", customerPhone: null, addressJson: null, note: null,
+    bouquetCents: 8500, deliveryCents: 0, uberQuoteId: null,
   };
 }
 const NOW = 1_800_000_000;
@@ -75,6 +75,20 @@ describe("orders", () => {
     await tryInsertHeldOrder(env.DB, a, 5, NOW, NOW + 1800);
     await tryInsertHeldOrder(env.DB, b, 5, NOW + 1, NOW + 1800);
     expect((await listOrders(env.DB, "2026-09-25")).map((o) => o.id)).toEqual([a.id, b.id]);
+  });
+  it("stores an address and quote id on a delivery order", async () => {
+    const ok = await tryInsertHeldOrder(env.DB, {
+      id: "ord-delivery", date: "2026-10-06", sizeId: "bouquet", fulfillment: "delivery",
+      customerName: "Pat", customerEmail: "pat@example.com", customerPhone: "+15185550100",
+      addressJson: JSON.stringify({ street: "5 Elm St", unit: "", city: "Hudson", state: "NY", zip: "12534", notes: "porch" }),
+      note: null, bouquetCents: 8500, deliveryCents: 1200, uberQuoteId: "dqt_abc",
+    }, 4, 1000, 2000);
+    expect(ok).toBe(true);
+    const o = (await getOrder(env.DB, "ord-delivery"))!;
+    expect(o.fulfillment).toBe("delivery");
+    expect(o.deliveryCents).toBe(1200);
+    expect(o.uberQuoteId).toBe("dqt_abc");
+    expect(JSON.parse(o.addressJson!).zip).toBe("12534");
   });
 });
 

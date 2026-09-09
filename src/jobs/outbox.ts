@@ -60,6 +60,7 @@ async function deliver(deps: OutboxDeps, state: GoogleState, item: OutboxItem): 
     case "calendar_event": await calendarEvent(deps, state, order); return true;
     case "email_customer": await deps.google.sendMail(customerEmail(order, deps.config)); return true;
     case "email_owner": await deps.google.sendMail(ownerEmail(order, deps.config, deps.siteUrl)); return true;
+    case "courier_email": throw new Error("outbox: courier_email is implemented in Task 7");
   }
 }
 

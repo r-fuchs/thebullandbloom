@@ -95,7 +95,7 @@ export function publicRoutes(): App {
     const inserted = await tryInsertHeldOrder(c.env.DB, {
       id: orderId, date: body.date, sizeId: size.id, fulfillment: "pickup",
       customerName: body.customer.name, customerEmail: body.customer.email, customerPhone: body.customer.phone ?? null,
-      note: body.note ?? null, bouquetCents: size.priceCents, deliveryCents: 0,
+      addressJson: null, note: body.note ?? null, bouquetCents: size.priceCents, deliveryCents: 0, uberQuoteId: null,
     }, cap, nowSec, holdUntil);
     if (!inserted) return c.json({ error: "sold_out" }, 409);
 

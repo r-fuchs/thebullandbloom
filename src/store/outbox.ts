@@ -1,4 +1,4 @@
-export type OutboxKind = "calendar_event" | "email_customer" | "email_owner";
+export type OutboxKind = "calendar_event" | "email_customer" | "email_owner" | "courier_email";
 export const ORDER_PAID_KINDS: readonly OutboxKind[] = ["calendar_event", "email_customer", "email_owner"];
 export const MAX_ATTEMPTS = 24;
 /** How long a claimed item's lease lasts before it becomes due again (e.g. a crashed worker mid-delivery). */
@@ -29,6 +29,19 @@ export function enqueueForSessionStatements(
     `INSERT OR IGNORE INTO outbox (id, kind, order_id, created_at, attempts, next_attempt_at)
      SELECT ?1, ?2, id, ?3, 0, ?3 FROM orders WHERE stripe_session_id = ?4 AND status = 'paid'`,
   ).bind(crypto.randomUUID(), kind, now, sessionId));
+}
+
+/**
+ * Queue the courier tracking email for an order. Unlike the paid-order kinds this is an UPSERT that
+ * revives the row: a re-dispatch after a canceled courier must send a fresh tracking link, and
+ * UNIQUE(order_id, kind) means the same row is reused (D29).
+ */
+export function enqueueCourierEmailStatement(db: D1Database, orderId: string, now: number): D1PreparedStatement {
+  return db.prepare(
+    `INSERT INTO outbox (id, kind, order_id, created_at, attempts, next_attempt_at)
+     VALUES (?1, 'courier_email', ?2, ?3, 0, ?3)
+     ON CONFLICT(order_id, kind) DO UPDATE SET attempts = 0, next_attempt_at = ?3, last_error = NULL, done_at = NULL`,
+  ).bind(crypto.randomUUID(), orderId, now);
 }
 
 export async function dueItems(db: D1Database, now: number, limit = 20): Promise<OutboxItem[]> {
