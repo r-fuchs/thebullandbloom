@@ -61,6 +61,7 @@ export function registerGoogleAdmin(r: App): void {
 
   r.post("/admin/api/google/disconnect", async (c) => {
     await clearConnection(c.env.DB);
+    await c.env.DB.prepare("DELETE FROM day_overrides WHERE source = 'calendar'").run();
     return c.body(null, 204);
   });
 

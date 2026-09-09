@@ -194,6 +194,9 @@
       $('#g-sync').hidden = !s.connected;
       $('#g-disconnect').hidden = !s.connected;
       $('#g-retry').hidden = !(s.connected && s.outbox.failed > 0);
+    }).catch(function (e) {
+      if (e.message === 'unauthorized') return;
+      $('#g-summary').textContent = 'Could not load the Google status: ' + e.message;
     });
   }
   $('#google-btn').addEventListener('click', loadGoogle);

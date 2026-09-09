@@ -127,8 +127,14 @@ describe("admin google", () => {
     expect(await counts(env.DB)).toEqual({ pending: 0, failed: 0 });
     expect(google.sent).toHaveLength(2);
 
+    await env.DB.prepare("INSERT OR REPLACE INTO day_overrides (date, source, cap, closed) VALUES ('2026-09-22', 'admin', NULL, 1)").run();
+
     expect((await api("/admin/api/google/disconnect", { method: "POST" })).status).toBe(204);
+    expect((await env.DB.prepare("SELECT COUNT(*) AS n FROM day_overrides WHERE source = 'calendar'").first<any>()).n).toBe(0);
+    expect((await env.DB.prepare("SELECT COUNT(*) AS n FROM day_overrides WHERE date = '2026-09-22' AND source = 'admin'").first<any>()).n).toBe(1);
     expect(await loadState(env.DB)).toBeNull();
     expect((await (await api("/admin/api/google/status")).json()).connected).toBe(false);
+
+    await env.DB.prepare("DELETE FROM day_overrides WHERE date = '2026-09-22' AND source = 'admin'").run();
   });
 });
