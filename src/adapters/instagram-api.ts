@@ -20,6 +20,10 @@ export class InstagramApi implements Instagram {
 
   authUrl(state: string, redirectUri: string): string {
     const u = new URL(AUTH_URL);
+    // Business Login for Instagram: force the web login page (no Facebook login, no app handoff),
+    // otherwise a phone bounces into the Instagram app and never returns to the callback (2026-09-10).
+    u.searchParams.set("enable_fb_login", "0");
+    u.searchParams.set("force_authentication", "1");
     u.searchParams.set("client_id", this.appId ?? "");
     u.searchParams.set("redirect_uri", redirectUri);
     u.searchParams.set("scope", SCOPES.join(","));
