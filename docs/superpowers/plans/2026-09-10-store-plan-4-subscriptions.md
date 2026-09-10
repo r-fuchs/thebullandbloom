@@ -35,7 +35,7 @@
 
 ## Pending decisions for Ryan (answer before Task 6)
 
-1. **Prices per cell.** SAMPLE numbers are in `store.config.json`; Anthony's real ones replace them (six numbers).
+1. **Prices per cell.** ANSWERED 2026-09-10: the six numbers in `store.config.json` are approved as-is (Posy $185/$100, Bouquet $290/$155, Statement $460/$245 for weekly/twice-monthly). One-time prices remain SAMPLE.
 2. **Anchor rule.** First bouquet is the first open occurrence of the chosen weekday at least 3 days after signup (proposed). OK, or a different lead time?
 3. **Twice-monthly meaning.** D26 (every other week). Veto if Anthony thinks of it as fixed dates.
 4. **Storefront placement.** Proposed: the subscription grid replaces the "Ask about a subscription" inquiry form; the inquiry form stays for custom arrangements under Contact. Or keep both.
@@ -69,24 +69,24 @@ tests/…                                 one test file per module above
 ### Task 1: Config grid — DONE 2026-09-10
 `store.config.json` has `subscriptions.cadences` and `cells`; `src/config.ts` validates ids, cross-references, duplicates, prices; `tests/config.test.ts` covers it.
 
-### Task 2: Schema
-- [ ] `migrations/0003_subscribers.sql`: `subscribers (id TEXT PK, stripe_customer_id, stripe_subscription_id UNIQUE, size_id, cadence_id, weekday INTEGER, fulfillment, address_json, delivery_add_on_cents INTEGER DEFAULT 0, status CHECK IN ('active','paused','cancelled'), anchor_date TEXT, paused_weeks_json TEXT DEFAULT '[]', customer_name, customer_email, customer_phone, created_at INTEGER)`; `CREATE UNIQUE INDEX orders_subscriber_date ON orders (subscriber_id, date) WHERE subscriber_id IS NOT NULL`.
-- [ ] `tests/store/subscribers.test.ts` (with Task 4).
+### Task 2: Schema — DONE 2026-09-10
+- [x] `migrations/0003_subscribers.sql`: `subscribers (id TEXT PK, stripe_customer_id, stripe_subscription_id UNIQUE, size_id, cadence_id, weekday INTEGER, fulfillment, address_json, delivery_add_on_cents INTEGER DEFAULT 0, status CHECK IN ('active','paused','cancelled'), anchor_date TEXT, paused_weeks_json TEXT DEFAULT '[]', customer_name, customer_email, customer_phone, created_at INTEGER)`; `CREATE UNIQUE INDEX orders_subscriber_date ON orders (subscriber_id, date) WHERE subscriber_id IS NOT NULL`.
+- [x] `tests/store/subscribers.test.ts` (with Task 4).
 
-### Task 3: Core cadence logic (pure)
-- [ ] `nextAnchor(weekday, signupYmd, openSet, leadDays)`: first date ≥ signup + leadDays on that weekday.
-- [ ] `dueDates(sub, fromYmd, toYmd)`: weekly = every 7 days from anchor; twice-monthly = every 14 days (D26); excludes weeks in `pausedWeeks` (ISO Monday keys).
-- [ ] `shiftForClosed(date, closedSet, openWeekdays)`: next open day in the same Mon–Sun week, else `{ skipped: true }` (D13).
-- [ ] Tests with fixed dates covering DST weeks, a closed week, a paused week.
+### Task 3: Core cadence logic (pure) — DONE 2026-09-10
+- [x] `nextAnchor(weekday, signupYmd, openSet, leadDays)`: first date ≥ signup + leadDays on that weekday.
+- [x] `dueDates(sub, fromYmd, toYmd)`: weekly = every 7 days from anchor; twice-monthly = every 14 days (D26); excludes weeks in `pausedWeeks` (ISO Monday keys).
+- [x] `shiftForClosed(date, closedSet, openWeekdays)`: next open day in the same Mon–Sun week, else `{ skipped: true }` (D13).
+- [x] Tests with fixed dates covering DST weeks, a closed week, a paused week.
 
-### Task 4: Subscriber store
-- [ ] `src/store/subscribers.ts` and tests: insert, `byStripeSubscription`, `setStatus`, `list(status?)`, `setPausedWeeks`, `materializedCount(subscriberId, from, to)`.
+### Task 4: Subscriber store — DONE 2026-09-10
+- [x] `src/store/subscribers.ts` and tests: insert, `byStripeSubscription`, `setStatus`, `list(status?)`, `setPausedWeeks`, `materializedCount(subscriberId, from, to)`.
 
-### Task 5: Payments adapter
-- [ ] `Payments.createSubscriptionCheckout({ cell, amountCents, customerEmail, metadata, successUrl, cancelUrl })` → `{ id, url }`, mode `subscription`, `line_items[0].price_data.recurring.interval = 'month'`, `subscription_data.metadata`.
-- [ ] `Payments.portalLink(customerId, returnUrl)` → url.
-- [ ] `WebhookEvent` gains `subscription_started` (from a mode-subscription `checkout.session.completed`), `subscription_updated` (status), `subscription_deleted`.
-- [ ] `RecordingPayments` in `tests/helpers.ts` records these; `tests/adapters/stripe.test.ts` covers the event mapping with recorded fixtures.
+### Task 5: Payments adapter — DONE 2026-09-10 (Stripe calls unverified until Task 12)
+- [x] `Payments.createSubscriptionCheckout({ cell, amountCents, customerEmail, metadata, successUrl, cancelUrl })` → `{ id, url }`, mode `subscription`, `line_items[0].price_data.recurring.interval = 'month'`, `subscription_data.metadata`.
+- [x] `Payments.portalLink(customerId, returnUrl)` → url.
+- [x] `WebhookEvent` gains `subscription_started` (from a mode-subscription `checkout.session.completed`), `subscription_updated` (status), `subscription_deleted`.
+- [x] `RecordingPayments` in `tests/helpers.ts` records these; `tests/adapters/stripe.test.ts` covers the event mapping with recorded fixtures.
 
 ### Task 6: Signup endpoint
 - [ ] `POST /api/subscribe { sizeId, cadenceId, weekday, customer: { name, email, phone? }, note? }` → validates against the grid and `openWeekdays`, creates the Checkout session with metadata, returns `{ url }`. No D1 row yet (D28).
@@ -120,6 +120,7 @@ tests/…                                 one test file per module above
 - [ ] Phone-size check with Playwright as on the 2026-09-10 road test (empty-field validation, grid renders from config).
 
 ### Task 12: Preview deploy and acceptance
+- [ ] Stripe dashboard (Ryan): add `customer.subscription.updated` and `customer.subscription.deleted` to the webhook endpoint's events, or re-run `scripts/stripe-setup.sh` after extending its event list.
 - [ ] Deploy through the GitHub Actions workflow (`.github/workflows/deploy.yml`, added 2026-09-10) to the preview URL.
 - [ ] Stripe sandbox: sign up weekly Bouquet, Tuesday. Expect: subscriber row active, three orders materialized on the next three Tuesdays (+1 on each in admin), calendar events on the Orders calendar, confirmation email with a working portal link. Cancel from the portal: future orders removed, cancellation email arrives. Close one of those Tuesdays from Anthony's calendar: the bouquet moves to Wednesday overnight; close the whole week: flagged in admin.
 - [ ] Record in spec §8/§9; add D26–D31 to §3.

@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { buildApp } from "../src/app";
 import { loadConfig } from "../src/config";
-import type { Payments, WebhookEvent } from "../src/adapters/payments";
+import type { Payments, SubscriptionCheckoutInput, WebhookEvent } from "../src/adapters/payments";
 import { FakeGoogle } from "./fakes/google";
 
 // Module-scoped (not per-instance) so session ids stay unique across every
@@ -30,6 +30,18 @@ export class RecordingPayments implements Payments {
     this.created.push(input);
     sessionSeq += 1;
     return { id: `cs_${sessionSeq}`, url: `https://checkout.example/${sessionSeq}` };
+  }
+  createdSubscriptions: SubscriptionCheckoutInput[] = [];
+  portals: Array<{ customerId: string; returnUrl: string }> = [];
+  async createSubscriptionCheckout(input: SubscriptionCheckoutInput) {
+    if (this.failNext) { this.failNext = false; throw new Error("stripe down"); }
+    this.createdSubscriptions.push(input);
+    sessionSeq += 1;
+    return { id: `cs_${sessionSeq}`, url: `https://checkout.example/${sessionSeq}` };
+  }
+  async portalLink(customerId: string, returnUrl: string) {
+    this.portals.push({ customerId, returnUrl });
+    return `https://billing.example/${customerId}`;
   }
   async parseWebhook(_raw: string, signature: string) {
     if (signature !== "good") throw new Error("bad signature");

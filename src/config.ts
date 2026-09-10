@@ -36,7 +36,7 @@ export function validateConfig(cfg: StoreConfig): StoreConfig {
   for (const c of cfg.subscriptions?.cadences ?? []) {
     if (cadences.has(c.id)) throw new Error(`config: duplicate cadence id ${c.id}`);
     cadences.add(c.id);
-    if (!Number.isInteger(c.perMonth) || c.perMonth < 1 || c.perMonth > 5) throw new Error(`config: cadence ${c.id} perMonth must be 1..5`);
+    if (![1, 2, 4].includes(c.perMonth)) throw new Error(`config: cadence ${c.id} perMonth must be 1, 2 or 4 (every four weeks, every other week, weekly)`);
   }
   const cells = new Set<string>();
   for (const cell of cfg.subscriptions?.cells ?? []) {
