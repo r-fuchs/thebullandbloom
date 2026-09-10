@@ -5,7 +5,7 @@ thebullandbloom.com — floral design by Anthony Demonia. Static site plus a Clo
 - `site/` — the pages and images (no build step).
 - `src/` — the Worker: `/api/*` for the storefront, `/webhooks/stripe`, `/admin/api/*`.
 - `migrations/` — D1 schema.
-- `store.config.json` — menu, prices, capacity defaults.
+- `store.config.json` — menu, prices, subscription grid (cadences × sizes, monthly price per cell), capacity defaults.
 - Design: `docs/superpowers/specs/2026-09-07-store-design.md`.
 
 `npm test` runs everything in a local workerd with a throwaway D1. `npm run dev` serves locally.
@@ -21,6 +21,8 @@ thebullandbloom.com — floral design by Anthony Demonia. Static site plus a Clo
 ## Deploy
 
 `npm run deploy` publishes the Worker and `site/`. Secrets live in Cloudflare (`wrangler secret put`), never in the repo.
+
+From GitHub, without a laptop: Actions → Deploy → Run workflow on the branch you want, leaving the site URL at the preview default (`.github/workflows/deploy.yml`). It typechecks, runs the tests, applies migrations, and deploys. A push to `main` deploys production with the URL from `wrangler.toml`. The workflow needs two repository secrets, `CLOUDFLARE_API_TOKEN` (an "Edit Cloudflare Workers" token with D1 edit) and `CLOUDFLARE_ACCOUNT_ID`.
 Migrations: `npx wrangler d1 migrations apply bullandbloom --remote`. Stripe webhook endpoint: `/webhooks/stripe`.
 Preview URL until DNS cutover: https://thebullandbloom.thebullandbloom.workers.dev
 

@@ -5,12 +5,87 @@
     "pickupInstructions": "SAMPLE — text Anthony at (518) 334-0517 when you arrive.",
     "ownerEmail": "thebullandbloom@gmail.com"
   },
-  "calendars": { "closed": "Bull and Bloom: Closed", "orders": "Bull and Bloom: Orders" },
+  "calendars": {
+    "closed": "Bull and Bloom: Closed",
+    "orders": "Bull and Bloom: Orders"
+  },
   "sizes": [
-    { "id": "posy", "name": "Posy", "description": "A small hand-tied bunch. SAMPLE.", "priceCents": 5500 },
-    { "id": "bouquet", "name": "Bouquet", "description": "The classic 10–12 stem bouquet. SAMPLE.", "priceCents": 8500 },
-    { "id": "statement", "name": "Statement", "description": "A generous, showpiece bouquet. SAMPLE.", "priceCents": 13500 }
+    {
+      "id": "posy",
+      "name": "Posy",
+      "description": "A small hand-tied bunch. SAMPLE.",
+      "priceCents": 5500
+    },
+    {
+      "id": "bouquet",
+      "name": "Bouquet",
+      "description": "The classic 10–12 stem bouquet. SAMPLE.",
+      "priceCents": 8500
+    },
+    {
+      "id": "statement",
+      "name": "Statement",
+      "description": "A generous, showpiece bouquet. SAMPLE.",
+      "priceCents": 13500
+    }
   ],
-  "defaults": { "cap": 4, "cutoff": "11:00", "openWeekdays": [2, 3, 4, 5, 6] },
-  "holdMinutes": 30
+  "defaults": {
+    "cap": 4,
+    "cutoff": "11:00",
+    "openWeekdays": [
+      2,
+      3,
+      4,
+      5,
+      6
+    ]
+  },
+  "holdMinutes": 30,
+  "subscriptions": {
+    "cadences": [
+      {
+        "id": "weekly",
+        "name": "Every week",
+        "perMonth": 4
+      },
+      {
+        "id": "twice-monthly",
+        "name": "Twice a month",
+        "perMonth": 2
+      }
+    ],
+    "cells": [
+      {
+        "sizeId": "posy",
+        "cadenceId": "weekly",
+        "priceCents": 18500
+      },
+      {
+        "sizeId": "posy",
+        "cadenceId": "twice-monthly",
+        "priceCents": 10000
+      },
+      {
+        "sizeId": "bouquet",
+        "cadenceId": "weekly",
+        "priceCents": 29000
+      },
+      {
+        "sizeId": "bouquet",
+        "cadenceId": "twice-monthly",
+        "priceCents": 15500
+      },
+      {
+        "sizeId": "statement",
+        "cadenceId": "weekly",
+        "priceCents": 46000
+      },
+      {
+        "sizeId": "statement",
+        "cadenceId": "twice-monthly",
+        "priceCents": 24500
+      }
+    ],
+    "note": "SAMPLE monthly prices: roughly 15% under four one-time bouquets for weekly, 10% under two for twice a month. Anthony's real prices replace these."
+  }
 }
