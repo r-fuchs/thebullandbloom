@@ -15,6 +15,10 @@ database_name = "bullandbloom"
 database_id = "48c896fa-161a-4bca-9a0b-4a111c91c354"
 migrations_dir = "migrations"
 
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "bullandbloom-media"
+
 [triggers]
 crons = ["*/15 * * * *"]
 

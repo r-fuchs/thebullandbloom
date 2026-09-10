@@ -21,6 +21,8 @@ export default defineConfig(async () => {
             ADMIN_SECRET: "test-secret",
             GOOGLE_CLIENT_ID: "test-client-id",
             GOOGLE_CLIENT_SECRET: "test-client-secret",
+            INSTAGRAM_APP_ID: "ig-app-id",
+            INSTAGRAM_APP_SECRET: "ig-app-secret",
           },
         },
       }),

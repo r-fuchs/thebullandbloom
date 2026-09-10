@@ -120,7 +120,7 @@ tests/…                                 one test file per module above
 - [x] Phone-size check with Playwright as on the 2026-09-10 road test (empty-field validation, grid renders from config).
 
 ### Task 12: Preview deploy and acceptance
-- [x] Deployed to the preview from GitHub Actions on 2026-09-10 (the code path; acceptance below is still open).
+- [x] Deployed to the preview from GitHub Actions on 2026-09-10. Signup verified live: weekly Bouquet on Tuesdays, confirmation with a working portal link at 10:32 ET. Cancel path and Anthony's calendar view are in the batch-two checklist.
 - [ ] Stripe dashboard (Ryan): add `customer.subscription.updated` and `customer.subscription.deleted` to the webhook endpoint's events, or re-run `scripts/stripe-setup.sh` after extending its event list.
 - [ ] Deploy through the GitHub Actions workflow (`.github/workflows/deploy.yml`, added 2026-09-10) to the preview URL.
 - [ ] Stripe sandbox: sign up weekly Bouquet, Tuesday. Expect: subscriber row active, three orders materialized on the next three Tuesdays (+1 on each in admin), calendar events on the Orders calendar, confirmation email with a working portal link. Cancel from the portal: future orders removed, cancellation email arrives. Close one of those Tuesdays from Anthony's calendar: the bouquet moves to Wednesday overnight; close the whole week: flagged in admin.

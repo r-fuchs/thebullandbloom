@@ -8,4 +8,7 @@ export interface Env {
   ADMIN_SECRET: string;
   GOOGLE_CLIENT_ID?: string;     // optional: admin reports "not configured" when absent
   GOOGLE_CLIENT_SECRET?: string;
+  MEDIA: R2Bucket;                // cached Instagram images (D12)
+  INSTAGRAM_APP_ID?: string;      // optional: admin reports "not configured" when absent
+  INSTAGRAM_APP_SECRET?: string;
 }

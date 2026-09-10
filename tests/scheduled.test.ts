@@ -22,6 +22,7 @@ describe("runScheduled", () => {
       expiredHolds: 1,
       blackouts: { status: "skipped" },
       subscriptions: { status: "ok", created: 0, skippedWeeks: 0 },
+      instagram: { status: "skipped" },
       outbox: { status: "skipped", delivered: 0, failed: 0 },
     });
     const s = await env.DB.prepare("SELECT id, status FROM orders WHERE id IN ('s1','s2') ORDER BY id").all<any>();

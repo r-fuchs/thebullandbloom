@@ -11,6 +11,8 @@
 #   CLOUDFLARE_API_TOKEN   an API token made from the "Edit Cloudflare Workers" template, plus D1 edit
 #   CLOUDFLARE_ACCOUNT_ID  from the Workers overview page in the Cloudflare dashboard
 # Worker secrets (Stripe, admin, Google) already live in Cloudflare and are untouched by a deploy.
+# Optional: INSTAGRAM_APP_ID and INSTAGRAM_APP_SECRET as repository secrets are uploaded to the
+# Worker on each deploy (so the Instagram app keys never need a laptop either).
 name: Deploy
 
 on:
@@ -43,6 +45,13 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm run typecheck
       - run: npm test
+      - name: Ensure the media bucket exists
+        run: npx wrangler r2 bucket list 2>/dev/null | grep -q "bullandbloom-media" || npx wrangler r2 bucket create bullandbloom-media
+      - name: Upload Instagram app keys when set
+        if: ${{ secrets.INSTAGRAM_APP_ID != '' && secrets.INSTAGRAM_APP_SECRET != '' }}
+        run: |
+          printf '%s' "${{ secrets.INSTAGRAM_APP_ID }}" | npx wrangler secret put INSTAGRAM_APP_ID
+          printf '%s' "${{ secrets.INSTAGRAM_APP_SECRET }}" | npx wrangler secret put INSTAGRAM_APP_SECRET
       - name: Apply D1 migrations
         run: npx wrangler d1 migrations apply bullandbloom --remote
       - name: Deploy

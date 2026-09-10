@@ -8,6 +8,7 @@ import { loadDefaults, saveDefaults } from "../store/settings";
 import { getOverrides, putAdminOverride, clearAdminOverride } from "../store/overrides";
 import { countUsed, listOrders, getOrder, setStatus } from "../store/orders";
 import { registerGoogleAdmin } from "./admin-google";
+import { registerInstagramAdmin } from "./instagram";
 import { listSubscribers } from "../store/subscribers";
 import { dueDates } from "../core/subscriptions";
 import { addDays, ymdIn } from "../core/time";
@@ -165,6 +166,7 @@ export function adminRoutes(): App {
   });
 
   registerGoogleAdmin(r);
+  registerInstagramAdmin(r);
 
   return r;
 }

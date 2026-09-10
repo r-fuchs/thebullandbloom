@@ -1,6 +1,6 @@
 (function () {
   var $ = function (s) { return document.querySelector(s); };
-  var menu = $('#menu'), sizes = $('#size-picker'), days = $('#day-picker'), dayNote = $('#day-note');
+  var menu = $('#menu'), sizes = $('#size-picker'), cal = $('#cal'), dayNote = $('#day-note');
   var form = $('#order-form'), pay = $('#pay-btn'), status = $('#order-status');
   if (!form) return;
 
@@ -11,15 +11,26 @@
     return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
   }
 
+  function markChosen() {
+    var v = (form.querySelector('input[name=sizeId]:checked') || {}).value;
+    menu.querySelectorAll('li').forEach(function (li) { li.classList.toggle('chosen', li.getAttribute('data-size') === v); });
+  }
   function renderSizes(cfg) {
     menu.innerHTML = '';
     sizes.querySelectorAll('label').forEach(function (l) { l.remove(); });
     cfg.sizes.forEach(function (s, i) {
       var li = document.createElement('li');
-      li.innerHTML = '<h3></h3><p></p><p class="price"></p>';
+      li.setAttribute('data-size', s.id);
+      li.innerHTML = '<h3></h3><p></p><p class="price"></p><button type="button" class="pick">Order this one</button>';
       li.querySelector('h3').textContent = s.name;
       li.querySelector('p').textContent = s.description;
       li.querySelector('.price').textContent = money(s.priceCents);
+      li.querySelector('.pick').addEventListener('click', function () {
+        var inp = form.querySelector('input[name=sizeId][value="' + s.id + '"]');
+        if (inp) inp.checked = true;
+        markChosen();
+        $('#order').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
       menu.appendChild(li);
       var lab = document.createElement('label');
       lab.innerHTML = '<input type="radio" name="sizeId"><span></span>';
@@ -28,24 +39,58 @@
       lab.querySelector('span').textContent = s.name + ' · ' + money(s.priceCents);
       sizes.appendChild(lab);
     });
+    sizes.addEventListener('change', markChosen);
+    markChosen();
   }
 
-  function renderDays(av) {
-    days.querySelectorAll('label').forEach(function (l) { l.remove(); });
-    var any = false;
-    av.days.forEach(function (d) {
-      if (!d.open) return;
-      var lab = document.createElement('label');
-      lab.innerHTML = '<input type="radio" name="date"><span></span>';
-      var inp = lab.querySelector('input');
-      inp.value = d.date;
-      inp.disabled = !d.orderable;
-      if (!d.orderable) lab.className = 'sold';
-      lab.querySelector('span').textContent = human(d.date) + (d.orderable && d.remaining <= 2 ? ' · ' + d.remaining + ' left' : '');
-      days.insertBefore(lab, dayNote);
-      any = any || d.orderable;
+  function renderGallery(feed) {
+    var box = $('#gallery'), row = $('#gallery-row');
+    if (!box || !feed || !feed.posts || !feed.posts.length) return;
+    row.innerHTML = '';
+    feed.posts.forEach(function (p) {
+      var a = document.createElement('a'); a.href = p.permalink; a.target = '_blank'; a.rel = 'noopener';
+      var img = document.createElement('img'); img.src = p.url; img.loading = 'lazy'; img.alt = p.caption ? p.caption.slice(0, 120) : 'A bouquet from The Bull and Bloom';
+      a.appendChild(img); row.appendChild(a);
     });
-    dayNote.textContent = any ? 'Same-day orders close at the morning cutoff.' : 'Nothing open in the next few weeks. Email Anthony and he will find a day.';
+    box.hidden = false;
+  }
+
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  function addDays(s, n) { var p = s.split('-').map(Number); var d = new Date(Date.UTC(p[0], p[1] - 1, p[2] + n)); return d.toISOString().slice(0, 10); }
+  function weekdayOf(s) { var p = s.split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2])).getUTCDay(); }
+  function renderDays(av) {
+    cal.innerHTML = '';
+    var byDate = {}, any = false;
+    av.days.forEach(function (d) { byDate[d.date] = d; any = any || d.orderable; });
+    if (!av.days.length) { dayNote.textContent = 'Nothing open in the next few weeks. Email Anthony and he will find a day.'; pay.disabled = true; return; }
+    ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(function (h) { var e = document.createElement('div'); e.className = 'h'; e.textContent = h; cal.appendChild(e); });
+    var first = av.days[0].date, last = av.days[av.days.length - 1].date;
+    var cur = first, month = '', col = 0, k, el;
+    function blank() { var b = document.createElement('div'); b.className = 'd blank'; cal.appendChild(b); }
+    while (cur <= last) {
+      var m = cur.slice(0, 7);
+      if (m !== month) {
+        if (col > 0) { for (; col < 7; col++) blank(); col = 0; }
+        month = m;
+        el = document.createElement('div'); el.className = 'm'; el.textContent = MONTHS[Number(m.slice(5)) - 1]; cal.appendChild(el);
+        for (k = 0; k < weekdayOf(cur); k++) { blank(); col++; }
+      }
+      var d = byDate[cur];
+      if (!d) blank();
+      else if (!d.open) { el = document.createElement('div'); el.className = 'd off'; el.textContent = Number(cur.slice(8)); cal.appendChild(el); }
+      else {
+        el = document.createElement('label'); el.className = 'd' + (d.orderable ? '' : ' sold');
+        el.innerHTML = '<input type="radio" name="date"><span></span><small></small>';
+        var inp = el.querySelector('input'); inp.value = cur; inp.disabled = !d.orderable;
+        el.querySelector('span').textContent = Number(cur.slice(8));
+        el.querySelector('small').textContent = d.orderable && d.remaining <= 2 ? d.remaining + ' left' : '';
+        el.title = human(cur);
+        cal.appendChild(el);
+      }
+      col = (col + 1) % 7;
+      cur = addDays(cur, 1);
+    }
+    dayNote.textContent = any ? 'Tap a day. Same-day orders close at the morning cutoff.' : 'Nothing open in the next few weeks. Email Anthony and he will find a day.';
     pay.disabled = !any;
   }
 
@@ -114,6 +159,7 @@
 
   function load() {
     var today = new Date(), to = new Date(today.getTime() + 27 * 86400000);
+    fetch('/api/feed').then(function (r) { return r.json(); }).then(renderGallery).catch(function () {});
     return Promise.all([
       fetch('/api/config').then(function (r) { return r.json(); }),
       fetch('/api/availability?from=' + ymd(today) + '&to=' + ymd(to)).then(function (r) { return r.json(); })

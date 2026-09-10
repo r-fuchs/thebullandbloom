@@ -4,12 +4,14 @@ import { expireHolds } from "./store/orders";
 import { syncBlackouts, type BlackoutSyncResult } from "./jobs/blackouts";
 import { drainOutbox, type DrainResult } from "./jobs/outbox";
 import { materializeSubscriptions, type MaterializeResult } from "./jobs/materialize";
+import { refreshFeed, type FeedResult } from "./jobs/instagram";
 
 type Failed = { status: "error"; error: string };
 export interface ScheduledReport {
   expiredHolds: number | { error: string };
   blackouts: BlackoutSyncResult | Failed;
   subscriptions: MaterializeResult | Failed;
+  instagram: FeedResult | Failed;
   outbox: DrainResult | Failed;
 }
 
@@ -18,7 +20,7 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 /** Every 15 minutes (wrangler.toml). Each job is isolated so one failure never blocks the others. */
 export async function runScheduled(env: Env, services: Services, now: Date): Promise<ScheduledReport> {
   const nowSec = Math.floor(now.getTime() / 1000);
-  const { google, payments, config } = services;
+  const { google, payments, instagram, config } = services;
 
   let expiredHolds: ScheduledReport["expiredHolds"];
   try { expiredHolds = await expireHolds(env.DB, nowSec); }
@@ -34,9 +36,13 @@ export async function runScheduled(env: Env, services: Services, now: Date): Pro
   try { subscriptions = await materializeSubscriptions({ db: env.DB, config }, now); }
   catch (e) { console.error("scheduled: materializeSubscriptions threw", e); subscriptions = { status: "error", error: msg(e) }; }
 
+  let instagramRes: ScheduledReport["instagram"];
+  try { instagramRes = await refreshFeed({ db: env.DB, media: env.MEDIA, instagram, adminSecret: env.ADMIN_SECRET }, now); }
+  catch (e) { console.error("scheduled: refreshFeed threw", e); instagramRes = { status: "error", error: msg(e) }; }
+
   let outbox: ScheduledReport["outbox"];
   try { outbox = await drainOutbox({ db: env.DB, google, payments, config, siteUrl: env.SITE_URL }, now); }
   catch (e) { console.error("scheduled: drainOutbox threw", e); outbox = { status: "error", error: msg(e) }; }
 
-  return { expiredHolds, blackouts, subscriptions, outbox };
+  return { expiredHolds, blackouts, subscriptions, instagram: instagramRes, outbox };
 }
