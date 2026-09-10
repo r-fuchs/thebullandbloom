@@ -42,14 +42,14 @@ describe("instagram routes", () => {
     expect(cb.headers.get("location")).toBe("/admin/?instagram=connected");
     expect((await loadIgToken(env.DB, env.ADMIN_SECRET))!.username).toBe("thebullandbloom");
     expect(instagram.fetched).toHaveLength(3);
-    const feed = await (await fetch("/api/feed")).json();
+    const feed: any = await (await fetch("/api/feed")).json();
     expect(feed.posts.map((p: any) => p.id)).toEqual(["18001", "18002", "18003"]);
     expect(feed.posts[0]).toEqual({ id: "18001", url: "/media/ig/18001", permalink: "https://www.instagram.com/p/aaa/", caption: "Tuesday's bouquets, out the door.", takenAt: "2026-09-08T14:05:00+0000" });
     const img = await fetch("/media/ig/18001");
     expect(img.status).toBe(200);
     expect(img.headers.get("content-type")).toBe("image/jpeg");
     expect(await img.text()).toBe("img:https://cdn.test/18001.jpg");
-    const status = await (await api("/admin/api/instagram/status")).json();
+    const status: any = await (await api("/admin/api/instagram/status")).json();
     expect(status).toMatchObject({ connected: true, username: "thebullandbloom", lastSyncAt: NOW_SEC, lastSyncError: null });
     expect(status.posts).toHaveLength(3);
   });
