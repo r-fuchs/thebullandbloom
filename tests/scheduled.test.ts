@@ -21,6 +21,7 @@ describe("runScheduled", () => {
     expect(await runScheduled(env, services, new Date(now * 1000))).toEqual({
       expiredHolds: 1,
       blackouts: { status: "skipped" },
+      subscriptions: { status: "ok", created: 0, skippedWeeks: 0 },
       outbox: { status: "skipped", delivered: 0, failed: 0 },
     });
     const s = await env.DB.prepare("SELECT id, status FROM orders WHERE id IN ('s1','s2') ORDER BY id").all<any>();

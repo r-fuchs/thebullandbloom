@@ -5,7 +5,7 @@ import { isYmd, ymdRange, addDays, ymdIn, humanDate } from "../core/time";
 import { loadDefaults } from "../store/settings";
 import { getOverrides } from "../store/overrides";
 import { countUsed, tryInsertHeldOrder, attachSession, cancelOrder } from "../store/orders";
-import { sizeById } from "../config";
+import { sizeById, subscriptionCell } from "../config";
 
 const MAX_DAYS = 62;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -35,13 +35,50 @@ function parseCheckout(raw: unknown): { ok: true; body: CheckoutBody } | { ok: f
 export function publicRoutes(): App {
   const r: App = new Hono();
 
-  r.get("/api/config", (c) => {
+  r.get("/api/config", async (c) => {
     const { config } = c.get("services");
+    const defaults = await loadDefaults(c.env.DB, config.defaults);
     return c.json({
       timezone: config.timezone,
       sizes: config.sizes,
+      subscriptions: { cadences: config.subscriptions.cadences, cells: config.subscriptions.cells },
+      openWeekdays: defaults.openWeekdays,
       studio: { pickupInstructions: config.studio.pickupInstructions },
     });
+  });
+
+  // Plan 4: a pickup subscription. No D1 row until Stripe confirms (D28); the choice rides in metadata.
+  r.post("/api/subscribe", async (c) => {
+    const { config, payments } = c.get("services");
+    let b: any;
+    try { b = await c.req.json(); } catch { return c.json({ error: "invalid JSON" }, 400); }
+    if (!b || typeof b !== "object") return c.json({ error: "body must be an object" }, 400);
+    const cell = typeof b.sizeId === "string" && typeof b.cadenceId === "string" ? subscriptionCell(config, b.sizeId, b.cadenceId) : undefined;
+    if (!cell) return c.json({ error: "unknown size or cadence" }, 400);
+    const weekday = b.weekday;
+    if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) return c.json({ error: "weekday must be 0..6" }, 400);
+    const defaults = await loadDefaults(c.env.DB, config.defaults);
+    if (!defaults.openWeekdays.includes(weekday)) return c.json({ error: "the studio is closed that day" }, 400);
+    const cu = b.customer;
+    if (!cu || typeof cu.name !== "string" || cu.name.trim().length < 1 || cu.name.trim().length > 120) return c.json({ error: "name required" }, 400);
+    if (typeof cu.email !== "string" || !EMAIL.test(cu.email) || cu.email.length > 200) return c.json({ error: "valid email required" }, 400);
+    if (cu.phone !== undefined && (typeof cu.phone !== "string" || cu.phone.length > 40)) return c.json({ error: "phone too long" }, 400);
+    if (b.note !== undefined && (typeof b.note !== "string" || b.note.length > 400)) return c.json({ error: "note must be 400 characters or fewer" }, 400);
+    const size = sizeById(config, cell.sizeId)!;
+    const cadence = config.subscriptions.cadences.find((x) => x.id === cell.cadenceId)!;
+    const metadata: Record<string, string> = { cell: `${cell.sizeId}/${cell.cadenceId}`, weekday: String(weekday), name: cu.name.trim() };
+    if (cu.phone?.trim()) metadata.phone = cu.phone.trim();
+    if (b.note?.trim()) metadata.note = b.note.trim();
+    try {
+      const session = await payments.createSubscriptionCheckout({
+        customerEmail: cu.email.trim(), productName: `${size.name} · ${cadence.name.toLowerCase()}`, amountCents: cell.priceCents, metadata,
+        successUrl: `${c.env.SITE_URL}/thanks?subscription=1`, cancelUrl: `${c.env.SITE_URL}/#subscribe`,
+      });
+      return c.json({ url: session.url });
+    } catch (err) {
+      console.error("subscribe: payments failed", err);
+      return c.json({ error: "payments_unavailable" }, 503);
+    }
   });
 
   r.get("/api/availability", async (c) => {

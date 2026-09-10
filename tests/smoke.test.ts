@@ -12,11 +12,12 @@ describe("worker", () => {
     expect(r.status).toBe(200);
     expect(await r.text()).toContain("The Bull and Bloom");
   });
-  it("wires the subscribe form by id so the order form's Formspree script can't hijack it", async () => {
+  it("wires the Formspree inquiry form by id so it never catches the order or subscription forms", async () => {
     const r = await SELF.fetch("https://example.com/");
     const body = await r.text();
+    expect(body).toContain('id="inquiry-form"');
     expect(body).toContain('id="subscribe-form"');
-    expect(body).toContain("querySelector('#subscribe-form')");
+    expect(body).toContain("querySelector('#inquiry-form')");
     expect(body).not.toContain("querySelector('.form')");
   });
   it("serves the privacy policy at its clean URL (html_handling: auto-trailing-slash strips .html)", async () => {

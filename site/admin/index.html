@@ -41,7 +41,7 @@
     <div class="row">
       <button id="prev">‹</button><strong id="month-label"></strong><button id="next">›</button>
       <span style="flex:1"></span>
-      <button id="settings-btn">Settings</button><button id="google-btn">Google</button><button id="logout">Sign out</button>
+      <button id="subs-btn">Subscribers</button><button id="settings-btn">Settings</button><button id="google-btn">Google</button><button id="logout">Sign out</button>
     </div>
     <div class="grid" id="grid"></div>
     <p class="status">Tap a day. Number is one-time orders / cap; “+n” is subscription bouquets. Pink = closed, yellow = full.</p>
@@ -58,6 +58,13 @@
         <button id="day-toggle"></button>
       </div>
       <div id="orders"></div>
+    </div>
+
+    <div class="panel" id="subs-panel" hidden>
+      <h2 style="margin:0 0 .5rem;font-size:1.1rem;font-weight:500">Subscribers</h2>
+      <div id="subs-flags"></div>
+      <div id="subs-list"></div>
+      <p class="status">Bouquets appear on the calendar three weeks ahead and count as “+n” on a day, never against the cap. Customers pause or cancel from the link in their email; Stripe tells the store and the calendar follows within 15 minutes.</p>
     </div>
 
     <div class="panel" id="settings-panel" hidden>
@@ -130,7 +137,7 @@
 
   function loadDay() {
     var d = cache[selected]; if (!d) return;
-    $('#day-panel').hidden = false; $('#settings-panel').hidden = true; $('#google-panel').hidden = true;
+    $('#day-panel').hidden = false; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true;
     $('#day-title').textContent = new Date(selected + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
     $('#day-cap').value = d.overrideCap === null ? '' : d.overrideCap;
     $('#day-cap').placeholder = 'default';
@@ -159,8 +166,36 @@
     });
   }
 
+  var DAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  function human(ymd) { return ymd ? new Date(ymd + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '—'; }
+  function loadSubscribers() {
+    $('#subs-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true;
+    api('/subscribers').then(function (res) {
+      var flags = $('#subs-flags'); flags.innerHTML = '';
+      res.flags.forEach(function (f) {
+        var p = document.createElement('p'); p.className = 'status'; p.style.background = 'var(--closed)'; p.style.padding = '.4rem .6rem';
+        p.textContent = f.customerName + ': no open day in the week of ' + human(f.week) + ', so that bouquet was skipped. Reach out to them.';
+        flags.appendChild(p);
+      });
+      var box = $('#subs-list'); box.innerHTML = '';
+      if (!res.subscribers.length) { box.innerHTML = '<p class="status">No subscribers yet.</p>'; return; }
+      res.subscribers.forEach(function (s) {
+        var el = document.createElement('div'); el.className = 'order';
+        el.innerHTML = '<div><strong></strong> · <span class="plan"></span> · <span class="st"></span></div><small class="contact"></small><div class="next"></div><div class="note"></div>';
+        el.querySelector('strong').textContent = s.customerName;
+        el.querySelector('.plan').textContent = s.sizeId + ', ' + s.cadenceName.toLowerCase() + ', ' + DAY_LONG[s.weekday] + 's';
+        el.querySelector('.st').textContent = s.status;
+        el.querySelector('.contact').textContent = s.customerEmail + (s.customerPhone ? ' · ' + s.customerPhone : '');
+        el.querySelector('.next').textContent = s.status === 'active' ? 'Next bouquet ' + human(s.nextDate) : (s.status === 'paused' ? 'Paused in Stripe' : 'Cancelled');
+        el.querySelector('.note').textContent = s.note || '';
+        box.appendChild(el);
+      });
+    }).catch(function (e) { if (e.message !== 'unauthorized') $('#subs-list').textContent = e.message; });
+  }
+  $('#subs-btn').addEventListener('click', loadSubscribers);
+
   function loadSettings() {
-    $('#settings-panel').hidden = false; $('#day-panel').hidden = true; $('#google-panel').hidden = true;
+    $('#settings-panel').hidden = false; $('#day-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true;
     api('/settings').then(function (s) {
       $('#s-cap').value = s.cap; $('#s-cutoff').value = s.cutoff;
       var box = $('#s-days'); box.innerHTML = '';
@@ -180,7 +215,7 @@
     return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : Math.round(m / 60) + ' h ago';
   }
   function loadGoogle() {
-    $('#google-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true;
+    $('#google-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#subs-panel').hidden = true;
     return api('/google/status').then(function (s) {
       var text;
       if (!s.configured) text = 'Not set up yet (Ryan needs to add the Google client keys).';

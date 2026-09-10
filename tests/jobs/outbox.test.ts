@@ -5,6 +5,7 @@ import { ORDER_PAID_KINDS, counts, enqueueForSessionStatements } from "../../src
 import { clearConnection, saveState } from "../../src/store/google";
 import { loadConfig } from "../../src/config";
 import { FakeGoogle } from "../fakes/google";
+import { RecordingPayments } from "../helpers";
 
 const NOW = new Date("2026-09-08T14:00:00Z");
 const NOW_SEC = Math.floor(NOW.getTime() / 1000);
@@ -18,7 +19,7 @@ async function paidOrder(id: string, session: string) {
   ).bind(id, session).run();
   await env.DB.batch(enqueueForSessionStatements(env.DB, session, ORDER_PAID_KINDS, NOW_SEC));
 }
-const deps = (google: FakeGoogle) => ({ db: env.DB, google, config: cfg, siteUrl: "https://x.test" });
+const deps = (google: FakeGoogle) => ({ db: env.DB, google, payments: new RecordingPayments(), config: cfg, siteUrl: "https://x.test" });
 
 describe("drainOutbox", () => {
   beforeEach(async () => {

@@ -27,7 +27,7 @@
   .wrap{max-width:60rem;margin:0 auto;padding:0 1.5rem}
 
   /* nav */
-  nav{display:flex;justify-content:center;gap:2.5rem;padding:1.5rem 1rem;font-family:var(--display);
+  nav{display:flex;flex-wrap:wrap;justify-content:center;gap:.75rem 2rem;padding:1.5rem 1rem;font-family:var(--display);
     font-size:.95rem;letter-spacing:.22em;text-transform:uppercase}
   nav a{text-decoration:none;color:var(--sepia)}
   nav a:hover{color:var(--ink)}
@@ -118,12 +118,15 @@
   .sizes label:has(input:checked),.days label:has(input:checked){border-color:var(--ink);background:var(--paper-deep)}
   .days label.sold{opacity:.45;cursor:not-allowed;text-decoration:line-through}
   .form-note{font-size:.95rem;color:var(--sepia);margin:.25rem 0 0}
+  .sub-price{margin:-.25rem 0 .25rem;min-height:1.6em}
+  .sub-price span{font-size:1.9rem}
 </style>
 
 </head>
 <body>
 <nav aria-label="Sections">
-  <a href="#services">Services</a>
+  <a href="#services">Menu</a>
+  <a href="#subscribe">Subscribe</a>
   <a href="#about">About</a>
   <a href="#contact">Contact</a>
 </nav>
@@ -179,20 +182,34 @@
   </section>
 
 <section id="subscribe">
-    <p class="eyebrow">Weekly bouquets</p>
-    <h2>Ask about a subscription</h2>
-    <p class="intro">Leave your details and Anthony will get back to you within a day or two to set up your first delivery.</p>
-    <form class="form" id="subscribe-form" action="https://formspree.io/f/mgaevprq" method="POST">
+    <p class="eyebrow">Standing order</p>
+    <h2>A bouquet waiting for you, every week</h2>
+    <p class="intro">Pick a size and how often. You pay monthly, and the link in your confirmation email lets you pause, cancel, or change your card any time. Pickup at the studio for now.</p>
+    <form class="form" id="subscribe-form" novalidate>
+      <fieldset class="full sizes" id="sub-size"><legend>Size</legend></fieldset>
+      <fieldset class="full sizes" id="sub-cadence"><legend>How often</legend></fieldset>
+      <p class="full plan-price sub-price" id="sub-price" aria-live="polite"></p>
+      <fieldset class="full days" id="sub-day"><legend>Which day</legend><p class="form-note" id="sub-day-note">Your first bouquet is the first open one of these at least three days out. Same-week changes go through Anthony.</p></fieldset>
+      <label>Name<input type="text" name="name" required autocomplete="name"></label>
+      <label>Email<input type="email" name="email" required autocomplete="email"></label>
+      <label>Phone <span class="opt">(optional)</span><input type="tel" name="phone" autocomplete="tel"></label>
+      <label class="full">Anything for Anthony? <span class="opt">(colors you love, what to avoid, who it's for)</span><textarea name="note" rows="3" maxlength="400"></textarea></label>
+      <div class="full"><button class="btn" type="submit" id="sub-btn" disabled>Start subscription</button><p class="form-status" role="status" aria-live="polite" id="sub-status"></p></div>
+    </form>
+  </section>
+
+  <section id="inquire">
+    <p class="eyebrow">Something else</p>
+    <h2>Custom arrangements and events</h2>
+    <p class="intro">A dinner table, an entryway, a wedding, a gift that needs a vase. Tell us about it and Anthony will get back to you within a day or two.</p>
+    <form class="form" id="inquiry-form" action="https://formspree.io/f/mgaevprq" method="POST">
       <label>Name<input type="text" name="name" required autocomplete="name"></label>
       <label>Email<input type="email" name="email" required autocomplete="email"></label>
       <label>Phone <span class="opt">(optional)</span><input type="tel" name="phone" autocomplete="tel"></label>
       <label>Town or ZIP<input type="text" name="location" required autocomplete="postal-code"></label>
-      <label class="full">Pickup or delivery?
-        <select name="fulfillment"><option>Pickup</option><option>Delivery</option><option>Not sure yet</option></select>
-      </label>
-      <label class="full">Anything else? <span class="opt">(colors you love, a start date, a gift note)</span><textarea name="message" rows="4"></textarea></label>
+      <label class="full">What are you thinking? <span class="opt">(the occasion, the date, colors you love)</span><textarea name="message" rows="4"></textarea></label>
       <input type="text" name="_gotcha" tabindex="-1" autocomplete="off" style="display:none">
-      <input type="hidden" name="_subject" value="Subscription inquiry — The Bull and Bloom">
+      <input type="hidden" name="_subject" value="Custom inquiry — The Bull and Bloom">
       <div class="full"><button class="btn" type="submit">Send</button><p class="form-status" role="status" aria-live="polite"></p></div>
     </form>
   </section>
@@ -214,14 +231,14 @@
 <footer>© 2026 The Bull and Bloom · Floral Design · thebullandbloom.com</footer>
 <script>
 (function(){
-  var f=document.querySelector('#subscribe-form'); if(!f) return;
+  var f=document.querySelector('#inquiry-form'); if(!f) return;
   var status=f.querySelector('.form-status');
   var configured=f.action.indexOf('FORM_ID')===-1;
   f.addEventListener('submit',function(e){
     e.preventDefault();
     var d=new FormData(f);
     if(!configured){
-      var body='Name: '+d.get('name')+'\nEmail: '+d.get('email')+'\nPhone: '+(d.get('phone')||'')+'\nTown/ZIP: '+d.get('location')+'\nPickup or delivery: '+d.get('fulfillment')+'\n\n'+(d.get('message')||'');
+      var body='Name: '+d.get('name')+'\nEmail: '+d.get('email')+'\nPhone: '+(d.get('phone')||'')+'\nTown/ZIP: '+d.get('location')+'\n\n'+(d.get('message')||'');
       window.location.href='mailto:thebullandbloom@gmail.com?subject='+encodeURIComponent(d.get('_subject'))+'&body='+encodeURIComponent(body);
       status.textContent='Opening your email app with the details filled in.';
       return;

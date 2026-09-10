@@ -1,11 +1,13 @@
 import type { Google } from "../adapters/google";
 import type { StoreConfig } from "../config";
-import { customerEmail, orderEvent, ownerEmail } from "../core/messages";
+import { customerEmail, orderEvent, ownerEmail, ownerSubscriptionEmail, subscriptionCancelledEmail, subscriptionConfirmedEmail } from "../core/messages";
+import type { Payments } from "../adapters/payments";
+import { getSubscriber } from "../store/subscribers";
 import { loadState, type GoogleState } from "../store/google";
 import { getOrder, setCalendarEventId, type Order } from "../store/orders";
-import { backoff, claimItem, CLAIM_LEASE_SECONDS, dueItems, markDone, markFailed, type OutboxItem } from "../store/outbox";
+import { backoff, claimItem, CLAIM_LEASE_SECONDS, dueItems, isSubscriberKind, markDone, markFailed, type OutboxItem } from "../store/outbox";
 
-export interface OutboxDeps { db: D1Database; google: Google; config: StoreConfig; siteUrl: string }
+export interface OutboxDeps { db: D1Database; google: Google; payments: Payments; config: StoreConfig; siteUrl: string }
 export interface DrainResult { status: "skipped" | "ok"; delivered: number; failed: number }
 
 /** Deliver every due outbox row once. Failures are rescheduled with backoff; nothing here throws. */
@@ -51,6 +53,7 @@ export async function drainOutbox(deps: OutboxDeps, now: Date): Promise<DrainRes
 
 /** Returns whether the item was actually delivered (false when dropped because the order no longer qualifies). */
 async function deliver(deps: OutboxDeps, state: GoogleState, item: OutboxItem): Promise<boolean> {
+  if (isSubscriberKind(item.kind)) return deliverSubscriber(deps, item);
   const order = await getOrder(deps.db, item.orderId);
   if (!order || (order.status !== "paid" && order.status !== "done")) {
     console.error(`outbox: order ${item.orderId} is ${order?.status ?? "missing"}; dropping ${item.kind}`);
@@ -60,6 +63,25 @@ async function deliver(deps: OutboxDeps, state: GoogleState, item: OutboxItem): 
     case "calendar_event": await calendarEvent(deps, state, order); return true;
     case "email_customer": await deps.google.sendMail(customerEmail(order, deps.config)); return true;
     case "email_owner": await deps.google.sendMail(ownerEmail(order, deps.config, deps.siteUrl)); return true;
+    default: console.error(`outbox: unknown order kind ${item.kind}`); return false;
+  }
+}
+
+/** Subscription emails: the outbox subject is the subscriber id. */
+async function deliverSubscriber(deps: OutboxDeps, item: OutboxItem): Promise<boolean> {
+  const sub = await getSubscriber(deps.db, item.orderId);
+  if (!sub) { console.error(`outbox: subscriber ${item.orderId} missing; dropping ${item.kind}`); return false; }
+  switch (item.kind) {
+    case "sub_confirmed_customer": {
+      if (sub.status === "cancelled") return false;
+      const portal = await deps.payments.portalLink(sub.stripeCustomerId, `${deps.siteUrl}/`);
+      await deps.google.sendMail(subscriptionConfirmedEmail(sub, deps.config, portal));
+      return true;
+    }
+    case "sub_confirmed_owner": await deps.google.sendMail(ownerSubscriptionEmail(sub, deps.config, deps.siteUrl, "started")); return true;
+    case "sub_cancelled_customer": await deps.google.sendMail(subscriptionCancelledEmail(sub, deps.config)); return true;
+    case "sub_cancelled_owner": await deps.google.sendMail(ownerSubscriptionEmail(sub, deps.config, deps.siteUrl, "cancelled")); return true;
+    default: console.error(`outbox: unknown subscriber kind ${item.kind}`); return false;
   }
 }
 

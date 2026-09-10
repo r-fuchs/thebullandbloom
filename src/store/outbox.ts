@@ -1,5 +1,10 @@
-export type OutboxKind = "calendar_event" | "email_customer" | "email_owner";
+export type OutboxKind =
+  | "calendar_event" | "email_customer" | "email_owner"
+  | "sub_confirmed_customer" | "sub_confirmed_owner" | "sub_cancelled_customer" | "sub_cancelled_owner";
 export const ORDER_PAID_KINDS: readonly OutboxKind[] = ["calendar_event", "email_customer", "email_owner"];
+export const SUB_CONFIRMED_KINDS: readonly OutboxKind[] = ["sub_confirmed_customer", "sub_confirmed_owner"];
+export const SUB_CANCELLED_KINDS: readonly OutboxKind[] = ["sub_cancelled_customer", "sub_cancelled_owner"];
+export const isSubscriberKind = (k: OutboxKind) => k.startsWith("sub_");
 export const MAX_ATTEMPTS = 24;
 /** How long a claimed item's lease lasts before it becomes due again (e.g. a crashed worker mid-delivery). */
 export const CLAIM_LEASE_SECONDS = 300;
@@ -29,6 +34,15 @@ export function enqueueForSessionStatements(
     `INSERT OR IGNORE INTO outbox (id, kind, order_id, created_at, attempts, next_attempt_at)
      SELECT ?1, ?2, id, ?3, 0, ?3 FROM orders WHERE stripe_session_id = ?4 AND status = 'paid'`,
   ).bind(crypto.randomUUID(), kind, now, sessionId));
+}
+
+/** Unconditional rows for a subject that already exists (a materialized order's event, a subscriber's emails). */
+export function enqueueForSubjectStatements(
+  db: D1Database, subjectId: string, kinds: readonly OutboxKind[], now: number,
+): D1PreparedStatement[] {
+  return kinds.map((kind) => db.prepare(
+    "INSERT OR IGNORE INTO outbox (id, kind, order_id, created_at, attempts, next_attempt_at) VALUES (?, ?, ?, ?, 0, ?)",
+  ).bind(crypto.randomUUID(), kind, subjectId, now, now));
 }
 
 export async function dueItems(db: D1Database, now: number, limit = 20): Promise<OutboxItem[]> {

@@ -8,6 +8,10 @@ import { loadDefaults, saveDefaults } from "../store/settings";
 import { getOverrides, putAdminOverride, clearAdminOverride } from "../store/overrides";
 import { countUsed, listOrders, getOrder, setStatus } from "../store/orders";
 import { registerGoogleAdmin } from "./admin-google";
+import { listSubscribers } from "../store/subscribers";
+import { dueDates } from "../core/subscriptions";
+import { addDays, ymdIn } from "../core/time";
+import { loadFlags } from "../jobs/materialize";
 
 const TTL = 30 * 24 * 3600;
 const MAX_DAYS = 62;
@@ -141,6 +145,23 @@ export function adminRoutes(): App {
     if (o.status !== "done") return c.json({ error: `order is ${o.status}` }, 409);
     await setStatus(c.env.DB, o.id, "paid");
     return c.json({ ok: true });
+  });
+
+  // Plan 4: who subscribes, what, and when their next bouquet falls. Pause/cancel live in Stripe's portal (D30 as decided 2026-09-10).
+  r.get("/admin/api/subscribers", async (c) => {
+    const { config, clock } = c.get("services");
+    const today = ymdIn(config.timezone, clock());
+    const subs = await listSubscribers(c.env.DB);
+    const rows = subs.map((s) => {
+      const cadence = config.subscriptions.cadences.find((x) => x.id === s.cadenceId);
+      const next = s.status === "active" && cadence ? dueDates({ anchorDate: s.anchorDate, perMonth: cadence.perMonth, pausedWeeks: s.pausedWeeks }, today, addDays(today, 60))[0] ?? null : null;
+      return {
+        id: s.id, status: s.status, sizeId: s.sizeId, cadenceId: s.cadenceId, cadenceName: cadence?.name ?? s.cadenceId, weekday: s.weekday,
+        fulfillment: s.fulfillment, anchorDate: s.anchorDate, nextDate: next, customerName: s.customerName, customerEmail: s.customerEmail,
+        customerPhone: s.customerPhone, note: s.note, createdAt: s.createdAt,
+      };
+    });
+    return c.json({ subscribers: rows, flags: await loadFlags(c.env.DB) });
   });
 
   registerGoogleAdmin(r);

@@ -29,17 +29,17 @@
 | D26 | Cadence `twice-monthly` means every other week from the anchor date (weeks 1, 3, 5 …), not "1st and 15th". | Fixed calendar dates; first and third occurrence of the weekday | A florist's week is the unit; every-other-week keeps the same weekday and never lands twice in eight days. Stripe still bills monthly. |
 | D27 | Stripe subscription prices are ad-hoc `price_data` (monthly, USD, amount from config) on Checkout, keyed by `metadata.cell = "<sizeId>/<cadenceId>"`. | Pre-created Products and Prices in the dashboard | Zero dashboard upkeep: a config change is a deploy, and Anthony never touches Stripe. Stripe creates the Product once per distinct amount. |
 | D28 | The subscriber row is created from `checkout.session.completed` (mode `subscription`) using `session.subscription` and `session.customer`, and status thereafter follows `customer.subscription.updated` / `.deleted`. | Create on `customer.subscription.created` | The session carries our metadata (cell, weekday, name, phone) and the customer email in one event; `subscription.created` can arrive before the session event and carries none of it. |
-| D29 | Materialization runs nightly (03:15 Eastern) 21 days ahead and is idempotent on `(subscriber_id, due_date)`; a materialized order stays even if the subscription cancels later that week (Anthony decides in admin). | Materialize on signup only; materialize 14 days | 21 days keeps three weeks visible on the calendar for planning; idempotency by unique index means the job can run any number of times. |
-| D30 | Pause is a per-week skip Anthony sets in admin (`paused_weeks_json`), plus Stripe's own pause/cancel via the portal, which stops billing and materialization. No customer self-serve "skip a week" in v1. | Portal-only; customer skip UI | Stripe's portal cannot skip a single delivery. Spec §8 already gives admin a per-week pause. |
+| D29 | Materialization runs on the existing 15-minute cron (cheap, idempotent; as built, not nightly) 21 days ahead and is idempotent on `(subscriber_id, due_date)`; a materialized order stays even if the subscription cancels later that week (Anthony decides in admin). | Materialize on signup only; materialize 14 days | 21 days keeps three weeks visible on the calendar for planning; idempotency by unique index means the job can run any number of times. |
+| D30 | Pause and cancel happen only through Stripe's portal (which stops billing and materialization). No per-week skips, by admin or customer, in v1. **Ryan, 2026-09-10: no by-hand skips.** The `paused_weeks_json` column stays for a later version. | Admin per-week skip; customer skip UI | Stripe's portal cannot skip a single delivery, and a by-hand skip is a step Anthony would have to remember (spec §1's test). |
 | D31 | Signup confirmation email carries the portal link; each materialized bouquet gets a calendar event but **no** email (Anthony sees it on the calendar; the customer knows their cadence). | Email every week | Spec §2 item 10 lists confirmations and courier tracking only; weekly emails are noise for a standing order. |
 
 ## Pending decisions for Ryan (answer before Task 6)
 
 1. **Prices per cell.** ANSWERED 2026-09-10: the six numbers in `store.config.json` are approved as-is (Posy $185/$100, Bouquet $290/$155, Statement $460/$245 for weekly/twice-monthly). One-time prices remain SAMPLE.
-2. **Anchor rule.** First bouquet is the first open occurrence of the chosen weekday at least 3 days after signup (proposed). OK, or a different lead time?
-3. **Twice-monthly meaning.** D26 (every other week). Veto if Anthony thinks of it as fixed dates.
-4. **Storefront placement.** Proposed: the subscription grid replaces the "Ask about a subscription" inquiry form; the inquiry form stays for custom arrangements under Contact. Or keep both.
-5. **Cancellation copy.** Portal link text and the "we'll miss you" line in the cancellation email (Task 8 drafts them; Ryan approves like Plan 2's).
+2. **Anchor rule.** ANSWERED 2026-09-10: yes, first open occurrence of the weekday at least three days after signup.
+3. **Twice-monthly meaning.** ANSWERED 2026-09-10: D26 stands, every other week.
+4. **Storefront placement.** ANSWERED 2026-09-10: the grid replaces the inquiry form; the inquiry form now sits in its own "Custom arrangements and events" section above Contact.
+5. **Cancellation copy.** ANSWERED 2026-09-10: Ryan approved both drafts as written; the confirmation says "pause, cancel, or change your card" (no skips, D30).
 
 ---
 
@@ -88,38 +88,39 @@ tests/…                                 one test file per module above
 - [x] `WebhookEvent` gains `subscription_started` (from a mode-subscription `checkout.session.completed`), `subscription_updated` (status), `subscription_deleted`.
 - [x] `RecordingPayments` in `tests/helpers.ts` records these; `tests/adapters/stripe.test.ts` covers the event mapping with recorded fixtures.
 
-### Task 6: Signup endpoint
-- [ ] `POST /api/subscribe { sizeId, cadenceId, weekday, customer: { name, email, phone? }, note? }` → validates against the grid and `openWeekdays`, creates the Checkout session with metadata, returns `{ url }`. No D1 row yet (D28).
-- [ ] `GET /api/config` adds `subscriptions: { cadences, cells }` and `openWeekdays` so the storefront can render the grid.
-- [ ] Tests: unknown cell 400, closed weekday 400, happy path records metadata.
+### Task 6 — DONE 2026-09-10: Signup endpoint
+- [x] `POST /api/subscribe { sizeId, cadenceId, weekday, customer: { name, email, phone? }, note? }` → validates against the grid and `openWeekdays`, creates the Checkout session with metadata, returns `{ url }`. No D1 row yet (D28).
+- [x] `GET /api/config` adds `subscriptions: { cadences, cells }` and `openWeekdays` so the storefront can render the grid.
+- [x] Tests: unknown cell 400, closed weekday 400, happy path records metadata.
 
-### Task 7: Webhooks
-- [ ] `subscription_started`: insert `subscribers` (status active, anchor via Task 3, customer fields from the session), enqueue a `subscription_confirmed` outbox row (customer email with portal link, owner copy), then materialize this subscriber immediately (Task 9's function) so the first bouquets appear the same minute.
-- [ ] `subscription_updated`: mirror `active`/`paused` (Stripe `pause_collection`) and `past_due` → `paused`.
-- [ ] `subscription_deleted`: status `cancelled`; delete future materialized orders for that subscriber dated after today; enqueue the cancellation email.
-- [ ] Idempotent on `stripe_subscription_id`. Tests for each event and for a replay.
+### Task 7 — DONE 2026-09-10: Webhooks
+- [x] `subscription_started`: insert `subscribers` (status active, anchor via Task 3, customer fields from the session), enqueue a `subscription_confirmed` outbox row (customer email with portal link, owner copy), then materialize this subscriber immediately (Task 9's function) so the first bouquets appear the same minute.
+- [x] `subscription_updated`: mirror `active`/`paused` (Stripe `pause_collection`) and `past_due` → `paused`.
+- [x] `subscription_deleted`: status `cancelled`; delete future materialized orders for that subscriber dated after today; enqueue the cancellation email.
+- [x] Idempotent on `stripe_subscription_id`. Tests for each event and for a replay.
 
-### Task 8: Messages
-- [ ] `subscriptionConfirmedEmail`, `subscriptionCancelledEmail`, `ownerSubscriptionEmail` in `src/core/messages.ts`; outbox kinds added in `src/store/outbox.ts` and delivered in `src/jobs/outbox.ts`. Materialized bouquets reuse `orderEvent` with the title "Bouquet · Pat Smith · pickup (subscription)".
-- [ ] Tests render each template once against a fixed subscriber.
+### Task 8 — DONE 2026-09-10: Messages
+- [x] `subscriptionConfirmedEmail`, `subscriptionCancelledEmail`, `ownerSubscriptionEmail` in `src/core/messages.ts`; outbox kinds added in `src/store/outbox.ts` and delivered in `src/jobs/outbox.ts`. Materialized bouquets reuse `orderEvent` with the title "Bouquet · Pat Smith · pickup (subscription)".
+- [x] Tests render each template once against a fixed subscriber.
 
-### Task 9: Materialization job
-- [ ] `materializeSubscriptions(deps, now)`: for each active subscriber, for each due date in `[today, today + 21d]` after `shiftForClosed`, insert a `paid` order with `source = 'subscription'`, `bouquet_cents = 0`, and an outbox calendar-event row, ignoring unique-index conflicts; skipped weeks are written to `settings` key `subscriptions.flags` for admin.
-- [ ] `src/scheduled.ts`: run it on the 03:15 ET cron tick (`wrangler.toml` gains `"15 7 * * *"`; the 15-minute cron keeps doing its jobs).
-- [ ] Tests: idempotent re-run, closed-day shift, whole-week skip flag, cancelled subscriber untouched.
+### Task 9 — DONE 2026-09-10: Materialization job
+- [x] `materializeSubscriptions(deps, now)`: for each active subscriber, for each due date in `[today, today + 21d]` after `shiftForClosed`, insert a `paid` order with `source = 'subscription'`, `bouquet_cents = 0`, and an outbox calendar-event row, ignoring unique-index conflicts; skipped weeks are written to `settings` key `subscriptions.flags` for admin.
+- [x] `src/scheduled.ts`: run it on the 03:15 ET cron tick (`wrangler.toml` gains `"15 7 * * *"`; the 15-minute cron keeps doing its jobs).
+- [x] Tests: idempotent re-run, closed-day shift, whole-week skip flag, cancelled subscriber untouched.
 
 ### Task 10: Admin
-- [ ] `GET /admin/api/subscribers` (active first), `PUT /admin/api/subscribers/:id/pause { week, paused }` (rewrites that week's materialized order: delete when pausing, materialize when unpausing), `GET /admin/api/subscribers/flags`.
-- [ ] Admin page: Subscribers button → list with size, cadence, weekday, next bouquet, portal status, per-week pause toggles for the next 4 weeks; flagged skipped weeks at the top in the closed-day pink.
-- [ ] Day panel already shows `(subscription)` on orders; make sure Mark done works for them (it does: status `paid`).
+- [x] `GET /admin/api/subscribers` (active first, with next bouquet date and skipped-week flags). No pause endpoint (D30 as decided).
+- [x] Admin page: Subscribers button → list with size, cadence, weekday, next bouquet, status; skipped weeks flagged at the top in the closed-day pink.
+- [x] Day panel already shows `(subscription)` on orders; make sure Mark done works for them (it does: status `paid`).
 - [ ] Stripe dashboard (one-time, Ryan): enable the customer portal with cancel and pause allowed, update card on, return URL the site.
 
-### Task 11: Storefront
-- [ ] Replace the inquiry form (pending decision 4) with a grid: one card per cadence with the three sizes and monthly prices, a weekday picker limited to `openWeekdays`, name/email/phone, note, "Start subscription" → Stripe.
-- [ ] `thanks.html` reads `?subscription=1` and says the first bouquet date will be in the email.
-- [ ] Phone-size check with Playwright as on the 2026-09-10 road test (empty-field validation, grid renders from config).
+### Task 11 — DONE 2026-09-10: Storefront
+- [x] Replace the inquiry form (pending decision 4) with a grid: one card per cadence with the three sizes and monthly prices, a weekday picker limited to `openWeekdays`, name/email/phone, note, "Start subscription" → Stripe.
+- [x] `thanks.html` reads `?subscription=1` and says the first bouquet date will be in the email.
+- [x] Phone-size check with Playwright as on the 2026-09-10 road test (empty-field validation, grid renders from config).
 
 ### Task 12: Preview deploy and acceptance
+- [x] Deployed to the preview from GitHub Actions on 2026-09-10 (the code path; acceptance below is still open).
 - [ ] Stripe dashboard (Ryan): add `customer.subscription.updated` and `customer.subscription.deleted` to the webhook endpoint's events, or re-run `scripts/stripe-setup.sh` after extending its event list.
 - [ ] Deploy through the GitHub Actions workflow (`.github/workflows/deploy.yml`, added 2026-09-10) to the preview URL.
 - [ ] Stripe sandbox: sign up weekly Bouquet, Tuesday. Expect: subscriber row active, three orders materialized on the next three Tuesdays (+1 on each in admin), calendar events on the Orders calendar, confirmation email with a working portal link. Cancel from the portal: future orders removed, cancellation email arrives. Close one of those Tuesdays from Anthony's calendar: the bouquet moves to Wednesday overnight; close the whole week: flagged in admin.
