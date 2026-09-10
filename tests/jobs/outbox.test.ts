@@ -109,4 +109,14 @@ describe("drainOutbox", () => {
     expect(await counts(env.DB)).toEqual({ pending: 0, failed: 0 });
     expect(r1.delivered + r2.delivered).toBe(3);
   });
+
+  it("leaves rows of a kind this build does not know untouched", async () => {
+    await saveState(env.DB, STATE);
+    await env.DB.prepare("INSERT INTO outbox (id, kind, order_id, created_at, attempts, next_attempt_at) VALUES ('u1', 'email_tracking', 'someorder', 1, 0, 1)").run();
+    const g = new FakeGoogle();
+    expect(await drainOutbox(deps(g), NOW)).toEqual({ status: "ok", delivered: 0, failed: 0 });
+    const row = await env.DB.prepare("SELECT attempts, next_attempt_at, done_at FROM outbox WHERE id = 'u1'").first<any>();
+    expect(row).toEqual({ attempts: 0, next_attempt_at: 1, done_at: null });
+    expect(g.sent).toHaveLength(0);
+  });
 });

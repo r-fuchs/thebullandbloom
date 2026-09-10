@@ -5,7 +5,7 @@ import type { Payments } from "../adapters/payments";
 import { getSubscriber } from "../store/subscribers";
 import { loadState, type GoogleState } from "../store/google";
 import { getOrder, setCalendarEventId, type Order } from "../store/orders";
-import { backoff, claimItem, CLAIM_LEASE_SECONDS, dueItems, isSubscriberKind, markDone, markFailed, type OutboxItem } from "../store/outbox";
+import { backoff, claimItem, CLAIM_LEASE_SECONDS, dueItems, isSubscriberKind, KNOWN_KINDS, markDone, markFailed, type OutboxItem } from "../store/outbox";
 
 export interface OutboxDeps { db: D1Database; google: Google; payments: Payments; config: StoreConfig; siteUrl: string }
 export interface DrainResult { status: "skipped" | "ok"; delivered: number; failed: number }
@@ -21,6 +21,9 @@ export async function drainOutbox(deps: OutboxDeps, now: Date): Promise<DrainRes
     // near-simultaneous checkouts) racing on the same SELECT must not both send.
     // A lost claim means someone else has it — neither delivered nor failed here.
     if (item.nextAttemptAt === null) continue;
+    // A kind this build does not know (written by other code against the same database) is left
+    // exactly as it is for whichever build owns it; marking it done would silently lose a message.
+    if (!KNOWN_KINDS.includes(item.kind)) { console.error(`outbox: leaving unknown kind ${item.kind} (${item.id}) alone`); continue; }
     if (!(await claimItem(deps.db, item.id, item.nextAttemptAt, nowSec + CLAIM_LEASE_SECONDS))) continue;
 
     let sent: boolean;

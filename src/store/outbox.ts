@@ -4,6 +4,7 @@ export type OutboxKind =
 export const ORDER_PAID_KINDS: readonly OutboxKind[] = ["calendar_event", "email_customer", "email_owner"];
 export const SUB_CONFIRMED_KINDS: readonly OutboxKind[] = ["sub_confirmed_customer", "sub_confirmed_owner"];
 export const SUB_CANCELLED_KINDS: readonly OutboxKind[] = ["sub_cancelled_customer", "sub_cancelled_owner"];
+export const KNOWN_KINDS: readonly string[] = [...ORDER_PAID_KINDS, "sub_confirmed_customer", "sub_confirmed_owner", "sub_cancelled_customer", "sub_cancelled_owner"];
 export const isSubscriberKind = (k: OutboxKind) => k.startsWith("sub_");
 export const MAX_ATTEMPTS = 24;
 /** How long a claimed item's lease lasts before it becomes due again (e.g. a crashed worker mid-delivery). */
