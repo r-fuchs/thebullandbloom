@@ -2696,7 +2696,7 @@ scripts/google-setup.sh
 
 Migration order matters: the script applies `0002_outbox.sql` before deploying, so a webhook arriving mid-deploy never hits code that expects a table the database lacks.
 
-- [ ] **Step 4: Connect and check D22**
+- [x] **Step 4: Connect and check D22** (done 2026-09-09; retry path re-run 2026-09-10, see spec §8)
 
 In the preview admin: Google → Connect Google, signed in as thebullandbloom@gmail.com. Expected: consent screen (with the unverified interstitial), then `/admin/?google=connected` and the panel reading "Connected as thebullandbloom@gmail.com". In Google Calendar for that account, two new calendars exist: "Bull and Bloom: Closed" and "Bull and Bloom: Orders".
 

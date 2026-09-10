@@ -57,6 +57,22 @@ describe("admin google", () => {
     expect(status).toMatchObject({ connected: true, account: "thebullandbloom@gmail.com", calendars: { closed: "cal_1", orders: "cal_2" } });
   });
 
+  it("delivers messages queued while disconnected as soon as the callback reconnects", async () => {
+    await env.DB.prepare(
+      `INSERT OR REPLACE INTO orders (id, created_at, status, date, size_id, fulfillment, customer_name, customer_email, bouquet_cents, stripe_session_id)
+       VALUES ('ag2', 1, 'paid', '2026-09-29', 'bouquet', 'pickup', 'Ryan', 'ryan@example.com', 8500, 'cs_ag2')`).run();
+    await env.DB.batch(enqueueForSessionStatements(env.DB, "cs_ag2", ORDER_PAID_KINDS, 1));
+    const { fetch, google } = testApp(NOW);
+    const api = await login(fetch);
+    expect((await (await api("/admin/api/google/status")).json()).outbox).toEqual({ pending: 3, failed: 0 });
+    const state = new URL((await api("/admin/api/google/start")).headers.get("location")!).searchParams.get("state")!;
+    const cb = await fetch(`/admin/google/callback?code=good-code&state=${encodeURIComponent(state)}`, { redirect: "manual" });
+    expect(cb.headers.get("location")).toBe("/admin/?google=connected");
+    expect(await counts(env.DB)).toEqual({ pending: 0, failed: 0 });
+    expect(google.sent).toHaveLength(2);
+    expect(google.inserted).toEqual([expect.objectContaining({ calendarId: "cal_2" })]);
+  });
+
   it("rejects a forged or expired state and reports denial", async () => {
     const { fetch } = testApp(NOW);
     expect((await fetch("/admin/google/callback?code=good-code&state=999.forged", { redirect: "manual" })).status).toBe(400);

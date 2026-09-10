@@ -186,14 +186,16 @@
       if (!s.configured) text = 'Not set up yet (Ryan needs to add the Google client keys).';
       else if (!s.connected) text = 'Not connected. Connect while signed in to Google as the shop account.';
       else text = 'Connected as ' + s.account + '. Closed calendar last checked ' + ago(s.lastSyncAt) +
-        (s.lastSyncError ? ' (last check failed: ' + s.lastSyncError + ')' : '') + '.' +
-        (s.outbox.pending ? ' ' + s.outbox.pending + ' message(s) waiting to send.' : '') +
+        (s.lastSyncError ? ' (last check failed: ' + s.lastSyncError + ')' : '') + '.';
+      // Queue counts show in every state: while disconnected they are the messages that will go out on reconnect.
+      text += (s.outbox.pending ? ' ' + s.outbox.pending + ' message(s) waiting to send' + (s.connected ? '.' : ' once Google is connected.') : '') +
         (s.outbox.failed ? ' ' + s.outbox.failed + ' message(s) could not be sent.' : '');
       $('#g-summary').textContent = text;
       $('#g-connect').hidden = !(s.configured && !s.connected);
       $('#g-sync').hidden = !s.connected;
       $('#g-disconnect').hidden = !s.connected;
-      $('#g-retry').hidden = !(s.connected && s.outbox.failed > 0);
+      $('#g-retry').hidden = !(s.connected && (s.outbox.failed > 0 || s.outbox.pending > 0));
+      $('#g-retry').textContent = s.outbox.failed > 0 ? 'Retry waiting messages' : 'Send waiting messages now';
     }).catch(function (e) {
       if (e.message === 'unauthorized') return;
       $('#g-summary').textContent = 'Could not load the Google status: ' + e.message;

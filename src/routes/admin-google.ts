@@ -4,6 +4,7 @@ import { clearConnection, loadConnection, loadState, loadSync, saveConnection, s
 import { counts, retryFailed } from "../store/outbox";
 import { syncBlackouts } from "../jobs/blackouts";
 import { drainOutbox } from "../jobs/outbox";
+import { background } from "./background";
 
 const STATE_TTL = 600; // seconds a consent round-trip may take
 const stateSecret = (adminSecret: string) => `${adminSecret}:oauth-state`;
@@ -51,6 +52,9 @@ export function registerGoogleAdmin(r: App): void {
       const closedCalendarId = await google.ensureCalendar(config.calendars.closed, config.timezone);
       const ordersCalendarId = await google.ensureCalendar(config.calendars.orders, config.timezone);
       await saveState(c.env.DB, { account: conn.account, closedCalendarId, ordersCalendarId, connectedAt: nowSec });
+      // Anything queued while disconnected goes out now rather than on the next 15-minute cron
+      // (found on the 2026-09-10 road test: a reconnect left three messages waiting with no way to send them).
+      await background(c, drainOutbox({ db: c.env.DB, google, config, siteUrl: c.env.SITE_URL }, clock()));
       return c.redirect("/admin/?google=connected", 302);
     } catch (e) {
       console.error("google: connect failed", e);
