@@ -49,7 +49,7 @@
     <div class="row">
       <button id="prev">‹</button><strong id="month-label"></strong><button id="next">›</button>
       <span style="flex:1"></span>
-      <button id="subs-btn">Subscribers</button><button id="ig-btn">Instagram</button><button id="settings-btn">Settings</button><button id="google-btn">Google</button><button id="logout">Sign out</button>
+      <button id="subs-btn">Subscribers</button><button id="ig-btn">Photos</button><button id="settings-btn">Settings</button><button id="google-btn">Google</button><button id="logout">Sign out</button>
     </div>
     <div class="grid" id="grid"></div>
     <p class="status">Tap a day. Number is one-time orders / cap; “+n” is subscription bouquets. Pink = closed, yellow = full.</p>
@@ -76,10 +76,10 @@
     </div>
 
     <div class="panel" id="ig-panel" hidden>
-      <h2 style="margin:0 0 .5rem;font-size:1.1rem;font-weight:500">Instagram photos</h2>
-      <p id="ig-summary" class="status"></p>
+      <h2 style="margin:0 0 .5rem;font-size:1.1rem;font-weight:500">Photos on the site</h2>
       <div class="row">
-        <label class="status">Add photos from this phone: <input type="file" id="ph-files" accept="image/*" multiple></label>
+        <button id="ph-add" style="background:var(--ink);color:#fff;border-color:var(--ink);font-size:1.05rem;padding:.7rem 1.2rem">Add photos</button>
+        <input type="file" id="ph-files" accept="image/*" multiple hidden>
         <span class="status" id="ph-status"></span>
       </div>
       <div class="row">
@@ -93,6 +93,7 @@
         <div class="row"><input type="password" id="ig-token" placeholder="Paste the access token" style="flex:1;min-width:12rem" autocomplete="off"><button id="ig-token-save">Use this token</button></div>
       </div>
       <div id="ig-posts" class="ig-grid"></div>
+      <p id="ig-summary" class="status"></p>
       <p class="status">The site shows these photos in a strip under the logo: ones you add from your phone, plus your latest Instagram posts once that is connected (checked every six hours). Tap a photo to hide it from the site or show it again.</p>
     </div>
 
@@ -235,7 +236,7 @@
       $('#ig-refresh').hidden = !s.connected;
       $('#ig-disconnect').hidden = !s.connected;
       $('#ig-token-box').hidden = !(s.configured && !s.connected);
-      $('#ph-files').disabled = !s.storage;
+      $('#ph-add').disabled = !s.storage;
       var grid = $('#ig-posts'); grid.innerHTML = '';
       s.posts.forEach(function (p) {
         var b = document.createElement('button'); b.type = 'button'; b.className = p.hidden ? 'hidden-post' : ''; b.title = p.hidden ? 'Show on the site' : 'Hide from the site';
@@ -273,6 +274,7 @@
       img.src = url;
     });
   }
+  $('#ph-add').addEventListener('click', function () { $('#ph-files').click(); });
   $('#ph-files').addEventListener('change', function () {
     var files = Array.prototype.slice.call(this.files); if (!files.length) return;
     var done = 0; $('#ph-status').textContent = 'Uploading 0 of ' + files.length + '…';
