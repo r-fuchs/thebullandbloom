@@ -7,13 +7,14 @@ import { FakeInstagram, RECORDED_FEED } from "../fakes/instagram";
 const NOW = new Date("2026-09-10T14:00:00Z");
 const NOW_SEC = Math.floor(NOW.getTime() / 1000);
 const token = { accessToken: "ig_long_fake", expiresAt: NOW_SEC + 60 * 86400, userId: "1784", username: "thebullandbloom" };
-const deps = (ig: FakeInstagram) => ({ db: env.DB, media: env.MEDIA, instagram: ig, adminSecret: env.ADMIN_SECRET });
+const MEDIA = env.MEDIA!; // always bound in tests (vitest.config r2Buckets)
+const deps = (ig: FakeInstagram) => ({ db: env.DB, media: MEDIA, instagram: ig, adminSecret: env.ADMIN_SECRET });
 
 describe("refreshFeed", () => {
   beforeEach(async () => {
     await clearIgConnection(env.DB);
     await env.DB.prepare("DELETE FROM ig_posts").run();
-    for (const k of (await env.MEDIA.list()).objects) await env.MEDIA.delete(k.key);
+    for (const k of (await MEDIA.list()).objects) await MEDIA.delete(k.key);
   });
 
   it("picks the still for videos and the image otherwise", () => {
@@ -32,8 +33,8 @@ describe("refreshFeed", () => {
     expect(await refreshFeed(deps(ig), NOW)).toEqual({ status: "ok", added: 3 });
     const posts = await listPosts(env.DB, false);
     expect(posts.map((p) => p.igId)).toEqual(["18001", "18002", "18003"]);
-    expect((await env.MEDIA.get("ig/18002"))!.httpMetadata?.contentType).toBe("image/jpeg");
-    expect(await (await env.MEDIA.get("ig/18002"))!.text()).toBe("img:https://cdn.test/18002-thumb.jpg");
+    expect((await MEDIA.get("ig/18002"))!.httpMetadata?.contentType).toBe("image/jpeg");
+    expect(await (await MEDIA.get("ig/18002"))!.text()).toBe("img:https://cdn.test/18002-thumb.jpg");
     expect(await loadIgSync(env.DB)).toEqual({ at: NOW_SEC, error: null });
     // 15 minutes later: not due; six hours later with a new post: one more
     expect(await refreshFeed(deps(ig), new Date(NOW.getTime() + 900_000))).toEqual({ status: "not_due" });

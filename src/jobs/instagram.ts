@@ -5,7 +5,7 @@ export const FEED_LIMIT = 24;
 export const REFRESH_EVERY_SECONDS = 6 * 3600;        // spec §4.4: every six hours
 export const TOKEN_RENEW_BEFORE_SECONDS = 14 * 86400; // renew a long-lived token in its last two weeks
 
-export interface InstagramDeps { db: D1Database; media: R2Bucket; instagram: Instagram; adminSecret: string }
+export interface InstagramDeps { db: D1Database; media: R2Bucket | undefined; instagram: Instagram; adminSecret: string }
 export type FeedResult = { status: "skipped" | "not_due" } | { status: "ok"; added: number } | { status: "error"; error: string };
 
 /** The image we keep for a post: the still for videos, the first image for carousels and photos (§4.4). */
@@ -18,6 +18,7 @@ export const mediaKeyFor = (igId: string) => `ig/${igId}`;
 /** Runs on the 15-minute cron; does the work only when six hours have passed (or `force`). Never throws. */
 export async function refreshFeed(deps: InstagramDeps, now: Date, force = false): Promise<FeedResult> {
   const nowSec = Math.floor(now.getTime() / 1000);
+  if (!deps.media) return { status: "skipped" }; // no bucket bound yet: nothing to cache into
   let token = await loadIgToken(deps.db, deps.adminSecret);
   if (!token) return { status: "skipped" };
   const sync = await loadIgSync(deps.db);
@@ -33,7 +34,7 @@ export async function refreshFeed(deps: InstagramDeps, now: Date, force = false)
       if (!url) continue;
       const img = await deps.instagram.fetchImage(url);
       const key = mediaKeyFor(m.id);
-      await deps.media.put(key, img.bytes, { httpMetadata: { contentType: img.contentType, cacheControl: "public, max-age=31536000, immutable" } });
+      await deps.media!.put(key, img.bytes, { httpMetadata: { contentType: img.contentType, cacheControl: "public, max-age=31536000, immutable" } });
       await insertPost(deps.db, { igId: m.id, permalink: m.permalink, caption: m.caption ?? null, mediaKey: key, contentType: img.contentType, takenAt: m.timestamp, fetchedAt: nowSec });
       added++;
     }

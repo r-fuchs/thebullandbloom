@@ -216,7 +216,7 @@
     $('#ig-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true;
     return api('/instagram/status').then(function (s) {
       var text;
-      if (!s.configured) text = 'Not set up yet (Ryan needs to add the Instagram app keys).';
+      if (!s.configured) text = !s.storage ? 'Not set up yet (Ryan needs to enable R2 storage on Cloudflare and redeploy).' : 'Not set up yet (Ryan needs to add the Instagram app keys).';
       else if (!s.connected) text = 'Not connected. Connect while signed in to Instagram as @thebullandbloom.';
       else text = 'Connected as @' + s.username + '. Last checked ' + ago(s.lastSyncAt) + (s.lastSyncError ? ' (last check failed: ' + s.lastSyncError + ')' : '') + '. ' + s.posts.length + ' post(s) cached.';
       $('#ig-summary').textContent = text;

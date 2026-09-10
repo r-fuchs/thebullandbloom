@@ -13,6 +13,7 @@ export default defineConfig(async () => {
       cloudflareTest({
         wrangler: { configPath: "./wrangler.toml" },
         miniflare: {
+          r2Buckets: ["MEDIA"], // the real binding lives in wrangler.toml; tests always get an in-memory bucket
           bindings: {
             TEST_MIGRATIONS: migrations,
             STRIPE_SECRET_KEY: "sk_test_fake",

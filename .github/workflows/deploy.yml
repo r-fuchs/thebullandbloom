@@ -45,8 +45,16 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm run typecheck
       - run: npm test
-      - name: Ensure the media bucket exists
-        run: npx wrangler r2 bucket list 2>/dev/null | grep -q "bullandbloom-media" || npx wrangler r2 bucket create bullandbloom-media
+      - name: Ensure the media bucket exists (or deploy without it until R2 is enabled)
+        id: r2
+        run: |
+          if npx wrangler r2 bucket list 2>/dev/null | grep -q "bullandbloom-media" || npx wrangler r2 bucket create bullandbloom-media; then
+            echo "config=wrangler.toml" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::R2 is not enabled on this Cloudflare account yet (Dashboard → R2 → enable). Deploying without the media bucket; Instagram stays 'not set up'."
+            awk 'BEGIN{skip=0} /^\[\[r2_buckets\]\]/{skip=1; next} skip && /^\[/{skip=0} !skip{print}' wrangler.toml > wrangler.ci.toml
+            echo "config=wrangler.ci.toml" >> "$GITHUB_OUTPUT"
+          fi
       - name: Upload Instagram app keys when set
         env:
           IG_ID: ${{ secrets.INSTAGRAM_APP_ID }}
@@ -59,13 +67,14 @@ jobs:
             echo "no Instagram app keys in repository secrets; skipping"
           fi
       - name: Apply D1 migrations
-        run: npx wrangler d1 migrations apply bullandbloom --remote
+        run: npx wrangler d1 migrations apply bullandbloom --remote --config "${{ steps.r2.outputs.config }}"
       - name: Deploy
         run: |
+          CFG="${{ steps.r2.outputs.config }}"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            npx wrangler deploy --var "SITE_URL:${{ github.event.inputs.site_url }}"
+            npx wrangler deploy --config "$CFG" --var "SITE_URL:${{ github.event.inputs.site_url }}"
           else
-            npx wrangler deploy
+            npx wrangler deploy --config "$CFG"
           fi
       - name: Check the deployed Worker
         run: |

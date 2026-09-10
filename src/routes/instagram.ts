@@ -19,7 +19,7 @@ export function instagramPublic(r: App): void {
   r.get("/media/ig/:id", async (c) => {
     const post = await getPost(c.env.DB, c.req.param("id"));
     if (!post) return c.text("not found", 404);
-    const obj = await c.env.MEDIA.get(post.mediaKey);
+    const obj = c.env.MEDIA ? await c.env.MEDIA.get(post.mediaKey) : null;
     if (!obj) return c.text("not found", 404);
     return new Response(obj.body, { headers: { "content-type": post.contentType, "cache-control": "public, max-age=31536000, immutable", etag: obj.httpEtag } });
   });
@@ -33,13 +33,13 @@ export function registerInstagramAdmin(r: App): void {
     const { instagram } = c.get("services");
     const [token, sync, posts] = await Promise.all([loadIgToken(c.env.DB, c.env.ADMIN_SECRET), loadIgSync(c.env.DB), listPosts(c.env.DB, true, 60)]);
     return c.json({
-      configured: instagram.configured(), connected: token !== null, username: token?.username ?? null, tokenExpiresAt: token?.expiresAt ?? null,
+      configured: instagram.configured() && Boolean(c.env.MEDIA), storage: Boolean(c.env.MEDIA), connected: token !== null, username: token?.username ?? null, tokenExpiresAt: token?.expiresAt ?? null,
       lastSyncAt: sync.at, lastSyncError: sync.error, posts: posts.map(publicPost),
     });
   });
   r.get("/admin/api/instagram/start", async (c) => {
     const { instagram, clock } = c.get("services");
-    if (!instagram.configured()) return c.json({ error: "instagram_not_configured" }, 503);
+    if (!instagram.configured() || !c.env.MEDIA) return c.json({ error: "instagram_not_configured" }, 503);
     const nowSec = Math.floor(clock().getTime() / 1000);
     const state = await makeSession(stateSecret(c.env.ADMIN_SECRET), nowSec, STATE_TTL);
     return c.redirect(instagram.authUrl(state, redirectUri(c.env.SITE_URL)), 302);

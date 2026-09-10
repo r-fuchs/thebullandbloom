@@ -57,7 +57,7 @@ describe("instagram routes", () => {
   it("hides a post from the feed but keeps it in admin, and disconnects", async () => {
     await saveIgToken(env.DB, env.ADMIN_SECRET, token);
     const { fetch, instagram } = testApp(NOW);
-    await refreshFeed({ db: env.DB, media: env.MEDIA, instagram, adminSecret: env.ADMIN_SECRET }, NOW, true);
+    await refreshFeed({ db: env.DB, media: env.MEDIA!, instagram, adminSecret: env.ADMIN_SECRET }, NOW, true);
     const api = await login(fetch);
     expect((await api("/admin/api/instagram/posts/18002", { method: "PUT", body: JSON.stringify({ hidden: true }) })).status).toBe(200);
     expect((await api("/admin/api/instagram/posts/nope", { method: "PUT", body: JSON.stringify({ hidden: true }) })).status).toBe(404);
