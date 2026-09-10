@@ -13,19 +13,19 @@
     {
       "id": "posy",
       "name": "Posy",
-      "description": "A small hand-tied bunch. SAMPLE.",
+      "description": "A small hand-tied bunch.",
       "priceCents": 5500
     },
     {
       "id": "bouquet",
       "name": "Bouquet",
-      "description": "The classic 10–12 stem bouquet. SAMPLE.",
+      "description": "The classic 10–12 stem bouquet.",
       "priceCents": 8500
     },
     {
       "id": "statement",
       "name": "Statement",
-      "description": "A generous, showpiece bouquet. SAMPLE.",
+      "description": "A generous, showpiece bouquet.",
       "priceCents": 13500
     }
   ],
@@ -86,6 +86,6 @@
         "priceCents": 24500
       }
     ],
-    "note": "Monthly prices approved by Ryan and Anthony 2026-09-10. One-time size prices above are still SAMPLE."
+    "note": "Monthly prices approved by Ryan and Anthony 2026-09-10. One-time prices ($55 / $85 / $135) approved by Ryan 2026-09-10. Size descriptions are placeholders until Anthony writes his."
   }
 }
