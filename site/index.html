@@ -118,20 +118,20 @@
   .strip .eyebrow{text-align:center;margin-bottom:1rem}
   .strip .row{display:flex;gap:1rem;overflow-x:auto;scroll-snap-type:x mandatory;padding:.5rem 1.5rem 1rem;scrollbar-width:none;align-items:center}
   .strip .row::-webkit-scrollbar{display:none}
-  .strip a{flex:0 0 66vw;max-width:19rem;aspect-ratio:4/5;scroll-snap-align:center;display:block;position:relative;overflow:hidden;
+  .strip .row a{flex:0 0 66vw;max-width:19rem;aspect-ratio:4/5;scroll-snap-align:center;display:block;position:relative;overflow:hidden;
     border-radius:18px;background:var(--paper-deep);border:1px solid var(--blush);padding:5px;box-shadow:0 10px 24px -14px rgba(58,46,36,.45);transition:transform .25s}
-  .strip a:nth-child(even){aspect-ratio:1;flex-basis:56vw;max-width:16rem;border-radius:50% 50% 18px 18px / 30% 30% 18px 18px}
-  .strip a:hover{transform:translateY(-3px)}
+  .strip .row a:nth-child(even){aspect-ratio:1;flex-basis:56vw;max-width:16rem;border-radius:50% 50% 18px 18px / 30% 30% 18px 18px}
+  .strip .row a:hover{transform:translateY(-3px)}
   .strip img{width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit}
   .strip figcaption,.strip .capline{position:absolute;left:5px;right:5px;bottom:5px;padding:1.2rem .9rem .6rem;color:var(--paper);font-style:italic;font-size:.9rem;
     background:linear-gradient(to top,rgba(58,46,36,.7),rgba(58,46,36,0));border-radius:0 0 inherit inherit;opacity:0;transition:opacity .2s;pointer-events:none}
-  .strip a:hover .capline{opacity:1}
+  .strip .row a:hover .capline{opacity:1}
   .strip .dots{display:flex;justify-content:center;gap:.4rem;margin-top:.5rem}
   .strip .dots i{width:.4rem;height:.4rem;border-radius:50%;background:var(--rule);display:block;transition:background .2s,transform .2s}
   .strip .dots i.on{background:var(--blush-deep);transform:scale(1.3)}
   .strip .cap{text-align:center;font-style:italic;color:var(--sepia);font-size:.95rem;margin:.75rem 1.5rem 0}
   .strip .cap a{color:inherit;text-decoration:none;border-bottom:1px solid var(--rule)}
-  @media (min-width:40rem){.strip a{flex-basis:19rem}.strip a:nth-child(even){flex-basis:16rem}}
+  @media (min-width:40rem){.strip .row a{flex-basis:19rem}.strip .row a:nth-child(even){flex-basis:16rem}}
   /* menu cards */
   .menu{display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:1rem;list-style:none;padding:0;margin:0}
   .menu li{display:flex;flex-direction:column;gap:.35rem;padding:1.25rem 1.25rem 1.1rem;border:1px solid var(--rule);background:var(--paper-deep);border-top:0}
