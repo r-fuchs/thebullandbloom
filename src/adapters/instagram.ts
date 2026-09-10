@@ -20,6 +20,8 @@ export interface Instagram {
   /** code → long-lived token (about 60 days) plus the account's username */
   exchangeCode(code: string, redirectUri: string): Promise<IgToken>;
   refreshToken(token: IgToken): Promise<IgToken>;
+  /** Who a pasted access token belongs to (the console's "Generate token" gives a long-lived user token). */
+  whoAmI(accessToken: string): Promise<{ userId: string; username: string }>;
   recentMedia(token: IgToken, limit: number): Promise<IgMedia[]>;
   fetchImage(url: string): Promise<FetchedImage>;
 }

@@ -81,6 +81,10 @@
         <button id="ig-disconnect" hidden>Disconnect</button>
         <span class="status" id="ig-status"></span>
       </div>
+      <div id="ig-token-box" hidden>
+        <p class="status">Phone keeps opening the Instagram app instead? Paste a token from Meta instead: on developers.facebook.com → your app → Instagram → API setup with Instagram login → step 2 "Generate access tokens" → <b>Generate token</b> next to @thebullandbloom, copy it, paste it here.</p>
+        <div class="row"><input type="password" id="ig-token" placeholder="Paste the access token" style="flex:1;min-width:12rem" autocomplete="off"><button id="ig-token-save">Use this token</button></div>
+      </div>
       <div id="ig-posts" class="ig-grid"></div>
       <p class="status">The site shows your latest posts in a strip under the logo, checked every six hours. Tap a photo here to hide it from the site or show it again.</p>
     </div>
@@ -223,6 +227,7 @@
       $('#ig-connect').hidden = !(s.configured && !s.connected);
       $('#ig-refresh').hidden = !s.connected;
       $('#ig-disconnect').hidden = !s.connected;
+      $('#ig-token-box').hidden = !(s.configured && !s.connected);
       var grid = $('#ig-posts'); grid.innerHTML = '';
       s.posts.forEach(function (p) {
         var b = document.createElement('button'); b.type = 'button'; b.className = p.hidden ? 'hidden-post' : ''; b.title = p.hidden ? 'Show on the site' : 'Hide from the site';
@@ -240,6 +245,15 @@
     $('#ig-status').textContent = 'Checking…';
     api('/instagram/refresh', { method: 'POST' }).then(function (r) {
       $('#ig-status').textContent = r.status === 'ok' ? 'Done: ' + r.added + ' new post(s).' : (r.error || r.status);
+    }).then(loadInstagram).catch(function (e) { $('#ig-status').textContent = e.message; });
+  });
+  $('#ig-token-save').addEventListener('click', function () {
+    var t = $('#ig-token').value.trim();
+    if (!t) { $('#ig-status').textContent = 'Paste the token first.'; return; }
+    $('#ig-status').textContent = 'Checking with Instagram…';
+    api('/instagram/token', { method: 'POST', body: JSON.stringify({ accessToken: t }) }).then(function (r) {
+      $('#ig-token').value = '';
+      $('#ig-status').textContent = r.feed && r.feed.status === 'ok' ? 'Connected. ' + r.feed.added + ' post(s) pulled in.' : 'Connected.';
     }).then(loadInstagram).catch(function (e) { $('#ig-status').textContent = e.message; });
   });
   $('#ig-disconnect').addEventListener('click', function () {

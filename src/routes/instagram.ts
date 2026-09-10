@@ -62,6 +62,27 @@ export function registerInstagramAdmin(r: App): void {
       return c.redirect("/admin/?instagram=failed", 302);
     }
   });
+  // A token pasted from the Meta console (API setup → Generate access tokens): the foolproof path when the
+  // OAuth redirect cannot come back to the browser on a phone (2026-09-10). Long-lived tokens last ~60 days
+  // and the feed job renews them, so this is a one-time paste.
+  r.post("/admin/api/instagram/token", async (c) => {
+    const { instagram, clock } = c.get("services");
+    if (!c.env.MEDIA) return c.json({ error: "storage_not_configured" }, 503);
+    let body: any;
+    try { body = await c.req.json(); } catch { return c.json({ error: "invalid JSON" }, 400); }
+    const accessToken = typeof body.accessToken === "string" ? body.accessToken.trim() : "";
+    if (accessToken.length < 20) return c.json({ error: "paste the whole token" }, 400);
+    const now = clock();
+    try {
+      const me = await instagram.whoAmI(accessToken);
+      await saveIgToken(c.env.DB, c.env.ADMIN_SECRET, { accessToken, userId: me.userId, username: me.username, expiresAt: Math.floor(now.getTime() / 1000) + 60 * 86400 });
+    } catch (e) {
+      console.error("instagram: pasted token rejected", e);
+      return c.json({ error: "Instagram did not accept that token. Generate a fresh one and paste all of it." }, 400);
+    }
+    const feed = await refreshFeed(deps(c), now, true);
+    return c.json({ ok: true, feed });
+  });
   r.post("/admin/api/instagram/disconnect", async (c) => { await clearIgConnection(c.env.DB); return c.body(null, 204); });
   r.post("/admin/api/instagram/refresh", async (c) => c.json(await refreshFeed(deps(c), c.get("services").clock(), true)));
   r.put("/admin/api/instagram/posts/:id", async (c) => {

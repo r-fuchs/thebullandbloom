@@ -46,6 +46,12 @@ export class InstagramApi implements Instagram {
     return { accessToken: long.access_token, expiresAt: Math.floor(Date.now() / 1000) + long.expires_in, userId: String(me.user_id ?? me.id ?? short.user_id), username: me.username };
   }
 
+  async whoAmI(accessToken: string): Promise<{ userId: string; username: string }> {
+    const me = await json<{ user_id?: string; id?: string; username: string }>(
+      await this.fetchImpl(`${GRAPH}/me?fields=user_id,username&access_token=${encodeURIComponent(accessToken)}`), "me");
+    return { userId: String(me.user_id ?? me.id ?? ""), username: me.username };
+  }
+
   async refreshToken(token: IgToken): Promise<IgToken> {
     const r = await json<{ access_token: string; expires_in: number }>(
       await this.fetchImpl(`${GRAPH}/refresh_access_token?grant_type=ig_refresh_token&access_token=${encodeURIComponent(token.accessToken)}`), "refresh");

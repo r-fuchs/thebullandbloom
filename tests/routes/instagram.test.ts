@@ -77,3 +77,22 @@ describe("instagram routes", () => {
     expect((await api("/admin/api/instagram/start")).status).toBe(503);
   });
 });
+
+describe("instagram: pasted token", () => {
+  it("accepts a token from the Meta console, stores it, and pulls the feed", async () => {
+    await clearIgConnection(env.DB);
+    await env.DB.prepare("DELETE FROM ig_posts").run();
+    const { fetch, instagram } = testApp(NOW);
+    const api = await login(fetch);
+    expect((await api("/admin/api/instagram/token", { method: "POST", body: JSON.stringify({ accessToken: "short" }) })).status).toBe(400);
+    expect((await api("/admin/api/instagram/token", { method: "POST", body: JSON.stringify({ accessToken: "EAAB-not-an-instagram-token-xxxxxxxx" }) })).status).toBe(400);
+    const r = await api("/admin/api/instagram/token", { method: "POST", body: JSON.stringify({ accessToken: "IGAAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" }) });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ ok: true, feed: { status: "ok", added: 3 } });
+    const t = await loadIgToken(env.DB, env.ADMIN_SECRET);
+    expect(t).toMatchObject({ username: "thebullandbloom", accessToken: "IGAAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" });
+    expect(t!.expiresAt).toBe(NOW_SEC + 60 * 86400);
+    expect(instagram.fetched).toHaveLength(3);
+    expect((await (await api("/admin/api/instagram/status")).json() as any).connected).toBe(true);
+  });
+});

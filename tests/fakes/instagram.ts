@@ -24,6 +24,11 @@ export class FakeInstagram implements Instagram {
     if (code !== "good-code") throw new Error("invalid code");
     return { accessToken: "ig_long_fake", expiresAt: Math.floor(Date.now() / 1000) + this.expiresIn, userId: "17841400000", username: "thebullandbloom" };
   }
+  async whoAmI(accessToken: string) {
+    this.maybeFail();
+    if (!accessToken.startsWith("IGAA")) throw new Error("instagram me: 400 invalid token");
+    return { userId: "17841400000", username: "thebullandbloom" };
+  }
   async refreshToken(token: IgToken): Promise<IgToken> {
     this.maybeFail(); this.refreshed += 1;
     return { ...token, accessToken: token.accessToken + "_r", expiresAt: token.expiresAt + this.expiresIn };
