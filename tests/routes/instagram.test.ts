@@ -44,7 +44,7 @@ describe("instagram routes", () => {
     expect(instagram.fetched).toHaveLength(3);
     const feed: any = await (await fetch("/api/feed")).json();
     expect(feed.posts.map((p: any) => p.id)).toEqual(["18001", "18002", "18003"]);
-    expect(feed.posts[0]).toEqual({ id: "18001", url: "/media/ig/18001", permalink: "https://www.instagram.com/p/aaa/", caption: "Tuesday's bouquets, out the door.", takenAt: "2026-09-08T14:05:00+0000" });
+    expect(feed.posts[0]).toEqual({ id: "18001", url: "/media/ig/18001", permalink: "https://www.instagram.com/p/aaa/", caption: "Tuesday's bouquets, out the door.", takenAt: "2026-09-08T14:05:00+0000", uploaded: false });
     const img = await fetch("/media/ig/18001");
     expect(img.status).toBe(200);
     expect(img.headers.get("content-type")).toBe("image/jpeg");
@@ -94,5 +94,31 @@ describe("instagram: pasted token", () => {
     expect(t!.expiresAt).toBe(NOW_SEC + 60 * 86400);
     expect(instagram.fetched).toHaveLength(3);
     expect((await (await api("/admin/api/instagram/status")).json() as any).connected).toBe(true);
+  });
+});
+
+describe("photos uploaded from admin", () => {
+  it("stores an uploaded image, serves it in the feed and by url, and removes it", async () => {
+    await env.DB.prepare("DELETE FROM ig_posts").run();
+    const { fetch } = testApp(NOW);
+    const api = await login(fetch);
+    const lr = await fetch("/admin/api/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ passcode: "open-sesame-1234" }) });
+    const cookie = lr.headers.get("set-cookie")!.split(";")[0];
+    const raw = (path: string, type: string, body: BodyInit) => fetch(path, { method: "POST", headers: { cookie, "content-type": type }, body });
+    const bytes = new Uint8Array(500).fill(7);
+    expect((await raw("/admin/api/photos", "text/plain", "nope")).status).toBe(400);
+    const r = await raw("/admin/api/photos?caption=Studio%20table", "image/jpeg", bytes);
+    expect(r.status).toBe(200);
+    const { id, url } = await r.json() as any;
+    expect(id).toMatch(/^up_/);
+    const feed = await (await fetch("/api/feed")).json() as any;
+    expect(feed.posts).toEqual([{ id, url, permalink: "https://www.instagram.com/thebullandbloom/", caption: "Studio table", takenAt: NOW.toISOString(), uploaded: true }]);
+    const img = await fetch(url);
+    expect(img.status).toBe(200);
+    expect((await img.arrayBuffer()).byteLength).toBe(500);
+    expect((await api("/admin/api/photos/18001", { method: "DELETE" })).status).toBe(400);
+    expect((await api(`/admin/api/photos/${id}`, { method: "DELETE" })).status).toBe(204);
+    expect((await (await fetch("/api/feed")).json() as any).posts).toEqual([]);
+    expect((await fetch(url)).status).toBe(404);
   });
 });

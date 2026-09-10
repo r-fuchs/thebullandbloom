@@ -54,6 +54,10 @@ export async function getPost(db: D1Database, igId: string): Promise<IgPost | nu
   const r = await db.prepare(`SELECT ${COLS} FROM ig_posts WHERE ig_id = ?`).bind(igId).first<Row>();
   return r ? fromRow(r) : null;
 }
+export async function deletePost(db: D1Database, igId: string): Promise<boolean> {
+  const r = await db.prepare("DELETE FROM ig_posts WHERE ig_id = ?").bind(igId).run();
+  return r.meta.changes === 1;
+}
 export async function setPostHidden(db: D1Database, igId: string, hidden: boolean): Promise<boolean> {
   const r = await db.prepare("UPDATE ig_posts SET hidden = ? WHERE ig_id = ?").bind(hidden ? 1 : 0, igId).run();
   return r.meta.changes === 1;

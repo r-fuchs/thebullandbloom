@@ -1,13 +1,15 @@
 import type { App } from "../app";
 import { makeSession, verifySession } from "../admin/session";
-import { clearIgConnection, getPost, listPosts, loadIgSync, loadIgToken, saveIgToken, setPostHidden } from "../store/instagram";
+import { clearIgConnection, deletePost, getPost, insertPost, listPosts, loadIgSync, loadIgToken, saveIgToken, setPostHidden } from "../store/instagram";
 import { refreshFeed } from "../jobs/instagram";
 
 const STATE_TTL = 600;
 const stateSecret = (adminSecret: string) => `${adminSecret}:instagram-state`;
 const redirectUri = (siteUrl: string) => `${siteUrl}/admin/instagram/callback`;
+const UPLOAD_PREFIX = "up_";
+const PROFILE_URL = "https://www.instagram.com/thebullandbloom/";
 const publicPost = (p: { igId: string; permalink: string; caption: string | null; takenAt: string; hidden: boolean }) =>
-  ({ id: p.igId, url: `/media/ig/${p.igId}`, permalink: p.permalink, caption: p.caption, takenAt: p.takenAt, hidden: p.hidden });
+  ({ id: p.igId, url: `/media/ig/${p.igId}`, permalink: p.permalink, caption: p.caption, takenAt: p.takenAt, hidden: p.hidden, uploaded: p.igId.startsWith(UPLOAD_PREFIX) });
 
 /** Public feed and cached images. */
 export function instagramPublic(r: App): void {
@@ -82,6 +84,32 @@ export function registerInstagramAdmin(r: App): void {
     }
     const feed = await refreshFeed(deps(c), now, true);
     return c.json({ ok: true, feed });
+  });
+  // Photos uploaded from a phone in admin (no Instagram needed). They live in the same table and strip
+  // as Instagram posts, keyed up_<uuid>, and link to the profile rather than a post.
+  r.post("/admin/api/photos", async (c) => {
+    if (!c.env.MEDIA) return c.json({ error: "storage_not_configured" }, 503);
+    const ct = c.req.header("content-type") ?? "";
+    if (!ct.startsWith("image/")) return c.json({ error: "send an image" }, 400);
+    const bytes = await c.req.arrayBuffer();
+    if (bytes.byteLength < 100) return c.json({ error: "empty image" }, 400);
+    if (bytes.byteLength > 8 * 1024 * 1024) return c.json({ error: "image too large (8 MB max)" }, 413);
+    const now = c.get("services").clock();
+    const id = `${UPLOAD_PREFIX}${crypto.randomUUID()}`;
+    const key = `up/${id}`;
+    await c.env.MEDIA.put(key, bytes, { httpMetadata: { contentType: ct.split(";")[0], cacheControl: "public, max-age=31536000, immutable" } });
+    const caption = (c.req.query("caption") ?? "").slice(0, 200) || null;
+    await insertPost(c.env.DB, { igId: id, permalink: PROFILE_URL, caption, mediaKey: key, contentType: ct.split(";")[0], takenAt: now.toISOString(), fetchedAt: Math.floor(now.getTime() / 1000) });
+    return c.json({ ok: true, id, url: `/media/ig/${id}` });
+  });
+  r.delete("/admin/api/photos/:id", async (c) => {
+    const id = c.req.param("id");
+    if (!id.startsWith(UPLOAD_PREFIX)) return c.json({ error: "only uploaded photos can be deleted; hide Instagram posts instead" }, 400);
+    const post = await getPost(c.env.DB, id);
+    if (!post) return c.json({ error: "not found" }, 404);
+    if (c.env.MEDIA) await c.env.MEDIA.delete(post.mediaKey);
+    await deletePost(c.env.DB, id);
+    return c.body(null, 204);
   });
   r.post("/admin/api/instagram/disconnect", async (c) => { await clearIgConnection(c.env.DB); return c.body(null, 204); });
   r.post("/admin/api/instagram/refresh", async (c) => c.json(await refreshFeed(deps(c), c.get("services").clock(), true)));

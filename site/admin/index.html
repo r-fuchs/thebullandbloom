@@ -29,6 +29,9 @@
   .ig-grid button{padding:0;border:2px solid transparent;background:none;position:relative;aspect-ratio:1}
   .ig-grid img{width:100%;height:100%;object-fit:cover;display:block}
   .ig-grid button.hidden-post img{opacity:.3}
+  .ig-grid .ph-wrap{display:flex;flex-direction:column;gap:2px}
+  .ig-grid .ph-wrap button:first-child{width:100%}
+  .ig-grid .ph-del{font-size:.75rem;padding:.2rem;border:1px solid var(--rule);aspect-ratio:auto;background:#fff}
   .ig-grid button.hidden-post::after{content:"hidden";position:absolute;inset:auto 0 0 0;background:var(--closed);font-size:.75rem;padding:.1rem}
   [hidden]{display:none!important}
 </style>
@@ -76,6 +79,10 @@
       <h2 style="margin:0 0 .5rem;font-size:1.1rem;font-weight:500">Instagram photos</h2>
       <p id="ig-summary" class="status"></p>
       <div class="row">
+        <label class="status">Add photos from this phone: <input type="file" id="ph-files" accept="image/*" multiple></label>
+        <span class="status" id="ph-status"></span>
+      </div>
+      <div class="row">
         <button id="ig-connect" hidden>Connect Instagram</button>
         <button id="ig-refresh" hidden>Check for new posts now</button>
         <button id="ig-disconnect" hidden>Disconnect</button>
@@ -86,7 +93,7 @@
         <div class="row"><input type="password" id="ig-token" placeholder="Paste the access token" style="flex:1;min-width:12rem" autocomplete="off"><button id="ig-token-save">Use this token</button></div>
       </div>
       <div id="ig-posts" class="ig-grid"></div>
-      <p class="status">The site shows your latest posts in a strip under the logo, checked every six hours. Tap a photo here to hide it from the site or show it again.</p>
+      <p class="status">The site shows these photos in a strip under the logo: ones you add from your phone, plus your latest Instagram posts once that is connected (checked every six hours). Tap a photo to hide it from the site or show it again.</p>
     </div>
 
     <div class="panel" id="settings-panel" hidden>
@@ -220,14 +227,15 @@
     $('#ig-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true;
     return api('/instagram/status').then(function (s) {
       var text;
-      if (!s.configured) text = !s.storage ? 'Not set up yet (Ryan needs to enable R2 storage on Cloudflare and redeploy).' : 'Not set up yet (Ryan needs to add the Instagram app keys).';
-      else if (!s.connected) text = 'Not connected. Connect while signed in to Instagram as @thebullandbloom.';
+      if (!s.configured) text = !s.storage ? 'Photo storage is not set up yet (Ryan needs to enable R2 on Cloudflare and redeploy).' : 'Instagram is not set up yet. You can still add photos from your phone below.';
+      else if (!s.connected) text = 'Instagram not connected; photos added from your phone show on the site. Connect Instagram to pull posts automatically.';
       else text = 'Connected as @' + s.username + '. Last checked ' + ago(s.lastSyncAt) + (s.lastSyncError ? ' (last check failed: ' + s.lastSyncError + ')' : '') + '. ' + s.posts.length + ' post(s) cached.';
       $('#ig-summary').textContent = text;
       $('#ig-connect').hidden = !(s.configured && !s.connected);
       $('#ig-refresh').hidden = !s.connected;
       $('#ig-disconnect').hidden = !s.connected;
       $('#ig-token-box').hidden = !(s.configured && !s.connected);
+      $('#ph-files').disabled = !s.storage;
       var grid = $('#ig-posts'); grid.innerHTML = '';
       s.posts.forEach(function (p) {
         var b = document.createElement('button'); b.type = 'button'; b.className = p.hidden ? 'hidden-post' : ''; b.title = p.hidden ? 'Show on the site' : 'Hide from the site';
@@ -235,11 +243,50 @@
         b.addEventListener('click', function () {
           api('/instagram/posts/' + p.id, { method: 'PUT', body: JSON.stringify({ hidden: !p.hidden }) }).then(loadInstagram).catch(function (e) { $('#ig-status').textContent = e.message; });
         });
+        if (p.uploaded) {
+          var del = document.createElement('button'); del.type = 'button'; del.className = 'ph-del'; del.textContent = 'Remove'; del.title = 'Remove this uploaded photo';
+          del.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            if (!confirm('Remove this photo from the site for good?')) return;
+            api('/photos/' + p.id, { method: 'DELETE' }).then(loadInstagram).catch(function (e) { $('#ig-status').textContent = e.message; });
+          });
+          var wrap = document.createElement('div'); wrap.className = 'ph-wrap'; wrap.appendChild(b); wrap.appendChild(del); grid.appendChild(wrap);
+          return;
+        }
         grid.appendChild(b);
       });
     }).catch(function (e) { if (e.message !== 'unauthorized') $('#ig-summary').textContent = 'Could not load Instagram status: ' + e.message; });
   }
   $('#ig-btn').addEventListener('click', loadInstagram);
+  // Downscale on the phone before upload so the site never serves a 5 MB camera original.
+  function shrink(file) {
+    return new Promise(function (resolve) {
+      var img = new Image(), url = URL.createObjectURL(file);
+      img.onload = function () {
+        var max = 1400, w = img.width, h = img.height, s = Math.min(1, max / Math.max(w, h));
+        var cv = document.createElement('canvas'); cv.width = Math.round(w * s); cv.height = Math.round(h * s);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        URL.revokeObjectURL(url);
+        cv.toBlob(function (b) { resolve(b || file); }, 'image/jpeg', 0.86);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+  }
+  $('#ph-files').addEventListener('change', function () {
+    var files = Array.prototype.slice.call(this.files); if (!files.length) return;
+    var done = 0; $('#ph-status').textContent = 'Uploading 0 of ' + files.length + '…';
+    files.reduce(function (p, f) {
+      return p.then(function () { return shrink(f); }).then(function (blob) {
+        return fetch('/admin/api/photos', { method: 'POST', headers: { 'content-type': 'image/jpeg' }, body: blob }).then(function (r) {
+          if (r.status === 401) { show(false); throw new Error('unauthorized'); }
+          if (!r.ok) return r.json().then(function (b) { throw new Error(b.error || ('Upload failed (' + r.status + ')')); });
+          done++; $('#ph-status').textContent = 'Uploading ' + done + ' of ' + files.length + '…';
+        });
+      });
+    }, Promise.resolve()).then(function () { $('#ph-status').textContent = 'Added ' + done + ' photo(s).'; $('#ph-files').value = ''; return loadInstagram(); })
+      .catch(function (e) { if (e.message !== 'unauthorized') $('#ph-status').textContent = e.message; });
+  });
   $('#ig-connect').addEventListener('click', function () { window.location.href = '/admin/api/instagram/start'; });
   $('#ig-refresh').addEventListener('click', function () {
     $('#ig-status').textContent = 'Checking…';
