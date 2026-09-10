@@ -29,7 +29,7 @@ describe("subscriptions: signup, webhooks, admin", () => {
 
   it("exposes the grid and open weekdays on /api/config", async () => {
     const { fetch } = testApp(NOW);
-    const cfg = await (await fetch("/api/config")).json();
+    const cfg: any = await (await fetch("/api/config")).json();
     expect(cfg.subscriptions.cadences.map((c: any) => c.id)).toEqual(["weekly", "twice-monthly"]);
     expect(cfg.subscriptions.cells).toHaveLength(6);
     expect(cfg.openWeekdays).toEqual([2, 3, 4, 5, 6]);
