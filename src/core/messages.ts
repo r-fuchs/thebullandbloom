@@ -71,7 +71,7 @@ export function subscriptionConfirmedEmail(sub: Subscriber, cfg: StoreConfig, po
     "Your plan",
     `  ${size}, ${cadence}: ${price} a month`,
     "",
-    "Need to pause, cancel, or change your card? Manage it here:",
+    "Need to cancel or change your card? Manage it here:",
     portalUrl,
     "",
     "Questions? Just reply to this email.",

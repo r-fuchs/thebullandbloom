@@ -21,7 +21,8 @@ describe("subscription messages", () => {
     expect(m.text).toContain("Your first one is Tuesday, September 15.");
     expect(m.text).toContain(`Pickup: ${cfg.studio.pickupInstructions}`);
     expect(m.text).toContain("Bouquet, every week: $290.00 a month");
-    expect(m.text).toContain("Need to pause, cancel, or change your card? Manage it here:\nhttps://billing.example/cus_1");
+    expect(m.text).toContain("Need to cancel or change your card? Manage it here:\nhttps://billing.example/cus_1");
+    expect(m.text).not.toMatch(/pause/i);
     expect(m.text).not.toMatch(/skip a week/i);
   });
   it("cancellation says no more charges and this week's bouquet stays", () => {

@@ -39,7 +39,7 @@
 2. **Anchor rule.** ANSWERED 2026-09-10: yes, first open occurrence of the weekday at least three days after signup.
 3. **Twice-monthly meaning.** ANSWERED 2026-09-10: D26 stands, every other week.
 4. **Storefront placement.** ANSWERED 2026-09-10: the grid replaces the inquiry form; the inquiry form now sits in its own "Custom arrangements and events" section above Contact.
-5. **Cancellation copy.** ANSWERED 2026-09-10: Ryan approved both drafts as written; the confirmation says "pause, cancel, or change your card" (no skips, D30).
+5. **Cancellation copy.** ANSWERED 2026-09-10: Ryan approved both drafts as written; the confirmation says "cancel or change your card" (no skips, D30; Stripe's portal has no customer pause, found 2026-09-10, so pausing is Anthony's from the Stripe dashboard).
 
 ---
 
