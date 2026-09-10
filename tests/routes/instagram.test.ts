@@ -61,7 +61,7 @@ describe("instagram routes", () => {
     const api = await login(fetch);
     expect((await api("/admin/api/instagram/posts/18002", { method: "PUT", body: JSON.stringify({ hidden: true }) })).status).toBe(200);
     expect((await api("/admin/api/instagram/posts/nope", { method: "PUT", body: JSON.stringify({ hidden: true }) })).status).toBe(404);
-    expect((await (await fetch("/api/feed")).json()).posts.map((p: any) => p.id)).toEqual(["18001", "18003"]);
+    expect(((await (await fetch("/api/feed")).json()) as any).posts.map((p: any) => p.id)).toEqual(["18001", "18003"]);
     const adminPosts = (await (await api("/admin/api/instagram/status")).json()).posts;
     expect(adminPosts.find((p: any) => p.id === "18002").hidden).toBe(true);
     expect((await api("/admin/api/instagram/refresh", { method: "POST" })).status).toBe(200);
