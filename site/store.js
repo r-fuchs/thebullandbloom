@@ -28,7 +28,10 @@
       li.querySelector('.pick').addEventListener('click', function () {
         var inp = form.querySelector('input[name=sizeId][value="' + s.id + '"]');
         if (inp) inp.checked = true;
+        var sinp = subForm && subForm.querySelector('input[name=sizeId][value="' + s.id + '"]');
+        if (sinp) { sinp.checked = true; renderSubPrice(); }
         markChosen();
+        if ($('#tab-once')) showTab('once');
         $('#order').scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
       menu.appendChild(li);
@@ -44,15 +47,41 @@
   }
 
   function renderGallery(feed) {
-    var box = $('#gallery'), row = $('#gallery-row');
+    var box = $('#gallery'), row = $('#gallery-row'), dots = $('#gallery-dots');
     if (!box || !feed || !feed.posts || !feed.posts.length) return;
-    row.innerHTML = '';
-    feed.posts.forEach(function (p) {
+    row.innerHTML = ''; dots.innerHTML = '';
+    feed.posts.forEach(function (p, i) {
       var a = document.createElement('a'); a.href = p.permalink; a.target = '_blank'; a.rel = 'noopener';
-      var img = document.createElement('img'); img.src = p.url; img.loading = 'lazy'; img.alt = p.caption ? p.caption.slice(0, 120) : 'A bouquet from The Bull and Bloom';
-      a.appendChild(img); row.appendChild(a);
+      var img = document.createElement('img'); img.src = p.url; img.loading = i < 3 ? 'eager' : 'lazy'; img.alt = p.caption ? p.caption.slice(0, 120) : 'A bouquet from The Bull and Bloom';
+      a.appendChild(img);
+      if (p.caption) { var c = document.createElement('span'); c.className = 'capline'; c.textContent = p.caption.slice(0, 90); a.appendChild(c); }
+      row.appendChild(a);
+      var d = document.createElement('i'); if (i === 0) d.className = 'on'; dots.appendChild(d);
+    });
+    var ticking = false;
+    row.addEventListener('scroll', function () {
+      if (ticking) return; ticking = true;
+      requestAnimationFrame(function () {
+        ticking = false;
+        var mid = row.scrollLeft + row.clientWidth / 2, best = 0, bestD = Infinity;
+        Array.prototype.forEach.call(row.children, function (a, i) { var d = Math.abs(a.offsetLeft + a.offsetWidth / 2 - mid); if (d < bestD) { bestD = d; best = i; } });
+        Array.prototype.forEach.call(dots.children, function (d, i) { d.className = i === best ? 'on' : ''; });
+      });
     });
     box.hidden = false;
+  }
+
+  // ---- one-time / subscription tabs
+  function showTab(which) {
+    var once = which !== 'sub';
+    $('#tab-once').setAttribute('aria-selected', String(once)); $('#tab-sub').setAttribute('aria-selected', String(!once));
+    $('#panel-once').hidden = !once; $('#panel-sub').hidden = once;
+  }
+  if ($('#tab-once')) {
+    $('#tab-once').addEventListener('click', function () { showTab('once'); });
+    $('#tab-sub').addEventListener('click', function () { showTab('sub'); });
+    if (location.hash === '#subscribe') { showTab('sub'); }
+    window.addEventListener('hashchange', function () { if (location.hash === '#subscribe') { showTab('sub'); $('#order').scrollIntoView(); } });
   }
 
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
