@@ -1,0 +1,22 @@
+# Registers the "Deploy" workflow with GitHub, which only lists workflows present on the default
+# branch. This copy can only be run by hand and carries no push trigger, so it never deploys the
+# static GitHub Pages site on this branch. When run against a store branch (feat/store or a
+# claude/* branch) GitHub uses THAT branch's version of this file, which does the real deploy.
+# The full workflow replaces this stub when the store merges to main at cutover.
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      site_url:
+        description: "SITE_URL the Worker should redirect back to"
+        required: true
+        default: "https://thebullandbloom.thebullandbloom.workers.dev"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "main holds the static site; run this workflow against the store branch instead."
+          exit 1
