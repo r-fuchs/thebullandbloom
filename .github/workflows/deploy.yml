@@ -48,10 +48,16 @@ jobs:
       - name: Ensure the media bucket exists
         run: npx wrangler r2 bucket list 2>/dev/null | grep -q "bullandbloom-media" || npx wrangler r2 bucket create bullandbloom-media
       - name: Upload Instagram app keys when set
-        if: ${{ secrets.INSTAGRAM_APP_ID != '' && secrets.INSTAGRAM_APP_SECRET != '' }}
+        env:
+          IG_ID: ${{ secrets.INSTAGRAM_APP_ID }}
+          IG_SECRET: ${{ secrets.INSTAGRAM_APP_SECRET }}
         run: |
-          printf '%s' "${{ secrets.INSTAGRAM_APP_ID }}" | npx wrangler secret put INSTAGRAM_APP_ID
-          printf '%s' "${{ secrets.INSTAGRAM_APP_SECRET }}" | npx wrangler secret put INSTAGRAM_APP_SECRET
+          if [ -n "$IG_ID" ] && [ -n "$IG_SECRET" ]; then
+            printf '%s' "$IG_ID" | npx wrangler secret put INSTAGRAM_APP_ID
+            printf '%s' "$IG_SECRET" | npx wrangler secret put INSTAGRAM_APP_SECRET
+          else
+            echo "no Instagram app keys in repository secrets; skipping"
+          fi
       - name: Apply D1 migrations
         run: npx wrangler d1 migrations apply bullandbloom --remote
       - name: Deploy
