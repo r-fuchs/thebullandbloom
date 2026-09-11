@@ -78,6 +78,7 @@
   // ---- one-time / subscription tabs
   function showTab(which) {
     state.tab = which === 'sub' ? 'sub' : 'once';
+    var cad = $('#sub-cadence'); if (cad) cad.hidden = state.tab !== 'sub';
     if (cfgCache) renderCardPrices();
     var once = which !== 'sub';
     $('#tab-once').setAttribute('aria-selected', String(once)); $('#tab-sub').setAttribute('aria-selected', String(!once));
@@ -137,6 +138,7 @@
     var lab = document.createElement('label');
     lab.innerHTML = '<input type="radio"><span></span>';
     var inp = lab.querySelector('input'); inp.name = name; inp.value = value; inp.checked = !!checked;
+    if (name === 'cadenceId') inp.setAttribute('form', 'subscribe-form'); // the cadence pills live above the size cards, outside the form
     lab.querySelector('span').textContent = text;
     box.appendChild(lab);
     return inp;
@@ -166,6 +168,7 @@
     cfg.openWeekdays.forEach(function (d, i) { var lab; radio(dayBox, 'weekday', String(d), DAYS[d], i === 0); });
     dayBox.querySelectorAll('label').forEach(function (l) { dayBox.insertBefore(l, note); });
     subForm.addEventListener('change', function () { renderCardPrices(); });
+    cadBox.addEventListener('change', function () { renderCardPrices(); });
     renderSubPrice();
   }
   if (subForm) subForm.addEventListener('submit', function (e) {

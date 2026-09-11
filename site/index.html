@@ -163,6 +163,7 @@
   .cal .sold{color:var(--sepia);text-decoration:line-through;cursor:not-allowed;background:var(--paper-deep)}
   .cal .blank{border:0;background:transparent;cursor:default}
   fieldset{border:0;padding:0;margin:0 0 1rem}
+  #sub-cadence{margin:.25rem 0 .5rem}
   legend{font-family:var(--display);letter-spacing:.2em;text-transform:uppercase;font-size:.8rem;color:var(--sepia);margin-bottom:.5rem}
   .sizes label,.days label{display:inline-flex;align-items:center;gap:.4rem;margin:0 .6rem .6rem 0;padding:.55rem 1rem;border:1px solid var(--rule);border-radius:999px;background:var(--field,#FBF7F0);cursor:pointer;transition:background .15s,border-color .15s}
   .sizes input,.days input{position:absolute;opacity:0;width:0;height:0;margin:0}
@@ -218,6 +219,7 @@
       <button type="button" class="tab" role="tab" id="tab-once" aria-controls="panel-once" aria-selected="true">One-time purchases</button>
       <button type="button" class="tab" role="tab" id="tab-sub" aria-controls="panel-sub" aria-selected="false">Subscription</button>
     </div>
+    <fieldset class="full sizes" id="sub-cadence" hidden><legend>How often</legend></fieldset>
     <p class="eyebrow" style="margin-top:.5rem">Size</p>
     <ul class="services menu" id="menu" aria-live="polite"></ul>
     <div id="panel-once" role="tabpanel" aria-labelledby="tab-once">
@@ -236,7 +238,6 @@
       <p class="form-note" style="margin:0 0 1rem">Billed monthly. The link in your confirmation email lets you cancel or change your card any time.</p>
       <form class="form" id="subscribe-form" novalidate>
       <input type="hidden" name="sizeId" id="sub-size-input">
-      <fieldset class="full sizes" id="sub-cadence"><legend>How often</legend></fieldset>
       <p class="full plan-price sub-price" id="sub-price" aria-live="polite"></p>
       <fieldset class="full days" id="sub-day"><legend>Which day</legend><p class="form-note" id="sub-day-note">Your first bouquet is the first open one of these at least three days out. Same-week changes go through Anthony.</p></fieldset>
       <label>Name<input type="text" name="name" required autocomplete="name"></label>
