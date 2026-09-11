@@ -11,39 +11,43 @@
     return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
   }
 
-  function markChosen() {
-    var v = (form.querySelector('input[name=sizeId]:checked') || {}).value;
-    menu.querySelectorAll('li').forEach(function (li) { li.classList.toggle('chosen', li.getAttribute('data-size') === v); });
+  var state = { sizeId: null, tab: 'once' };
+  var cfgCache = null;
+  function priceFor(sizeId) {
+    if (!cfgCache) return null;
+    if (state.tab === 'once') { var sz = cfgCache.sizes.filter(function (x) { return x.id === sizeId; })[0]; return sz ? { cents: sz.priceCents, per: '' } : null; }
+    var cad = subForm ? (new FormData(subForm)).get('cadenceId') : null;
+    var cell = cfgCache.subscriptions.cells.filter(function (c) { return c.sizeId === sizeId && c.cadenceId === cad; })[0];
+    return cell ? { cents: cell.priceCents, per: ' / month' } : null;
   }
+  function renderCardPrices() {
+    menu.querySelectorAll('li').forEach(function (li) {
+      var p = priceFor(li.getAttribute('data-size'));
+      var el = li.querySelector('.price');
+      if (p) { el.innerHTML = ''; el.appendChild(document.createTextNode(money(p.cents))); if (p.per) { var per = document.createElement('span'); per.className = 'per'; per.textContent = p.per; el.appendChild(per); } }
+      else el.textContent = 'Not offered';
+      li.classList.toggle('chosen', li.getAttribute('data-size') === state.sizeId);
+    });
+    var once = $('#once-size'), sub = $('#sub-size-input');
+    if (once) once.value = state.sizeId || ''; if (sub) sub.value = state.sizeId || '';
+    if (subForm) renderSubPrice();
+  }
+  function chooseSize(id) { state.sizeId = id; renderCardPrices(); }
   function renderSizes(cfg) {
+    cfgCache = cfg;
     menu.innerHTML = '';
-    sizes.querySelectorAll('label').forEach(function (l) { l.remove(); });
-    cfg.sizes.forEach(function (s, i) {
+    if (!state.sizeId) state.sizeId = (cfg.sizes[1] || cfg.sizes[0]).id;
+    cfg.sizes.forEach(function (s) {
       var li = document.createElement('li');
-      li.setAttribute('data-size', s.id);
-      li.innerHTML = '<h3></h3><p></p><p class="price"></p><button type="button" class="pick">Order this one</button>';
+      li.setAttribute('data-size', s.id); li.setAttribute('role', 'button'); li.tabIndex = 0;
+      li.innerHTML = '<span class="tick" aria-hidden="true"></span><h3></h3><p></p><p class="price"></p>';
       li.querySelector('h3').textContent = s.name;
       li.querySelector('p').textContent = s.description;
-      li.querySelector('.price').textContent = money(s.priceCents);
-      li.querySelector('.pick').addEventListener('click', function () {
-        var inp = form.querySelector('input[name=sizeId][value="' + s.id + '"]');
-        if (inp) inp.checked = true;
-        var sinp = subForm && subForm.querySelector('input[name=sizeId][value="' + s.id + '"]');
-        if (sinp) { sinp.checked = true; renderSubPrice(); }
-        markChosen();
-        if ($('#tab-once')) showTab('once');
-        $('#order').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
+      li.addEventListener('click', function () { chooseSize(s.id); });
+      li.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); chooseSize(s.id); } });
       menu.appendChild(li);
-      var lab = document.createElement('label');
-      lab.innerHTML = '<input type="radio" name="sizeId"><span></span>';
-      lab.querySelector('input').value = s.id;
-      lab.querySelector('input').checked = i === 0;
-      lab.querySelector('span').textContent = s.name + ' · ' + money(s.priceCents);
-      sizes.appendChild(lab);
     });
-    sizes.addEventListener('change', markChosen);
-    markChosen();
+    renderCardPrices();
   }
 
   function renderGallery(feed) {
@@ -73,6 +77,8 @@
 
   // ---- one-time / subscription tabs
   function showTab(which) {
+    state.tab = which === 'sub' ? 'sub' : 'once';
+    if (cfgCache) renderCardPrices();
     var once = which !== 'sub';
     $('#tab-once').setAttribute('aria-selected', String(once)); $('#tab-sub').setAttribute('aria-selected', String(!once));
     $('#panel-once').hidden = !once; $('#panel-sub').hidden = once;
@@ -137,7 +143,7 @@
   }
   function subChoice() {
     var f = new FormData(subForm);
-    return { sizeId: f.get('sizeId'), cadenceId: f.get('cadenceId'), weekday: f.get('weekday') };
+    return { sizeId: state.sizeId, cadenceId: f.get('cadenceId'), weekday: f.get('weekday') };
   }
   function renderSubPrice() {
     if (!subCfg) return;
@@ -147,25 +153,25 @@
     var size = null, cad = null;
     for (i = 0; i < subCfg.sizes.length; i++) if (subCfg.sizes[i].id === c.sizeId) size = subCfg.sizes[i];
     for (i = 0; i < subCfg.cadences.length; i++) if (subCfg.cadences[i].id === c.cadenceId) cad = subCfg.cadences[i];
-    if (cell && size && cad) { subPrice.innerHTML = '<span></span> / month'; subPrice.querySelector('span').textContent = money(cell.priceCents); subPrice.title = size.name + ', ' + cad.name.toLowerCase(); }
+    if (cell && size && cad) { subPrice.innerHTML = '<span></span> / month for a ' + size.name.toLowerCase() + ', ' + cad.name.toLowerCase(); subPrice.querySelector('span').textContent = money(cell.priceCents); }
     else subPrice.textContent = 'That combination is not offered.';
     subBtn.disabled = !cell;
   }
   function renderSubscription(cfg) {
     if (!subForm) return;
     subCfg = { sizes: cfg.sizes, cadences: cfg.subscriptions.cadences, cells: cfg.subscriptions.cells };
-    var sizeBox = $('#sub-size'), cadBox = $('#sub-cadence'), dayBox = $('#sub-day'), note = $('#sub-day-note');
-    [sizeBox, cadBox, dayBox].forEach(function (b) { b.querySelectorAll('label').forEach(function (l) { l.remove(); }); });
-    cfg.sizes.forEach(function (s, i) { radio(sizeBox, 'sizeId', s.id, s.name, i === 1 || (cfg.sizes.length === 1 && i === 0)); });
+    var cadBox = $('#sub-cadence'), dayBox = $('#sub-day'), note = $('#sub-day-note');
+    [cadBox, dayBox].forEach(function (b) { b.querySelectorAll('label').forEach(function (l) { l.remove(); }); });
     cfg.subscriptions.cadences.forEach(function (c, i) { radio(cadBox, 'cadenceId', c.id, c.name, i === 0); });
     cfg.openWeekdays.forEach(function (d, i) { var lab; radio(dayBox, 'weekday', String(d), DAYS[d], i === 0); });
     dayBox.querySelectorAll('label').forEach(function (l) { dayBox.insertBefore(l, note); });
-    subForm.addEventListener('change', renderSubPrice);
+    subForm.addEventListener('change', function () { renderCardPrices(); });
     renderSubPrice();
   }
   if (subForm) subForm.addEventListener('submit', function (e) {
     e.preventDefault();
     var f = new FormData(subForm), c = subChoice();
+    if (!c.sizeId) { subStatus.textContent = 'Pick a size.'; return; }
     if (!c.weekday) { subStatus.textContent = 'Pick a day.'; return; }
     if (!subForm.reportValidity()) return;
     subBtn.disabled = true; subStatus.textContent = 'One moment…';
@@ -199,13 +205,14 @@
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     var f = new FormData(form);
+    if (!state.sizeId) { status.textContent = 'Pick a size.'; return; }
     if (!f.get('date')) { status.textContent = 'Pick a day.'; return; }
     if (!form.reportValidity()) return;
     pay.disabled = true; status.textContent = 'One moment…';
     fetch('/api/checkout', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        sizeId: f.get('sizeId'), date: f.get('date'), fulfillment: 'pickup',
+        sizeId: state.sizeId, date: f.get('date'), fulfillment: 'pickup',
         customer: { name: f.get('name'), email: f.get('email'), phone: f.get('phone') || undefined },
         note: f.get('note') || undefined
       })

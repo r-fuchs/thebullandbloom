@@ -15,6 +15,7 @@
   :root{
     --paper:#F6F0E5; --paper-deep:#EFE6D7; --ink:#3A2E24; --sepia:#8B7662;
     --blush:#D9A3A5; --blush-deep:#B9797C; --rule:#CDBFAD;
+    --sage:#B7C4A6; --sage-deep:#6F8562; --sage-soft:#E3E8DA;
     --display:"Cormorant Garamond",Garamond,"Times New Roman",serif;
     --body:"EB Garamond",Garamond,Georgia,serif;
   }
@@ -23,7 +24,7 @@
   body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:1.125rem;line-height:1.6;
     -webkit-font-smoothing:antialiased}
   a{color:inherit}
-  a:focus-visible,button:focus-visible{outline:2px solid var(--blush-deep);outline-offset:3px}
+  a:focus-visible,button:focus-visible{outline:2px solid var(--sage-deep);outline-offset:3px}
   .wrap{max-width:60rem;margin:0 auto;padding:0 1.5rem}
 
   /* nav */
@@ -103,11 +104,11 @@
   .contact dd{margin:0}
   .contact dd a{text-decoration:none;border-bottom:1px solid var(--rule)}
   .contact dd a:hover{border-color:var(--ink)}
-  .btn{display:inline-block;margin-top:2rem;padding:.85rem 1.9rem;border:1px solid var(--blush-deep);background:var(--blush);color:var(--ink);text-decoration:none;
+  .btn{display:inline-block;margin-top:2rem;padding:.85rem 1.9rem;border:1px solid var(--sage-deep);background:var(--sage);color:var(--ink);text-decoration:none;
     border-radius:999px;font-family:var(--display);letter-spacing:.2em;text-transform:uppercase;font-size:.9rem;font-weight:600;
-    box-shadow:0 3px 0 var(--blush-deep);transition:background .2s,color .2s,transform .1s,box-shadow .1s;cursor:pointer}
-  .btn:hover{background:var(--blush-deep);color:var(--paper)}
-  .btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--blush-deep)}
+    box-shadow:0 3px 0 var(--sage-deep);transition:background .2s,color .2s,transform .1s,box-shadow .1s;cursor:pointer}
+  .btn:hover{background:var(--sage-deep);color:var(--paper)}
+  .btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--sage-deep)}
   .btn:disabled{opacity:.45;box-shadow:none;cursor:not-allowed}
 
   footer{text-align:center;padding:2rem 1.5rem 3rem;font-size:.9rem;color:var(--sepia);border-top:1px solid var(--rule)}
@@ -119,7 +120,7 @@
   .strip .row{display:flex;gap:1rem;overflow-x:auto;scroll-snap-type:x mandatory;padding:.5rem 1.5rem 1rem;scrollbar-width:none;align-items:center}
   .strip .row::-webkit-scrollbar{display:none}
   .strip .row a{flex:0 0 66vw;max-width:19rem;aspect-ratio:4/5;scroll-snap-align:center;display:block;position:relative;overflow:hidden;
-    border-radius:18px;background:var(--paper-deep);border:1px solid var(--blush);padding:5px;box-shadow:0 10px 24px -14px rgba(58,46,36,.45);transition:transform .25s}
+    border-radius:18px;background:var(--paper-deep);border:1px solid var(--sage);padding:5px;box-shadow:0 10px 24px -14px rgba(58,46,36,.45);transition:transform .25s}
   .strip .row a:nth-child(even){aspect-ratio:1;flex-basis:56vw;max-width:16rem;border-radius:50% 50% 18px 18px / 30% 30% 18px 18px}
   .strip .row a:hover{transform:translateY(-3px)}
   .strip img{width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit}
@@ -128,21 +129,25 @@
   .strip .row a:hover .capline{opacity:1}
   .strip .dots{display:flex;justify-content:center;gap:.4rem;margin-top:.5rem}
   .strip .dots i{width:.4rem;height:.4rem;border-radius:50%;background:var(--rule);display:block;transition:background .2s,transform .2s}
-  .strip .dots i.on{background:var(--blush-deep);transform:scale(1.3)}
+  .strip .dots i.on{background:var(--sage-deep);transform:scale(1.3)}
   .strip .cap{text-align:center;font-style:italic;color:var(--sepia);font-size:.95rem;margin:.75rem 1.5rem 0}
   .strip .cap a{color:inherit;text-decoration:none;border-bottom:1px solid var(--rule)}
   @media (min-width:40rem){.strip .row a{flex-basis:19rem}.strip .row a:nth-child(even){flex-basis:16rem}}
   /* menu cards */
   .menu{display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:1rem;list-style:none;padding:0;margin:0}
-  .menu li{display:flex;flex-direction:column;gap:.35rem;padding:1.25rem 1.25rem 1.1rem;border:1px solid var(--rule);background:var(--paper-deep);border-top:0}
+  .menu{margin-bottom:1.75rem}
+  .menu li{display:flex;flex-direction:column;gap:.35rem;padding:1.1rem 1.15rem 1rem;border:1px solid var(--rule);background:var(--paper-deep);border-top:0;cursor:pointer;position:relative;transition:border-color .15s,background .15s}
+  .menu li:hover{border-color:var(--sage-deep)}
+  .menu li.chosen{background:var(--sage-soft);border-color:var(--sage-deep);box-shadow:inset 0 0 0 1px var(--sage-deep)}
+  .menu li .tick{position:absolute;top:.8rem;right:.9rem;width:1.35rem;height:1.35rem;border-radius:50%;border:1px solid var(--rule);background:var(--field,#FBF7F0)}
+  .menu li.chosen .tick{background:var(--sage-deep);border-color:var(--sage-deep)}
+  .menu li.chosen .tick::after{content:"";position:absolute;left:.42rem;top:.2rem;width:.3rem;height:.6rem;border:solid var(--paper);border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .menu .per{font-family:var(--body);font-size:.95rem;color:var(--sepia);font-weight:400}
   .menu li h3{margin:0;font-family:var(--display);font-weight:600;font-size:1.45rem}
   .menu li p{margin:0;color:#5A4A3C;font-size:1.05rem;flex:1}
   .menu .price{font-family:var(--display);font-size:1.7rem;font-weight:500;color:var(--ink);margin-top:.35rem;flex:0}
-  .menu .pick{align-self:flex-start;margin-top:.6rem;padding:.55rem 1.2rem;font-size:.78rem;border:1px solid var(--blush-deep);background:var(--blush);color:var(--ink);cursor:pointer;border-radius:999px;
-    font-family:var(--display);letter-spacing:.2em;text-transform:uppercase;font-weight:600;box-shadow:0 2px 0 var(--blush-deep);transition:background .2s,color .2s}
-  .menu .pick:hover,.menu li.chosen .pick{background:var(--blush-deep);color:var(--paper)}
   .menu li{border-radius:14px}
-  .menu li.chosen{border-color:var(--blush-deep)}
+  .menu li.chosen{border-color:var(--sage-deep)}
   /* calendar day picker */
   .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;max-width:26rem}
   .cal .h{text-align:center;font-family:var(--display);letter-spacing:.12em;font-size:.72rem;color:var(--sepia);padding-bottom:.2rem}
@@ -151,9 +156,9 @@
     font-variant-numeric:tabular-nums;font-size:1.05rem;cursor:pointer;margin:0;padding:0}
   .cal .d input{position:absolute;opacity:0;width:0;height:0;margin:0}
   .cal .d small{font-size:.62rem;color:var(--sepia);line-height:1;margin-top:.1rem}
-  .cal .d:has(input:checked){background:var(--blush-deep);color:var(--paper);border-color:var(--blush-deep);font-weight:600}
+  .cal .d:has(input:checked){background:var(--sage-deep);color:var(--paper);border-color:var(--sage-deep);font-weight:600}
   .cal .d:has(input:checked) small{color:var(--paper)}
-  .cal .d:has(input:focus-visible){outline:2px solid var(--blush-deep);outline-offset:2px}
+  .cal .d:has(input:focus-visible){outline:2px solid var(--sage-deep);outline-offset:2px}
   .cal .off{border-color:transparent;background:transparent;color:var(--rule);cursor:default}
   .cal .sold{color:var(--sepia);text-decoration:line-through;cursor:not-allowed;background:var(--paper-deep)}
   .cal .blank{border:0;background:transparent;cursor:default}
@@ -162,12 +167,12 @@
   .sizes label,.days label{display:inline-flex;align-items:center;gap:.4rem;margin:0 .6rem .6rem 0;padding:.55rem 1rem;border:1px solid var(--rule);border-radius:999px;background:var(--field,#FBF7F0);cursor:pointer;transition:background .15s,border-color .15s}
   .sizes input,.days input{position:absolute;opacity:0;width:0;height:0;margin:0}
   .sizes label,.days label{position:relative}
-  .sizes label:has(input:checked),.days label:has(input:checked){border-color:var(--blush-deep);background:var(--blush);font-weight:600}
-  .sizes label:has(input:focus-visible),.days label:has(input:focus-visible){outline:2px solid var(--blush-deep);outline-offset:2px}
+  .sizes label:has(input:checked),.days label:has(input:checked){border-color:var(--sage-deep);background:var(--sage);font-weight:600}
+  .sizes label:has(input:focus-visible),.days label:has(input:focus-visible){outline:2px solid var(--sage-deep);outline-offset:2px}
   .tabs{display:flex;gap:.5rem;margin:0 0 1.5rem;border-bottom:1px solid var(--rule)}
   .tab{font:inherit;font-family:var(--display);letter-spacing:.1em;text-transform:uppercase;font-size:.8rem;white-space:nowrap;font-weight:600;color:var(--sepia);
     background:none;border:0;border-bottom:3px solid transparent;padding:.7rem .6rem;margin-bottom:-1px;cursor:pointer}
-  .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--blush-deep)}
+  .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--sage-deep)}
   .tab:hover{color:var(--ink)}
   .days label.sold{opacity:.45;cursor:not-allowed;text-decoration:line-through}
   .form-note{font-size:.95rem;color:var(--sepia);margin:.25rem 0 0}
@@ -178,7 +183,6 @@
 </head>
 <body>
 <nav aria-label="Sections">
-  <a href="#services">Menu</a>
   <a href="#order">Order</a>
   <a href="#about">About</a>
   <a href="#contact">Contact</a>
@@ -206,24 +210,19 @@
 </section>
 
 <main class="wrap">
-  <section id="services">
-    <p class="eyebrow">The menu</p>
-    <h2>Designer's choice, three sizes</h2>
-    <p class="intro">Every bouquet is built from whatever is best that morning. Pick a size, pick a day, and Anthony does the rest. Pickup is free.</p>
-    <ul class="services menu" id="menu" aria-live="polite"></ul>
-  </section>
-
   <section id="order">
-    <p class="eyebrow">Order</p>
+    <p class="eyebrow">Designer's choice</p>
     <h2>Pick a size, pick a day</h2>
+    <p class="intro">Every bouquet is built from whatever is best that morning. Pickup at the studio is free.</p>
     <div class="tabs" role="tablist" aria-label="How to order">
       <button type="button" class="tab" role="tab" id="tab-once" aria-controls="panel-once" aria-selected="true">One-time purchases</button>
       <button type="button" class="tab" role="tab" id="tab-sub" aria-controls="panel-sub" aria-selected="false">Subscription</button>
     </div>
+    <p class="eyebrow" style="margin-top:.5rem">Size</p>
+    <ul class="services menu" id="menu" aria-live="polite"></ul>
     <div id="panel-once" role="tabpanel" aria-labelledby="tab-once">
-      <p class="intro">Built from whatever is best that morning. Pickup at the studio is free.</p>
       <form class="form" id="order-form" novalidate>
-      <fieldset class="full sizes" id="size-picker"><legend>Size</legend></fieldset>
+      <input type="hidden" name="sizeId" id="once-size">
       <fieldset class="full" id="day-picker"><legend>Day</legend><div class="cal" id="cal"></div><p class="form-note" id="day-note"></p></fieldset>
       <label>Name<input type="text" name="name" required autocomplete="name"></label>
       <label>Email<input type="email" name="email" required autocomplete="email"></label>
@@ -234,9 +233,9 @@
     </div>
     <div id="panel-sub" role="tabpanel" aria-labelledby="tab-sub" hidden>
       <span id="subscribe"></span>
-      <p class="intro">A bouquet waiting for you every week or twice a month. You pay monthly, and the link in your confirmation email lets you cancel or change your card any time.</p>
+      <p class="form-note" style="margin:0 0 1rem">Billed monthly. The link in your confirmation email lets you cancel or change your card any time.</p>
       <form class="form" id="subscribe-form" novalidate>
-      <fieldset class="full sizes" id="sub-size"><legend>Size</legend></fieldset>
+      <input type="hidden" name="sizeId" id="sub-size-input">
       <fieldset class="full sizes" id="sub-cadence"><legend>How often</legend></fieldset>
       <p class="full plan-price sub-price" id="sub-price" aria-live="polite"></p>
       <fieldset class="full days" id="sub-day"><legend>Which day</legend><p class="form-note" id="sub-day-note">Your first bouquet is the first open one of these at least three days out. Same-week changes go through Anthony.</p></fieldset>
