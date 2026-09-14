@@ -10,7 +10,9 @@
 # Needs two repository secrets (Settings → Secrets and variables → Actions):
 #   CLOUDFLARE_API_TOKEN   an API token made from the "Edit Cloudflare Workers" template, plus D1 edit
 #   CLOUDFLARE_ACCOUNT_ID  from the Workers overview page in the Cloudflare dashboard
-# Worker secrets (Stripe, admin, Google) already live in Cloudflare and are untouched by a deploy.
+# Worker secrets already live in Cloudflare and are untouched by a deploy: STRIPE_SECRET_KEY,
+# STRIPE_WEBHOOK_SECRET, ADMIN_PASSCODE, ADMIN_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+# UBER_CLIENT_ID, UBER_CLIENT_SECRET, UBER_CUSTOMER_ID and UBER_WEBHOOK_SECRET.
 # Optional: INSTAGRAM_APP_ID and INSTAGRAM_APP_SECRET as repository secrets are uploaded to the
 # Worker on each deploy (so the Instagram app keys never need a laptop either).
 name: Deploy
@@ -22,6 +24,10 @@ on:
         description: "SITE_URL the Worker should redirect back to"
         required: true
         default: "https://thebullandbloom.thebullandbloom.workers.dev"
+      uber_robocourier:
+        description: "Set to 1 to run sandbox deliveries with Robocourier; leave empty for real couriers"
+        required: false
+        default: ""
   push:
     branches: [main]
 
@@ -71,8 +77,13 @@ jobs:
       - name: Deploy
         run: |
           CFG="${{ steps.r2.outputs.config }}"
+          ROBO="${{ github.event.inputs.uber_robocourier }}"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            npx wrangler deploy --config "$CFG" --var "SITE_URL:${{ github.event.inputs.site_url }}"
+            if [ -n "$ROBO" ]; then
+              npx wrangler deploy --config "$CFG" --var "SITE_URL:${{ github.event.inputs.site_url }}" --var "UBER_ROBOCOURIER:$ROBO"
+            else
+              npx wrangler deploy --config "$CFG" --var "SITE_URL:${{ github.event.inputs.site_url }}"
+            fi
           else
             npx wrangler deploy --config "$CFG"
           fi
