@@ -344,7 +344,8 @@ Plan 3 (Uber Direct delivery), verified 2026-09-14 on the preview after the merg
 - Robocourier walk: in `auto` mode the sandbox courier runs in real time against the quoted ETA (about an hour), not in seconds. At the end the line read "Courier: delivered · $7.99" and the order flipped to `done` on its own. An earlier sandbox job (Latham, 2026-09-10) had done the same.
 - Cancellation: a second delivery order was dispatched and cancelled through the Uber API (`scripts/uber-cancel.sh`; the dashboard does not list sandbox jobs, even after "Switch to testing"). Admin kept the order `paid`, showed "Courier: canceled" with reason `cancelled_by_merchant_api`, and offered "Request another courier".
 - Pickup regression: a pickup bouquet for Sept 17 paid and showed `paid · pickup`; its email carried the real studio address, 40 Manning Blvd.
-- Not exercised: the dispatch-failure path (needs a wrong `UBER_CUSTOMER_ID` uploaded and restored) and the Closed-calendar half of the regression. Both are covered by tests.
+- Dispatch failure: with a wrong `UBER_CUSTOMER_ID` on the worker, Request another courier left the order `paid`, wrote no delivery row, kept the button, and showed the error under the order ("invalid customer token … try again, or deliver this one yourself"). The message quotes Uber's raw JSON; a plainer line for Anthony is a follow-up.
+- Not exercised: the Closed-calendar half of the regression (covered by tests; Plan 2 verified it live).
 - Watch: re-clicking a day while the previous fetch was in flight briefly rendered the earlier day's orders under the new heading; the admin day loader wants a request-sequence guard.
 
 Still to verify: Instagram feed, subscription portal, and the Cloudflare rate-limit rules (need the zone, so at DNS cutover). That rule list must include `/api/quote`: it is unauthenticated and calls Uber's metered quote API, so abuse would return `429 customer_limited` and degrade every customer to the fallback fee.
