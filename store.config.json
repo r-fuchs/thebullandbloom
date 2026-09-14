@@ -1,17 +1,17 @@
 {
   "timezone": "America/New_York",
   "studio": {
-    "pickupAddress": "SAMPLE — studio address, Upstate NY",
+    "pickupAddress": "40 Manning Blvd, Albany, NY 12203",
     "pickupInstructions": "SAMPLE — text Anthony at (518) 334-0517 when you arrive.",
     "ownerEmail": "thebullandbloom@gmail.com",
     "readyTime": "09:00",
     "phone": "+15183340517",
     "address": {
-      "street": "1 Empire State Plaza",
+      "street": "40 Manning Blvd",
       "unit": "",
       "city": "Albany",
       "state": "NY",
-      "zip": "12242"
+      "zip": "12203"
     }
   },
   "calendars": {
