@@ -101,9 +101,9 @@ export class UberApi implements Uber {
         manifest_items: [{ name: req.itemName, quantity: 1, size: "small", price: req.valueCents }],
         manifest_reference: req.reference,
         manifest_total_value: req.valueCents,
-        // Hand a $85 perishable to a person, and bring it home rather than bin it if nobody answers.
-        deliverable_action: "deliverable_action_meet_at_door",
-        undeliverable_action: "return",
+        // Leave the bouquet at the door (Ryan for Anthony, 2026-09-14); nobody needs to be home.
+        deliverable_action: "deliverable_action_leave_at_door",
+        undeliverable_action: "leave_at_door",
         idempotency_key: req.idempotencyKey,
         external_id: req.reference,
       };

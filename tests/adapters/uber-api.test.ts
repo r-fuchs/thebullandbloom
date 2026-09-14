@@ -175,8 +175,8 @@ describe("UberApi", () => {
     expect(body.dropoff_notes).toBe("Leave on the porch");
     expect(body.manifest_items).toEqual([{ name: "Bouquet — hand-tied flowers", quantity: 1, size: "small", price: 8500 }]);
     expect(body.manifest_reference).toBe("a1b2c3d4");
-    expect(body.deliverable_action).toBe("deliverable_action_meet_at_door");
-    expect(body.undeliverable_action).toBe("return");
+    expect(body.deliverable_action).toBe("deliverable_action_leave_at_door");
+    expect(body.undeliverable_action).toBe("leave_at_door");
     expect(body.idempotency_key).toBe("a1b2c3d4-order");
     expect(body.test_specifications).toBeUndefined();
   });
