@@ -15,6 +15,9 @@
 # UBER_CLIENT_ID, UBER_CLIENT_SECRET, UBER_CUSTOMER_ID and UBER_WEBHOOK_SECRET.
 # Optional: INSTAGRAM_APP_ID and INSTAGRAM_APP_SECRET as repository secrets are uploaded to the
 # Worker on each deploy (so the Instagram app keys never need a laptop either).
+# Cutover: on a push to main, UBER_PROD_CLIENT_ID / UBER_PROD_CLIENT_SECRET / UBER_PROD_CUSTOMER_ID /
+# UBER_PROD_WEBHOOK_SECRET and STRIPE_LIVE_SECRET_KEY / STRIPE_LIVE_WEBHOOK_SECRET replace the test
+# keys on the Worker. Manual preview deploys never touch them.
 name: Deploy
 
 on:
@@ -71,6 +74,33 @@ jobs:
             printf '%s' "$IG_SECRET" | npx wrangler secret put INSTAGRAM_APP_SECRET
           else
             echo "no Instagram app keys in repository secrets; skipping"
+          fi
+      - name: Production keys on a push to main (Uber and Stripe live)
+        # The Worker carries TEST keys until cutover. A push to main is the cutover, so it swaps in the
+        # production keys from repository secrets; a manual preview deploy never does. Any key that is
+        # not set is left alone, so a partial set of secrets cannot half-configure the Worker.
+        if: github.event_name == 'push'
+        env:
+          U_ID: ${{ secrets.UBER_PROD_CLIENT_ID }}
+          U_SECRET: ${{ secrets.UBER_PROD_CLIENT_SECRET }}
+          U_CUSTOMER: ${{ secrets.UBER_PROD_CUSTOMER_ID }}
+          U_WEBHOOK: ${{ secrets.UBER_PROD_WEBHOOK_SECRET }}
+          S_KEY: ${{ secrets.STRIPE_LIVE_SECRET_KEY }}
+          S_WEBHOOK: ${{ secrets.STRIPE_LIVE_WEBHOOK_SECRET }}
+        run: |
+          if [ -n "$U_ID" ] && [ -n "$U_SECRET" ] && [ -n "$U_CUSTOMER" ] && [ -n "$U_WEBHOOK" ]; then
+            printf '%s' "$U_ID" | npx wrangler secret put UBER_CLIENT_ID
+            printf '%s' "$U_SECRET" | npx wrangler secret put UBER_CLIENT_SECRET
+            printf '%s' "$U_CUSTOMER" | npx wrangler secret put UBER_CUSTOMER_ID
+            printf '%s' "$U_WEBHOOK" | npx wrangler secret put UBER_WEBHOOK_SECRET
+          else
+            echo "::warning::UBER_PROD_* repository secrets incomplete; Worker keeps its current Uber keys"
+          fi
+          if [ -n "$S_KEY" ] && [ -n "$S_WEBHOOK" ]; then
+            printf '%s' "$S_KEY" | npx wrangler secret put STRIPE_SECRET_KEY
+            printf '%s' "$S_WEBHOOK" | npx wrangler secret put STRIPE_WEBHOOK_SECRET
+          else
+            echo "::warning::STRIPE_LIVE_* repository secrets not set; Worker keeps its current Stripe keys"
           fi
       - name: Apply D1 migrations
         run: npx wrangler d1 migrations apply bullandbloom --remote --config "${{ steps.r2.outputs.config }}"
