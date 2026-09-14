@@ -1,8 +1,8 @@
 import { env } from "cloudflare:test";
 import { describe, it, expect, beforeEach } from "vitest";
 import {
-  ORDER_PAID_KINDS, CLAIM_LEASE_SECONDS, backoff, claimItem, counts, dueItems, enqueueForSessionStatements,
-  markDone, markFailed, retryFailed,
+  ORDER_PAID_KINDS, CLAIM_LEASE_SECONDS, backoff, claimItem, counts, dueItems, enqueueCourierEmailStatement,
+  enqueueForSessionStatements, markDone, markFailed, retryFailed,
 } from "../../src/store/outbox";
 
 async function order(id: string, session: string, status: string) {
@@ -76,5 +76,16 @@ describe("store/outbox", () => {
     expect(backoff(7, 0)).toBe(3840);
     expect(backoff(23, 1000)).toBe(4840);
     expect(backoff(24, 0)).toBeNull();
+  });
+
+  it("queues a courier email and revives the row on a re-dispatch", async () => {
+    await order("c1", "cs_c1", "paid");
+    await env.DB.batch([enqueueCourierEmailStatement(env.DB, "c1", 1000)]);
+    const id = (await env.DB.prepare("SELECT id FROM outbox WHERE order_id = 'c1'").first<any>()).id;
+    await markDone(env.DB, id, 1100);
+    expect(await counts(env.DB)).toEqual({ pending: 0, failed: 0 });
+    await env.DB.batch([enqueueCourierEmailStatement(env.DB, "c1", 2000)]);
+    const rows = await env.DB.prepare("SELECT kind, attempts, next_attempt_at, done_at FROM outbox WHERE order_id = 'c1'").all<any>();
+    expect(rows.results).toEqual([{ kind: "courier_email", attempts: 0, next_attempt_at: 2000, done_at: null }]);
   });
 });

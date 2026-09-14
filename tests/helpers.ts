@@ -4,6 +4,7 @@ import { loadConfig } from "../src/config";
 import type { Payments, SubscriptionCheckoutInput, WebhookEvent } from "../src/adapters/payments";
 import { FakeGoogle } from "./fakes/google";
 import { FakeInstagram } from "./fakes/instagram";
+import { FakeUber } from "./fakes/uber";
 
 // Module-scoped (not per-instance) so session ids stay unique across every
 // RecordingPayments created within a test file, matching the D1 test DB,
@@ -54,10 +55,11 @@ export function testApp(now = new Date("2026-09-08T14:00:00Z")) {
   const payments = new RecordingPayments();
   const google = new FakeGoogle();
   const instagram = new FakeInstagram();
-  const app = buildApp({ payments, google, instagram, clock: () => now, config: loadConfig() });
+  const uber = new FakeUber();
+  const app = buildApp({ payments, google, instagram, uber, clock: () => now, config: loadConfig() });
   const fetch = (path: string, init?: RequestInit) =>
     app.request(new Request(`https://example.com${path}`, init), undefined, env);
-  return { app, payments, google, instagram, fetch };
+  return { app, payments, google, instagram, uber, fetch };
 }
 
 /** Services object for jobs and runScheduled tests, sharing testApp's fakes. */
@@ -65,7 +67,8 @@ export function testServices(now = new Date("2026-09-08T14:00:00Z")) {
   const payments = new RecordingPayments();
   const google = new FakeGoogle();
   const instagram = new FakeInstagram();
-  return { services: { payments, google, instagram, clock: () => now, config: loadConfig() }, payments, google, instagram };
+  const uber = new FakeUber();
+  return { services: { payments, google, instagram, uber, clock: () => now, config: loadConfig() }, payments, google, instagram, uber };
 }
 
 export async function seedAdminOverride(date: string, cap: number | null, closed: boolean) {

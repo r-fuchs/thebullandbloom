@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { App } from "../app";
-import { markPaidBySession, cancelHeldBySession } from "../store/orders";
+import { markPaidBySession, cancelHeldBySession, markDoneIfPaid } from "../store/orders";
 import { enqueueForSessionStatements, enqueueForSubjectStatements, ORDER_PAID_KINDS, SUB_CANCELLED_KINDS, SUB_CONFIRMED_KINDS } from "../store/outbox";
 import { byStripeSubscription, deleteFutureMaterialized, insertSubscriber, setSubscriberStatus, type SubscriberStatus } from "../store/subscribers";
 import { drainOutbox } from "../jobs/outbox";
@@ -8,6 +8,8 @@ import { anchorFor, materializeSubscriptions } from "../jobs/materialize";
 import { subscriptionCell } from "../config";
 import { ymdIn } from "../core/time";
 import { background } from "./background";
+import { verifyUberSignature } from "../adapters/uber";
+import { applyStatus, knownStatus } from "../store/deliveries";
 
 /** Stripe subscription status → ours (D28). Paused collection or an unpaid invoice both stop bouquets. */
 export function mirrorStatus(status: string, paused: boolean): SubscriberStatus | null {
@@ -95,6 +97,40 @@ export function webhookRoutes(): App {
     }
     return c.json({ received: true, applied: "ignored" });
   });
+
+  r.post("/webhooks/uber", async (c) => {
+    const { clock } = c.get("services");
+    const secret = c.env.UBER_WEBHOOK_SECRET;
+    const raw = await c.req.text();
+    // Both headers are accepted: `x-uber-signature` is current, `x-postmates-signature` is the
+    // legacy alias Uber still sends on delivery-status events (verified 2026-09-09).
+    const sig = c.req.header("x-uber-signature") ?? c.req.header("x-postmates-signature");
+    if (!secret || !(await verifyUberSignature(secret ?? "", raw, sig))) {
+      console.error("webhook: bad uber signature");
+      return c.json({ error: "bad signature" }, 400);
+    }
+
+    let event: any;
+    try { event = JSON.parse(raw); } catch { return c.json({ error: "invalid JSON" }, 400); }
+    if (event?.kind !== "event.delivery_status") return c.json({ received: true, applied: "ignored" });
+
+    const deliveryId = typeof event.delivery_id === "string" ? event.delivery_id
+      : typeof event?.data?.id === "string" ? event.data.id : "";
+    const status = knownStatus(event.status ?? event?.data?.status);
+    if (!deliveryId || !status) return c.json({ received: true, applied: "ignored" });
+
+    const nowSec = Math.floor(clock().getTime() / 1000);
+    const reason = typeof event?.data?.undeliverable_reason === "string" ? event.data.undeliverable_reason : null;
+    const delivery = await applyStatus(c.env.DB, deliveryId, status, reason, nowSec);
+    if (!delivery) {
+      // A delivery from another environment, or one whose row we lost. Acknowledge so Uber stops retrying.
+      console.error("webhook: uber status for a delivery we do not have", deliveryId, status);
+      return c.json({ received: true, applied: "unknown" });
+    }
+    if (delivery.status === "delivered") await markDoneIfPaid(c.env.DB, delivery.orderId);
+    return c.json({ received: true, applied: status });
+  });
+
   return r;
 }
 

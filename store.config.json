@@ -3,7 +3,16 @@
   "studio": {
     "pickupAddress": "SAMPLE — studio address, Upstate NY",
     "pickupInstructions": "SAMPLE — text Anthony at (518) 334-0517 when you arrive.",
-    "ownerEmail": "thebullandbloom@gmail.com"
+    "ownerEmail": "thebullandbloom@gmail.com",
+    "readyTime": "09:00",
+    "phone": "+15183340517",
+    "address": {
+      "street": "1 Empire State Plaza",
+      "unit": "",
+      "city": "Albany",
+      "state": "NY",
+      "zip": "12242"
+    }
   },
   "calendars": {
     "closed": "Bull and Bloom: Closed",
@@ -87,5 +96,20 @@
       }
     ],
     "note": "Monthly prices approved by Ryan and Anthony 2026-09-10. One-time prices ($55 / $85 / $135) approved by Ryan 2026-09-10. Size descriptions are placeholders until Anthony writes his."
+  },
+  "delivery": {
+    "fallbackFeeCents": 1500,
+    "fallbackZips": [
+      "12202",
+      "12203",
+      "12204",
+      "12205",
+      "12206",
+      "12207",
+      "12208",
+      "12209",
+      "12210",
+      "12211"
+    ]
   }
 }

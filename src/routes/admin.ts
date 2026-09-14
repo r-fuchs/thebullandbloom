@@ -9,6 +9,8 @@ import { getOverrides, putAdminOverride, clearAdminOverride } from "../store/ove
 import { countUsed, listOrders, getOrder, setStatus } from "../store/orders";
 import { registerGoogleAdmin } from "./admin-google";
 import { registerInstagramAdmin } from "./instagram";
+import { registerDeliveryAdmin } from "./admin-delivery";
+import { deliveriesForDate } from "../store/deliveries";
 import { listSubscribers } from "../store/subscribers";
 import { dueDates } from "../core/subscriptions";
 import { addDays, ymdIn } from "../core/time";
@@ -129,7 +131,8 @@ export function adminRoutes(): App {
   r.get("/admin/api/orders", async (c) => {
     const date = c.req.query("date");
     if (!isYmd(date)) return c.json({ error: "date must be YYYY-MM-DD" }, 400);
-    return c.json({ orders: await listOrders(c.env.DB, date) });
+    const [orders, deliveries] = await Promise.all([listOrders(c.env.DB, date), deliveriesForDate(c.env.DB, date)]);
+    return c.json({ orders, deliveries: Object.fromEntries(deliveries) });
   });
 
   r.post("/admin/api/orders/:id/done", async (c) => {
@@ -167,6 +170,7 @@ export function adminRoutes(): App {
 
   registerGoogleAdmin(r);
   registerInstagramAdmin(r);
+  registerDeliveryAdmin(r);
 
   return r;
 }

@@ -1,7 +1,8 @@
 import type { Google } from "../adapters/google";
 import type { StoreConfig } from "../config";
-import { customerEmail, orderEvent, ownerEmail, ownerSubscriptionEmail, subscriptionCancelledEmail, subscriptionConfirmedEmail } from "../core/messages";
+import { courierEmail, customerEmail, orderEvent, ownerEmail, ownerSubscriptionEmail, subscriptionCancelledEmail, subscriptionConfirmedEmail } from "../core/messages";
 import type { Payments } from "../adapters/payments";
+import { activeDeliveryFor } from "../store/deliveries";
 import { getSubscriber } from "../store/subscribers";
 import { loadState, type GoogleState } from "../store/google";
 import { getOrder, setCalendarEventId, type Order } from "../store/orders";
@@ -66,6 +67,17 @@ async function deliver(deps: OutboxDeps, state: GoogleState, item: OutboxItem): 
     case "calendar_event": await calendarEvent(deps, state, order); return true;
     case "email_customer": await deps.google.sendMail(customerEmail(order, deps.config)); return true;
     case "email_owner": await deps.google.sendMail(ownerEmail(order, deps.config, deps.siteUrl)); return true;
+    case "courier_email": {
+      // The tracking link belongs to a live courier job. If the job was canceled between the
+      // dispatch and this drain, there is nothing worth telling the customer to follow.
+      const delivery = await activeDeliveryFor(deps.db, order.id);
+      if (!delivery) {
+        console.error(`outbox: order ${order.id} has no live delivery; dropping courier_email`);
+        return false;
+      }
+      await deps.google.sendMail(courierEmail(order, deps.config, delivery.trackingUrl));
+      return true;
+    }
     default: console.error(`outbox: unknown order kind ${item.kind}`); return false;
   }
 }

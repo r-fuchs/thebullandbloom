@@ -33,6 +33,9 @@
   .ig-grid .ph-wrap button:first-child{width:100%}
   .ig-grid .ph-del{font-size:.75rem;padding:.2rem;border:1px solid var(--rule);aspect-ratio:auto;background:#fff}
   .ig-grid button.hidden-post::after{content:"hidden";position:absolute;inset:auto 0 0 0;background:var(--closed);font-size:.75rem;padding:.1rem}
+  .order .addr{color:var(--sepia);font-size:.9rem}
+  .order .track{font-size:.9rem}
+  .order .err{color:#8B3A3A;font-size:.9rem}
   [hidden]{display:none!important}
 </style>
 </head>
@@ -49,7 +52,7 @@
     <div class="row">
       <button id="prev">‹</button><strong id="month-label"></strong><button id="next">›</button>
       <span style="flex:1"></span>
-      <button id="subs-btn">Subscribers</button><button id="ig-btn">Photos</button><button id="settings-btn">Settings</button><button id="google-btn">Google</button><button id="logout">Sign out</button>
+      <button id="subs-btn">Subscribers</button><button id="ig-btn">Photos</button><button id="settings-btn">Settings</button><button id="google-btn">Google</button><button id="delivery-btn">Delivery</button><button id="logout">Sign out</button>
     </div>
     <div class="grid" id="grid"></div>
     <p class="status">Tap a day. Number is one-time orders / cap; “+n” is subscription bouquets. Pink = closed, yellow = full.</p>
@@ -117,6 +120,13 @@
       </div>
       <p class="status">Close a day by adding any event to the calendar named “Bull and Bloom: Closed”. Paid orders appear on “Bull and Bloom: Orders” and are emailed to you and the customer.</p>
     </div>
+
+    <div class="panel" id="delivery-panel" hidden>
+      <h2 style="margin:0 0 .5rem;font-size:1.1rem;font-weight:500">Delivery</h2>
+      <p id="d-summary" class="status"></p>
+      <p id="d-variance" class="status"></p>
+      <p class="status">Tap “Request courier” on a paid delivery order once the bouquet is made. The customer gets a tracking link straight away. Whatever the courier ends up costing, the customer pays what they were quoted — the difference is the number above.</p>
+    </div>
   </section>
 </main>
 <script>
@@ -131,7 +141,11 @@
       return r.text().then(function (t) {
         var b = null;
         try { b = t ? JSON.parse(t) : null; } catch (e) { b = null; }
-        if (!r.ok) throw new Error((b && b.error) || ('Request failed (' + r.status + ')'));
+        if (!r.ok) {
+          var err = new Error((b && (b.message || b.error)) || ('Request failed (' + r.status + ')'));
+          if (b && b.delivery) err.delivery = b.delivery;
+          throw err;
+        }
         return b;
       });
     });
@@ -142,6 +156,13 @@
 
   function show(authed) { $('#login').hidden = authed; $('#app').hidden = !authed; }
   function ymd(y, m, d) { return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0'); }
+  function money(c) { return '$' + (c / 100).toFixed(2); }
+  function addressLine(o) {
+    if (o.fulfillment !== 'delivery' || !o.addressJson) return '';
+    var a; try { a = JSON.parse(o.addressJson); } catch (e) { return 'address unreadable'; }
+    var parts = [a.street, a.unit, a.city + ', ' + a.state + ' ' + a.zip].filter(function (p) { return p && p !== ''; });
+    return parts.join(', ') + (a.notes ? ' — ' + a.notes : '');
+  }
 
   function loadMonth() {
     var y = view.getFullYear(), m = view.getMonth();
@@ -167,29 +188,68 @@
 
   function loadDay() {
     var d = cache[selected]; if (!d) return;
-    $('#day-panel').hidden = false; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true;
+    $('#day-panel').hidden = false; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true; $('#delivery-panel').hidden = true;
     $('#day-title').textContent = new Date(selected + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
     $('#day-cap').value = d.overrideCap === null ? '' : d.overrideCap;
     $('#day-cap').placeholder = 'default';
     $('#day-toggle').textContent = d.closed ? 'Reopen this day' : 'Close this day';
     api('/orders?date=' + selected).then(function (res) {
       var box = $('#orders'); box.innerHTML = '';
+      var deliveries = res.deliveries || {};
       if (!res.orders.length) { box.innerHTML = '<p class="status">No orders.</p>'; return; }
       res.orders.forEach(function (o) {
         if (o.status === 'cancelled') return;
         var el = document.createElement('div'); el.className = 'order';
-        el.innerHTML = '<div><strong></strong> · <span class="size"></span> · <span class="st"></span></div><small class="contact"></small><div class="note"></div><div class="row"></div>';
+        el.innerHTML = '<div><strong></strong> · <span class="size"></span> · <span class="st"></span></div>' +
+          '<small class="contact"></small><div class="addr"></div><div class="note"></div>' +
+          '<div class="track"></div><div class="err"></div><div class="row"></div>';
         el.querySelector('strong').textContent = o.customerName;
         el.querySelector('.size').textContent = o.sizeId + (o.source === 'subscription' ? ' (subscription)' : '');
-        el.querySelector('.st').textContent = o.status;
+        el.querySelector('.st').textContent = o.status + ' · ' + o.fulfillment;
         el.querySelector('.contact').textContent = o.customerEmail + (o.customerPhone ? ' · ' + o.customerPhone : '');
+        el.querySelector('.addr').textContent = addressLine(o);
         el.querySelector('.note').textContent = o.note || '';
+
+        var del = deliveries[o.id];
+        var track = el.querySelector('.track');
+        if (del) {
+          track.textContent = 'Courier: ' + del.status + ' · ' + money(del.feeCents) +
+            (del.feeCents !== o.deliveryCents ? ' (customer paid ' + money(o.deliveryCents) + ')' : '');
+          var a = document.createElement('a');
+          a.href = del.trackingUrl; a.target = '_blank'; a.rel = 'noopener'; a.textContent = ' track';
+          track.appendChild(a);
+          if (del.lastError) el.querySelector('.err').textContent = del.lastError;
+        }
+
         var row = el.querySelector('.row');
         if (o.status === 'paid' || o.status === 'done') {
           var b = document.createElement('button');
           b.textContent = o.status === 'paid' ? 'Mark done' : 'Undo done';
           b.addEventListener('click', function () { api('/orders/' + o.id + (o.status === 'paid' ? '/done' : '/undone'), { method: 'POST' }).then(loadDay); });
           row.appendChild(b);
+        }
+        // Live courier jobs block a second request; canceled and returned ones do not.
+        var live = del && del.status !== 'canceled' && del.status !== 'returned';
+        if (o.fulfillment === 'delivery' && o.status === 'paid' && !live) {
+          var c = document.createElement('button');
+          c.textContent = del ? 'Request another courier' : 'Request courier';
+          var msg = document.createElement('span'); msg.className = 'status';
+          c.addEventListener('click', function () {
+            c.disabled = true; msg.textContent = 'Asking Uber…';
+            api('/orders/' + o.id + '/dispatch', { method: 'POST' })
+              .then(function () { return loadDay(); })
+              .catch(function (e) {
+                if (e.message === 'unauthorized') return;
+                c.disabled = false;
+                msg.textContent = e.message + (e.message.indexOf('deliver this one yourself') === -1 ? ' — try again, or deliver this one yourself.' : '');
+                if (e.delivery && e.delivery.trackingUrl) {
+                  var trackA = document.createElement('a');
+                  trackA.href = e.delivery.trackingUrl; trackA.target = '_blank'; trackA.rel = 'noopener'; trackA.textContent = ' track';
+                  msg.appendChild(trackA);
+                }
+              });
+          });
+          row.appendChild(c); row.appendChild(msg);
         }
         box.appendChild(el);
       });
@@ -199,7 +259,7 @@
   var DAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   function human(ymd) { return ymd ? new Date(ymd + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '—'; }
   function loadSubscribers() {
-    $('#subs-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true;
+    $('#subs-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#ig-panel').hidden = true; $('#delivery-panel').hidden = true;
     api('/subscribers').then(function (res) {
       var flags = $('#subs-flags'); flags.innerHTML = '';
       res.flags.forEach(function (f) {
@@ -225,7 +285,7 @@
   $('#subs-btn').addEventListener('click', loadSubscribers);
 
   function loadInstagram() {
-    $('#ig-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true;
+    $('#ig-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#delivery-panel').hidden = true;
     return api('/instagram/status').then(function (s) {
       var text;
       if (!s.configured) text = !s.storage ? 'Photo storage is not set up yet (Ryan needs to enable R2 on Cloudflare and redeploy).' : 'Instagram is not set up yet. You can still add photos from your phone below.';
@@ -310,7 +370,7 @@
   });
 
   function loadSettings() {
-    $('#settings-panel').hidden = false; $('#day-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true;
+    $('#settings-panel').hidden = false; $('#day-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true; $('#delivery-panel').hidden = true;
     api('/settings').then(function (s) {
       $('#s-cap').value = s.cap; $('#s-cutoff').value = s.cutoff;
       var box = $('#s-days'); box.innerHTML = '';
@@ -330,7 +390,7 @@
     return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : Math.round(m / 60) + ' h ago';
   }
   function loadGoogle() {
-    $('#google-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true;
+    $('#google-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true; $('#delivery-panel').hidden = true;
     return api('/google/status').then(function (s) {
       var text;
       if (!s.configured) text = 'Not set up yet (Ryan needs to add the Google client keys).';
@@ -369,6 +429,26 @@
   $('#g-disconnect').addEventListener('click', function () {
     api('/google/disconnect', { method: 'POST' }).then(loadGoogle).catch(function (e) { $('#g-status').textContent = e.message; });
   });
+
+  function loadDelivery() {
+    $('#delivery-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true;
+    return api('/delivery/status').then(function (s) {
+      $('#d-summary').textContent = s.configured
+        ? 'Uber is set up. Addresses outside its range fall back to ' + money(s.fallbackFeeCents) + ' for ZIPs ' + (s.fallbackZips.join(', ') || '(none set)') + ', which you deliver yourself.'
+        : 'Uber is not set up yet. Delivery is offered only for ZIPs ' + (s.fallbackZips.join(', ') || '(none set)') + ' at ' + money(s.fallbackFeeCents) + ', and you deliver those yourself.';
+      var v = s.variance.varianceCents;
+      $('#d-variance').textContent = s.variance.deliveries === 0
+        ? 'No couriers requested yet.'
+        : s.variance.deliveries + ' courier job(s) so far. ' + (v === 0
+          ? 'Delivery has cost you exactly what customers paid.'
+          : v > 0 ? 'They have cost you ' + money(v) + ' more than customers paid.'
+                  : 'They have cost you ' + money(-v) + ' less than customers paid.');
+    }).catch(function (e) {
+      if (e.message === 'unauthorized') return;
+      $('#d-summary').textContent = 'Could not load the delivery status: ' + e.message;
+    });
+  }
+  $('#delivery-btn').addEventListener('click', loadDelivery);
 
   $('#login').addEventListener('submit', function (e) {
     e.preventDefault();

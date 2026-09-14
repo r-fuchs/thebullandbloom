@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
 import {
   tryInsertHeldOrder, countUsed, attachSession, getOrder, markPaidBySession, setCalendarEventId,
-  cancelHeldBySession, expireHolds, listOrders, setStatus, type NewOrder,
+  cancelHeldBySession, expireHolds, listOrders, setStatus, markDoneIfPaid, type NewOrder,
 } from "../../src/store/orders";
 
 let n = 0;
@@ -10,8 +10,8 @@ function fresh(date = "2026-09-10"): NewOrder {
   n += 1;
   return {
     id: `o${n}`, date, sizeId: "bouquet", fulfillment: "pickup",
-    customerName: "Pat", customerEmail: "pat@example.com", customerPhone: null, note: null,
-    bouquetCents: 8500, deliveryCents: 0,
+    customerName: "Pat", customerEmail: "pat@example.com", customerPhone: null, addressJson: null, note: null,
+    bouquetCents: 8500, deliveryCents: 0, uberQuoteId: null,
   };
 }
 const NOW = 1_800_000_000;
@@ -76,6 +76,20 @@ describe("orders", () => {
     await tryInsertHeldOrder(env.DB, b, 5, NOW + 1, NOW + 1800);
     expect((await listOrders(env.DB, "2026-09-25")).map((o) => o.id)).toEqual([a.id, b.id]);
   });
+  it("stores an address and quote id on a delivery order", async () => {
+    const ok = await tryInsertHeldOrder(env.DB, {
+      id: "ord-delivery", date: "2026-10-06", sizeId: "bouquet", fulfillment: "delivery",
+      customerName: "Pat", customerEmail: "pat@example.com", customerPhone: "+15185550100",
+      addressJson: JSON.stringify({ street: "5 Elm St", unit: "", city: "Hudson", state: "NY", zip: "12534", notes: "porch" }),
+      note: null, bouquetCents: 8500, deliveryCents: 1200, uberQuoteId: "dqt_abc",
+    }, 4, 1000, 2000);
+    expect(ok).toBe(true);
+    const o = (await getOrder(env.DB, "ord-delivery"))!;
+    expect(o.fulfillment).toBe("delivery");
+    expect(o.deliveryCents).toBe(1200);
+    expect(o.uberQuoteId).toBe("dqt_abc");
+    expect(JSON.parse(o.addressJson!).zip).toBe("12534");
+  });
 });
 
 describe("markPaidBySession extras and calendar id", () => {
@@ -95,5 +109,19 @@ describe("markPaidBySession extras and calendar id", () => {
   it("stores the calendar event id", async () => {
     await setCalendarEventId(env.DB, "px1", "bbpx1");
     expect((await getOrder(env.DB, "px1"))?.calendarEventId).toBe("bbpx1");
+  });
+});
+
+describe("markDoneIfPaid", () => {
+  it("marks an order done only from paid", async () => {
+    await env.DB.prepare(
+      `INSERT INTO orders (id, created_at, status, date, size_id, fulfillment, customer_name, customer_email, bouquet_cents)
+       VALUES ('md1', 1, 'paid', '2026-10-07', 'bouquet', 'delivery', 'A', 'a@example.com', 8500),
+              ('md2', 1, 'refunded', '2026-10-07', 'bouquet', 'delivery', 'B', 'b@example.com', 8500)`,
+    ).run();
+    expect(await markDoneIfPaid(env.DB, "md1")).toBe(true);
+    expect(await markDoneIfPaid(env.DB, "md1")).toBe(false);
+    expect(await markDoneIfPaid(env.DB, "md2")).toBe(false);
+    expect((await getOrder(env.DB, "md2"))!.status).toBe("refunded");
   });
 });

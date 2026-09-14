@@ -1,11 +1,12 @@
 import { env } from "cloudflare:test";
 import { describe, it, expect, beforeEach } from "vitest";
 import { drainOutbox } from "../../src/jobs/outbox";
-import { ORDER_PAID_KINDS, counts, enqueueForSessionStatements } from "../../src/store/outbox";
+import { ORDER_PAID_KINDS, counts, enqueueCourierEmailStatement, enqueueForSessionStatements } from "../../src/store/outbox";
 import { clearConnection, saveState } from "../../src/store/google";
 import { loadConfig } from "../../src/config";
 import { FakeGoogle } from "../fakes/google";
 import { RecordingPayments } from "../helpers";
+import { insertDelivery, applyStatus } from "../../src/store/deliveries";
 
 const NOW = new Date("2026-09-08T14:00:00Z");
 const NOW_SEC = Math.floor(NOW.getTime() / 1000);
@@ -19,12 +20,21 @@ async function paidOrder(id: string, session: string) {
   ).bind(id, session).run();
   await env.DB.batch(enqueueForSessionStatements(env.DB, session, ORDER_PAID_KINDS, NOW_SEC));
 }
+async function paidDeliveryOrder(id: string, session: string) {
+  await env.DB.prepare(
+    `INSERT OR REPLACE INTO orders (id, created_at, status, date, size_id, fulfillment, customer_name, customer_email,
+       customer_phone, address_json, note, bouquet_cents, delivery_cents, stripe_session_id)
+     VALUES (?, 1, 'paid', '2026-09-23', 'bouquet', 'delivery', 'Pat Smith', 'pat@example.com', '+15185550100',
+       '{"street":"5 Elm Street","unit":"","city":"Hudson","state":"NY","zip":"12534","notes":"porch"}', NULL, 8500, 1350, ?)`,
+  ).bind(id, session).run();
+}
 const deps = (google: FakeGoogle) => ({ db: env.DB, google, payments: new RecordingPayments(), config: cfg, siteUrl: "https://x.test" });
 
 describe("drainOutbox", () => {
   beforeEach(async () => {
     await clearConnection(env.DB);
     await env.DB.prepare("DELETE FROM outbox").run();
+    await env.DB.prepare("DELETE FROM deliveries").run();
   });
 
   it("skips without touching rows when Google is not connected", async () => {
@@ -118,5 +128,52 @@ describe("drainOutbox", () => {
     const row = await env.DB.prepare("SELECT attempts, next_attempt_at, done_at FROM outbox WHERE id = 'u1'").first<any>();
     expect(row).toEqual({ attempts: 0, next_attempt_at: 1, done_at: null });
     expect(g.sent).toHaveLength(0);
+  });
+
+  describe("courier email", () => {
+    it("sends the tracking link for the order's live delivery", async () => {
+      await saveState(env.DB, STATE);
+      await paidDeliveryOrder("cd1", "cs_cd1");
+      await insertDelivery(env.DB, {
+        id: "del-row-1", orderId: "cd1", uberDeliveryId: "u_cd1", status: "pending",
+        quotedCents: 1400, feeCents: 1400, trackingUrl: "https://direct.uber.com/track/u_cd1", at: NOW_SEC,
+      });
+      await env.DB.batch([enqueueCourierEmailStatement(env.DB, "cd1", NOW_SEC)]);
+      const g = new FakeGoogle();
+      expect(await drainOutbox(deps(g), NOW)).toEqual({ status: "ok", delivered: 1, failed: 0 });
+      expect(g.sent[0].to).toBe("pat@example.com");
+      expect(g.sent[0].text).toContain("https://direct.uber.com/track/u_cd1");
+    });
+
+    it("drops the courier email when the delivery has since been canceled", async () => {
+      await saveState(env.DB, STATE);
+      await paidDeliveryOrder("cd2", "cs_cd2");
+      await insertDelivery(env.DB, {
+        id: "del-row-2", orderId: "cd2", uberDeliveryId: "u_cd2", status: "pending",
+        quotedCents: 1400, feeCents: 1400, trackingUrl: "https://t.test/2", at: NOW_SEC,
+      });
+      await applyStatus(env.DB, "u_cd2", "canceled", "studio cancelled", NOW_SEC);
+      await env.DB.batch([enqueueCourierEmailStatement(env.DB, "cd2", NOW_SEC)]);
+      const g = new FakeGoogle();
+      expect(await drainOutbox(deps(g), NOW)).toEqual({ status: "ok", delivered: 0, failed: 0 });
+      expect(g.sent).toHaveLength(0);
+      expect(await counts(env.DB)).toEqual({ pending: 0, failed: 0 });
+    });
+
+    it("retries with backoff when Gmail is down, exactly like the other kinds", async () => {
+      await saveState(env.DB, STATE);
+      await paidDeliveryOrder("cd3", "cs_cd3");
+      await insertDelivery(env.DB, {
+        id: "del-row-3", orderId: "cd3", uberDeliveryId: "u_cd3", status: "pending",
+        quotedCents: 1400, feeCents: 1400, trackingUrl: "https://t.test/3", at: NOW_SEC,
+      });
+      await env.DB.batch([enqueueCourierEmailStatement(env.DB, "cd3", NOW_SEC)]);
+      const g = new FakeGoogle();
+      g.failNext = "gmail down";
+      expect(await drainOutbox(deps(g), NOW)).toEqual({ status: "ok", delivered: 0, failed: 1 });
+      const row = await env.DB.prepare("SELECT attempts, last_error FROM outbox WHERE order_id = 'cd3'").first<any>();
+      expect(row.attempts).toBe(1);
+      expect(row.last_error).toBe("gmail down");
+    });
   });
 });

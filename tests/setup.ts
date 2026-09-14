@@ -20,6 +20,11 @@ declare global {
       MEDIA?: R2Bucket;
       INSTAGRAM_APP_ID?: string;
       INSTAGRAM_APP_SECRET?: string;
+      UBER_CLIENT_ID?: string;
+      UBER_CLIENT_SECRET?: string;
+      UBER_CUSTOMER_ID?: string;
+      UBER_WEBHOOK_SECRET?: string;
+      UBER_ROBOCOURIER?: string;
       TEST_MIGRATIONS: D1Migration[];
     }
   }

@@ -40,4 +40,36 @@ describe("config", () => {
     expect(() => validateConfig(sub([{ ...c, priceCents: 0 }]))).toThrow(/priceCents/);
     expect(() => validateConfig({ ...base, subscriptions: { ...base.subscriptions, cadences: [{ id: "weekly", name: "x", perMonth: 9 }] } })).toThrow(/perMonth/);
   });
+  it("loads the studio ready time, phone, structured address, and delivery fallback", () => {
+    const cfg = loadConfig();
+    expect(cfg.studio.readyTime).toMatch(/^([01]\d|2[0-3]):[0-5]\d$/);
+    expect(cfg.studio.phone).toMatch(/^\+1\d{10}$/);
+    expect(cfg.studio.address.state).toHaveLength(2);
+    expect(cfg.studio.address.zip).toMatch(/^\d{5}$/);
+    expect(Number.isInteger(cfg.delivery.fallbackFeeCents)).toBe(true);
+    expect(Array.isArray(cfg.delivery.fallbackZips)).toBe(true);
+  });
+  it("rejects a bad ready time", () => {
+    const base = loadConfig();
+    expect(() => validateConfig({ ...base, studio: { ...base.studio, readyTime: "9am" } })).toThrow(/readyTime/);
+  });
+  it("rejects a studio phone that is not E.164", () => {
+    const base = loadConfig();
+    expect(() => validateConfig({ ...base, studio: { ...base.studio, phone: "(518) 334-0517" } })).toThrow(/studio.phone/);
+  });
+  it("rejects an incomplete studio address", () => {
+    const base = loadConfig();
+    expect(() => validateConfig({ ...base, studio: { ...base.studio, address: { ...base.studio.address, zip: "1253" } } })).toThrow(/studio.address.zip/);
+    expect(() => validateConfig({ ...base, studio: { ...base.studio, address: { ...base.studio.address, state: "New York" } } })).toThrow(/studio.address.state/);
+    expect(() => validateConfig({ ...base, studio: { ...base.studio, address: { ...base.studio.address, city: "" } } })).toThrow(/studio.address.city/);
+  });
+  it("rejects a bad delivery fallback", () => {
+    const base = loadConfig();
+    expect(() => validateConfig({ ...base, delivery: { fallbackFeeCents: -1, fallbackZips: [] } })).toThrow(/fallbackFeeCents/);
+    expect(() => validateConfig({ ...base, delivery: { fallbackFeeCents: 1500, fallbackZips: ["1253"] } })).toThrow(/fallbackZips/);
+  });
+  it("accepts an empty fallback zip list (no fallback offered)", () => {
+    const base = loadConfig();
+    expect(validateConfig({ ...base, delivery: { fallbackFeeCents: 1500, fallbackZips: [] } }).delivery.fallbackZips).toEqual([]);
+  });
 });
