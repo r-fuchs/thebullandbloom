@@ -3813,11 +3813,11 @@ This task is console clicks, credentialed commands, and a walk-through with real
 
 **The account question, stated plainly before anything is clicked.** Uber Direct gives sandbox credentials on signup, but production needs billing on file and Uber's approval of the business — which is Anthony's business, not Ryan's. So: **Ryan opens a sandbox organisation under his own account now** so the whole flow can be built and accepted this week, and Anthony's production organisation is applied for in parallel. Moving to production is then a swap of four Cloudflare secrets and dropping `UBER_ROBOCOURIER` — no code change. If Uber declines Anthony's region entirely (spec §7 item 1), Plan 3 still ships: the fallback flat-fee path is a complete delivery product on its own, and Anthony drives.
 
-- [ ] **Step 1: Resolve the pending decisions**
+- [x] **Step 1: Resolve the pending decisions**
 
 Ryan answers the items under "Decisions Ryan made (pending)" at the top of this plan — the studio's real street address, a phone the courier can call, the daily ready time, the fallback ZIP list and flat fee, and whether the courier leaves the bouquet or hands it over. Each answer is a `store.config.json` edit (Task 2's shape) plus, for the hand-over choice, one line in `src/adapters/uber-api.ts` (`deliverable_action`). Make those edits and re-run `npm test` before continuing; SAMPLE values must not reach a real courier.
 
-- [ ] **Step 2: Uber Direct account and credentials (one time, ~20 minutes)**
+- [x] **Step 2: Uber Direct account and credentials (one time, ~20 minutes)**
 
 At https://direct.uber.com, signed in as the account chosen in Step 1:
 
@@ -3835,7 +3835,7 @@ UBER_WEBHOOK_SECRET=…
 
 5. Apply for the **production** organisation in Anthony's name — business details, billing, the studio address. Approval is Uber's, not ours; record the date applied in the spec's §8 so a stalled application is visible.
 
-- [ ] **Step 3: Write and run the setup script**
+- [x] **Step 3: Write and run the setup script**
 
 `scripts/uber-setup.sh`:
 
@@ -3890,7 +3890,7 @@ scripts/uber-setup.sh
 
 Migration order matters, as in Plan 2: `0003_delivery.sql` lands before the new code deploys, so a webhook arriving mid-deploy never hits code expecting a table the database lacks. The `outbox` rebuild inside that migration copies existing rows, so any Plan 2 message still queued survives.
 
-- [ ] **Step 4: Acceptance walk-through (spec §4.6 "Uber: sandbox credentials plus Robocourier")**
+- [x] **Step 4: Acceptance walk-through (spec §4.6 "Uber: sandbox credentials plus Robocourier")**
 
 On the preview, with a day open and capacity free:
 
@@ -3904,7 +3904,7 @@ On the preview, with a day open and capacity free:
 
 Record which of these passed, with dates, in the spec's §8.
 
-- [ ] **Step 5: Record and commit**
+- [x] **Step 5: Record and commit**
 
 `README.md` — under "Local development" step 1, name the ten secrets and add:
 
