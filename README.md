@@ -12,7 +12,7 @@ thebullandbloom.com — floral design by Anthony Demonia. Static site plus a Clo
 
 ## Local development
 
-1. Create `.dev.vars` with the four required secrets — `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ADMIN_PASSCODE`, `ADMIN_SECRET` — plus whichever optional sets you want live: `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (without them the admin Google panel says "not set up"), `INSTAGRAM_APP_ID`/`INSTAGRAM_APP_SECRET` (without them the Photos panel says the same), and `UBER_CLIENT_ID`/`UBER_CLIENT_SECRET`/`UBER_CUSTOMER_ID`/`UBER_WEBHOOK_SECRET` (without them delivery falls back to the flat fee for the ZIPs in `store.config.json`, or is hidden when that list is empty).
+1. Create `.dev.vars` with the four required secrets — `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ADMIN_PASSCODE`, `ADMIN_SECRET` — plus whichever optional sets you want live: `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (without them the admin Google panel says "not set up"), `INSTAGRAM_APP_ID`/`INSTAGRAM_APP_SECRET` (without them the Photos panel says the same), and `UBER_CLIENT_ID`/`UBER_CLIENT_SECRET`/`UBER_CUSTOMER_ID`/`UBER_WEBHOOK_SECRET` (without them every delivery address gets its zone fee from `delivery.zones` in `store.config.json`, or delivery is hidden when no zone lists a ZIP).
 2. Run `npx wrangler d1 migrations apply bullandbloom --local`.
 3. Run `npm run dev`.
 

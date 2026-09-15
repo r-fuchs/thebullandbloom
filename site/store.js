@@ -99,13 +99,16 @@
     var b = bouquetCents();
     var dayChosen = !!(new FormData(form)).get('date');
     if (!b || !dayChosen) { totalLine.textContent = ''; pay.disabled = true; return; }
-    var parts = ['Bouquet ' + money(b)], total = b, v = vaseCents();
+    var sz = sizeOf(state.sizeId);
+    var parts = [(sz ? sz.name : 'Bouquet') + ' ' + money(b)], total = b, v = vaseCents();
     if (isVase()) { parts.push('vase ' + money(v)); total += v; }
     if (isDelivery()) {
       if (!quote) { totalLine.textContent = ''; pay.disabled = true; return; }
       parts.push('delivery ' + money(quote.feeCents)); total += quote.feeCents;
     }
-    totalLine.textContent = (parts.length > 1 ? parts.join(' + ') + ' = ' + money(total) : 'Total ' + money(total) + ' · pickup is free') + ' · tax added at checkout';
+    var line = parts.length > 1 ? parts.join(' + ') + ' = ' + money(total) : 'Total ' + money(total);
+    if (!isDelivery()) line += ' · pickup is free';
+    totalLine.textContent = line + ' · tax added at checkout';
     pay.disabled = false;
   }
 

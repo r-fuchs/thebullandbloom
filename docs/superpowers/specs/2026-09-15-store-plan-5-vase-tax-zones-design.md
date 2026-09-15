@@ -124,8 +124,12 @@ and local: they rely on the billing address Checkout collects, no Customer pre-c
 
 Webhook: `checkout.session.completed` now carries `total_details.amount_tax`; the event
 gains `taxCents`, `markPaidBySession` stores it, migration `0007_tax.sql` adds
-`orders.tax_cents INTEGER NOT NULL DEFAULT 0`. The stored `amount_total` already includes
-tax. The customer email shows `Sales tax: $x` and a total including tax.
+`orders.tax_cents` and `orders.discount_cents`, both `INTEGER NOT NULL DEFAULT 0`. The
+stored `amount_total` already includes tax. The same migration adds
+`orders.discount_cents`, filled from `total_details.amount_discount`, so a promotion code
+(D40) shows as `Discount: -$x` in the customer email and the emailed total is bouquet +
+vase + delivery − discount + tax, which is exactly what Stripe charged. The customer email
+shows `Sales tax: $x` and a total including tax.
 
 Dashboard (Ryan, done or in progress): Stripe Tax active, Albany origin address, New York
 registration, preset product tax code. Without the registration Stripe collects zero
