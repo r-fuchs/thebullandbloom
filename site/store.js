@@ -161,7 +161,7 @@
     var n = e.target.name;
     if (n === 'presentation') { refreshTotal(); return; }
     if (n === 'fulfillment') { applyFulfillment(); askForQuote(); return; }
-    if (n === 'date') { refreshTotal(); askForQuote(); return; }
+    if (n === 'date') { dayNote.textContent = 'Chosen: ' + human(e.target.value) + '. Same-day orders close at the morning cutoff.'; refreshTotal(); askForQuote(); return; }
     if (ADDRESS_FIELDS[n]) scheduleQuote();
   });
   form.addEventListener('input', function (e) {
@@ -217,7 +217,13 @@
     var byDate = {}, any = false;
     av.days.forEach(function (d) { byDate[d.date] = d; any = any || d.orderable; });
     if (!av.days.length) { dayNote.textContent = 'Nothing open in the next few weeks. Email Anthony and he will find a day.'; pay.disabled = true; return; }
-    ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(function (h) { var e = document.createElement('div'); e.className = 'h'; e.textContent = h; cal.appendChild(e); });
+    var HEAD = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    HEAD.forEach(function (full) {
+      var e = document.createElement('div'); e.className = 'h';
+      e.innerHTML = '<span aria-hidden="true"></span><span class="sr"></span>';
+      e.firstChild.textContent = full.charAt(0); e.lastChild.textContent = full;
+      cal.appendChild(e);
+    });
     var first = av.days[0].date, last = av.days[av.days.length - 1].date;
     var cur = first, month = '', col = 0, k, el;
     function blank() { var b = document.createElement('div'); b.className = 'd blank'; cal.appendChild(b); }
@@ -239,6 +245,7 @@
         el.querySelector('span').textContent = Number(cur.slice(8));
         el.querySelector('small').textContent = d.orderable && d.remaining <= 2 ? d.remaining + ' left' : '';
         el.title = human(cur);
+        inp.setAttribute('aria-label', human(cur) + (d.orderable ? (d.remaining <= 2 ? ', ' + d.remaining + ' left' : '') : ', sold out'));
         cal.appendChild(el);
       }
       col = (col + 1) % 7;
