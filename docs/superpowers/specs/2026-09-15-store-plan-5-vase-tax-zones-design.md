@@ -35,8 +35,12 @@ Worker kept a sandbox login token after the production keys went in.
 - **D38 The Uber token cache is bound to the client id that minted it.** A key change
   can never leave an old token in use again.
 - **D39 The day grid stays.** No date picker. Three accessibility fixes only.
-- **Payment methods** are a dashboard setting, not code. Ryan has turned off Klarna and
-  bank debits; Link stays on for now.
+- **D40 Promotion codes are allowed on every Checkout Session.** Ryan creates codes in
+  the Stripe dashboard (including 100% codes for live-mode testing); the Stripe page shows
+  its "Add promotion code" field. The store records nothing about the code; Stripe's own
+  discount shows in `total_details.amount_discount` and the paid total already reflects it.
+- **Payment methods** are a dashboard setting, not code. Ryan has turned off Klarna, bank
+  debits and Link.
 
 ## 3. What changes
 
@@ -134,7 +138,15 @@ from the adapter's, and `save()` records it. The row minted 2026-09-09 by the sa
 has no client id, so the first production call after deploy re-mints. No manual database
 edit is needed; the earlier `DELETE FROM settings` instruction is superseded.
 
-### 3.5 Day grid accessibility
+### 3.5 Promotion codes
+
+`createCheckout` and `createSubscriptionCheckout` pass `allow_promotion_codes: true`.
+Nothing else changes: a 100% code still completes the session and fires
+`checkout.session.completed`, so a live-mode test order flows through the store exactly
+like a paid one (hold → paid → emails → calendar). Anthony fulfils it or cancels it from
+admin like any other.
+
+### 3.6 Day grid accessibility
 
 Each day input gets an `aria-label` with the full date and remaining count ("Wed Sep 16,
 2 left" / "sold out"); the S M T W T F S headers get full weekday names; `#day-note`
@@ -155,7 +167,8 @@ per-region delivery day for batching Anthony's drives; turning Link off (dashboa
   tax, token cache ignores a foreign client id, deliveryItemName both values).
 - On the preview (workflow_dispatch): a vase + delivery order to a Capital District
   address quotes from Uber (log shows no `customer_blocked`), Checkout shows tax, the
-  paid order row has `vase_cents`, `tax_cents`; a Saratoga address either quotes from Uber
+  paid order row has `vase_cents`, `tax_cents`; a 100% promotion code completes checkout
+  and the order goes paid; a Saratoga address either quotes from Uber
   or falls back to $35 with the zone named; a Hudson address likewise.
 - On production after the push to main: the same three quotes via curl, and the first
   real order's tax line checked in Stripe.
