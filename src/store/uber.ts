@@ -4,10 +4,12 @@
  * Google refresh token (D18) it is stored in the clear: encrypting it would buy nothing an
  * attacker with D1 access does not already have via UBER_CLIENT_SECRET's blast radius, and a
  * plaintext row can be read by a human debugging a courier problem. It is re-fetched on any 401.
+ * The row also records the client id that minted the token; the adapter ignores a row from any
+ * other client id (D38).
  */
 const KEY = "uber.token";
 
-export interface CachedToken { token: string; expiresAt: number } // expiresAt: unix seconds
+export interface CachedToken { token: string; expiresAt: number; clientId?: string } // expiresAt: unix seconds
 export interface TokenCache {
   load(): Promise<CachedToken | null>;
   save(t: CachedToken): Promise<void>;
@@ -21,7 +23,8 @@ export function tokenCache(db: D1Database): TokenCache {
       if (!r) return null;
       try {
         const v = JSON.parse(r.value_json) as CachedToken;
-        return typeof v?.token === "string" && typeof v?.expiresAt === "number" ? v : null;
+        if (typeof v?.token !== "string" || typeof v?.expiresAt !== "number") return null;
+        return typeof v.clientId === "string" ? { token: v.token, expiresAt: v.expiresAt, clientId: v.clientId } : { token: v.token, expiresAt: v.expiresAt };
       } catch {
         console.error("uber: cached token row is not valid JSON; re-authenticating");
         return null;

@@ -109,7 +109,7 @@ describe("UberApi", () => {
   });
 
   it("reuses a cached token that is still fresh and never calls the auth endpoint", async () => {
-    const cache = memoryCache({ token: "at_cached", expiresAt: Math.floor(Date.now() / 1000) + 86400 });
+    const cache = memoryCache({ token: "at_cached", expiresAt: Math.floor(Date.now() / 1000) + 86400, clientId: "cid" });
     const { uber, calls } = api([{ status: 200, body: { id: "dqt_1", expires: "2026-09-09T19:15:37.887Z", fee: 600, currency: "usd" } }], cache);
     await uber.quote(QUOTE_REQ);
     expect(calls).toHaveLength(1);
@@ -117,8 +117,25 @@ describe("UberApi", () => {
     expect(calls[0].headers.authorization).toBe("Bearer at_cached");
   });
 
+  it("ignores a fresh cached token minted by a different client id and re-mints (D38)", async () => {
+    const cache = memoryCache({ token: "at_sandbox", expiresAt: Math.floor(Date.now() / 1000) + 86400, clientId: "other-app" });
+    const { uber, calls } = api([TOKEN, { status: 200, body: { id: "dqt_2", expires: "2026-09-09T19:15:37.887Z", fee: 600, currency: "usd" } }], cache);
+    await uber.quote(QUOTE_REQ);
+    expect(calls[0].url).toBe("https://auth.uber.com/oauth/v2/token");
+    expect(calls[1].headers.authorization).toBe("Bearer at_1");
+    expect(cache.value).toMatchObject({ token: "at_1", clientId: "cid" });
+  });
+
+  it("treats a cached token with no client id (a row from before D38) as a miss", async () => {
+    const cache = memoryCache({ token: "at_legacy", expiresAt: Math.floor(Date.now() / 1000) + 86400 });
+    const { uber, calls } = api([TOKEN, { status: 200, body: { id: "dqt_3", expires: "2026-09-09T19:15:37.887Z", fee: 600, currency: "usd" } }], cache);
+    await uber.quote(QUOTE_REQ);
+    expect(calls[0].url).toBe("https://auth.uber.com/oauth/v2/token");
+    expect(cache.value?.clientId).toBe("cid");
+  });
+
   it("re-authenticates once after a 401 and retries the call", async () => {
-    const cache = memoryCache({ token: "at_stale", expiresAt: Math.floor(Date.now() / 1000) + 86400 });
+    const cache = memoryCache({ token: "at_stale", expiresAt: Math.floor(Date.now() / 1000) + 86400, clientId: "cid" });
     const { uber, calls } = api([
       { status: 401, body: { code: "unauthorized", message: "no", kind: "error" } },
       TOKEN,

@@ -123,7 +123,8 @@ export class UberApi implements Uber {
     const nowSec = Math.floor(Date.now() / 1000);
     if (!force) {
       const hit = await this.cache.load();
-      if (hit && hit.expiresAt - TOKEN_SKEW_SECONDS > nowSec) return hit.token;
+      // D38: a token minted by another app (the sandbox keys before cutover) is never reused.
+      if (hit && hit.clientId === this.clientId && hit.expiresAt - TOKEN_SKEW_SECONDS > nowSec) return hit.token;
     }
     const form = new URLSearchParams({
       client_id: this.clientId!, client_secret: this.clientSecret!,
@@ -143,7 +144,7 @@ export class UberApi implements Uber {
     if (typeof t.access_token !== "string") throw new UberError("unavailable", "uber token: no access_token in response");
     // Uber's documented lifetime is 2592000s (30 days); trust whatever it actually says.
     const lifetime = Number.isFinite(t.expires_in) ? t.expires_in : 2592000;
-    await this.cache.save({ token: t.access_token, expiresAt: nowSec + lifetime });
+    await this.cache.save({ token: t.access_token, expiresAt: nowSec + lifetime, clientId: this.clientId! });
     return t.access_token;
   }
 
