@@ -101,6 +101,8 @@ describe("zoneFor / fallbackFeeFor", () => {
 describe("deliveryItemName", () => {
   it("names the parcel for the courier without revealing the customer", () => {
     expect(deliveryItemName("Bouquet")).toBe("Bouquet — hand-tied flowers");
+    expect(deliveryItemName("Bouquet", "hand-tied")).toBe("Bouquet — hand-tied flowers");
+    expect(deliveryItemName("Bouquet", "vase")).toBe("Bouquet — flowers in a vase");
   });
 });
 

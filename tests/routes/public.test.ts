@@ -11,6 +11,7 @@ describe("GET /api/config", () => {
     const body = await r.json() as any;
     expect(body.timezone).toBe("America/New_York");
     expect(body.sizes[0]).toHaveProperty("priceCents");
+    expect(body.sizes[0]).toHaveProperty("vaseFeeCents");
     expect(JSON.stringify(body)).not.toContain("pickupAddress");
     expect(body.delivery).toEqual({ offered: true });
   });
@@ -295,5 +296,42 @@ describe("POST /api/checkout — delivery", () => {
     expect(c.lineItems).toEqual([{ name: "Bouquet — pickup Fri Sep 25", amountCents: 8500, quantity: 1 }]);
     const row = await env.DB.prepare("SELECT delivery_cents, address_json FROM orders WHERE id = ?").bind(c.orderId).first<any>();
     expect(row).toEqual({ delivery_cents: 0, address_json: null });
+  });
+});
+
+describe("POST /api/checkout — presentation", () => {
+  const vaseFee = () => loadConfig().sizes.find((s) => s.id === "bouquet")!.vaseFeeCents;
+  it("adds a Vase line item and stores the choice", async () => {
+    const { fetch, payments } = testApp();
+    const r = await post(fetch, { ...good, date: "2026-09-29", presentation: "vase" });
+    expect(r.status).toBe(200);
+    const c = payments.created[payments.created.length - 1];
+    expect(c.lineItems).toEqual([
+      { name: "Bouquet — pickup Tue Sep 29", amountCents: 8500, quantity: 1 },
+      { name: "Vase", amountCents: vaseFee(), quantity: 1 },
+    ]);
+    const row = await env.DB.prepare("SELECT presentation, vase_cents FROM orders WHERE id = ?").bind(c.orderId).first<any>();
+    expect(row).toEqual({ presentation: "vase", vase_cents: vaseFee() });
+  });
+  it("defaults to hand-tied when the field is missing", async () => {
+    const { fetch, payments } = testApp();
+    expect((await post(fetch, { ...good, date: "2026-09-30" })).status).toBe(200);
+    const c = payments.created[payments.created.length - 1];
+    expect(c.lineItems.map((li) => li.name)).toEqual(["Bouquet — pickup Wed Sep 30"]);
+    const row = await env.DB.prepare("SELECT presentation, vase_cents FROM orders WHERE id = ?").bind(c.orderId).first<any>();
+    expect(row).toEqual({ presentation: "hand-tied", vase_cents: 0 });
+  });
+  it("rejects an unknown presentation", async () => {
+    const { fetch } = testApp();
+    const r = await post(fetch, { ...good, presentation: "bowl" });
+    expect(r.status).toBe(400);
+    expect((await r.json() as any).error).toMatch(/presentation/);
+  });
+  it("puts the Vase line between the bouquet and the delivery fee", async () => {
+    const { fetch, payments } = testApp();
+    const r = await post(fetch, await deliveryBody(fetch, { presentation: "vase" }));
+    expect(r.status).toBe(200);
+    const c = payments.created[payments.created.length - 1];
+    expect(c.lineItems.map((li) => li.name)).toEqual(["Bouquet — delivery Wed Sep 23", "Vase", "Delivery — Wed Sep 23"]);
   });
 });

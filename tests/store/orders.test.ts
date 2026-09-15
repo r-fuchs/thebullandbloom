@@ -12,6 +12,7 @@ function fresh(date = "2026-09-10"): NewOrder {
     id: `o${n}`, date, sizeId: "bouquet", fulfillment: "pickup",
     customerName: "Pat", customerEmail: "pat@example.com", customerPhone: null, addressJson: null, note: null,
     bouquetCents: 8500, deliveryCents: 0, uberQuoteId: null,
+    presentation: "hand-tied", vaseCents: 0,
   };
 }
 const NOW = 1_800_000_000;
@@ -82,6 +83,7 @@ describe("orders", () => {
       customerName: "Pat", customerEmail: "pat@example.com", customerPhone: "+15185550100",
       addressJson: JSON.stringify({ street: "5 Elm St", unit: "", city: "Hudson", state: "NY", zip: "12534", notes: "porch" }),
       note: null, bouquetCents: 8500, deliveryCents: 1200, uberQuoteId: "dqt_abc",
+      presentation: "hand-tied", vaseCents: 0,
     }, 4, 1000, 2000);
     expect(ok).toBe(true);
     const o = (await getOrder(env.DB, "ord-delivery"))!;
@@ -89,6 +91,14 @@ describe("orders", () => {
     expect(o.deliveryCents).toBe(1200);
     expect(o.uberQuoteId).toBe("dqt_abc");
     expect(JSON.parse(o.addressJson!).zip).toBe("12534");
+  });
+  it("stores the presentation and vase cents", async () => {
+    const o = { ...fresh("2026-09-27"), presentation: "vase" as const, vaseCents: 2000 };
+    expect(await tryInsertHeldOrder(env.DB, o, 5, NOW, NOW + 1800)).toBe(true);
+    const got = await getOrder(env.DB, o.id);
+    expect(got).toMatchObject({ presentation: "vase", vaseCents: 2000 });
+    const plain = await getOrder(env.DB, (await (async () => { const p = fresh("2026-09-27"); await tryInsertHeldOrder(env.DB, p, 5, NOW, NOW + 1800); return p; })()).id);
+    expect(plain).toMatchObject({ presentation: "hand-tied", vaseCents: 0 });
   });
 });
 

@@ -7,7 +7,7 @@ import { availabilityFor, capFor, isOrderable } from "../core/capacity";
 import { isYmd, ymdRange, addDays, ymdIn, humanDate } from "../core/time";
 import { loadDefaults } from "../store/settings";
 import { getOverrides } from "../store/overrides";
-import { countUsed, tryInsertHeldOrder, attachSession, cancelOrder } from "../store/orders";
+import { countUsed, tryInsertHeldOrder, attachSession, cancelOrder, type Presentation } from "../store/orders";
 import { sizeById, subscriptionCell } from "../config";
 import { UberError } from "../adapters/uber";
 import { addressKey, deliveryWindow, zoneFor, normalizePhone, parseAddress, pickupReadyFor } from "../core/delivery";
@@ -57,7 +57,7 @@ async function fallbackResponse(
 
 interface DeliveryBody { address: PostalAddress; notes?: string; quoteToken: string }
 interface CheckoutBody {
-  sizeId: string; date: string; fulfillment: "pickup" | "delivery";
+  sizeId: string; date: string; fulfillment: "pickup" | "delivery"; presentation: Presentation;
   customer: { name: string; email: string; phone?: string }; note?: string;
   delivery?: DeliveryBody;
 }
@@ -68,6 +68,8 @@ function parseCheckout(raw: unknown): { ok: true; body: CheckoutBody } | { ok: f
   if (typeof b.sizeId !== "string") return { ok: false, error: "sizeId required" };
   if (!isYmd(b.date)) return { ok: false, error: "date must be YYYY-MM-DD" };
   if (b.fulfillment !== "pickup" && b.fulfillment !== "delivery") return { ok: false, error: "fulfillment must be pickup or delivery" };
+  const presentation: Presentation = b.presentation === undefined ? "hand-tied" : b.presentation;
+  if (presentation !== "hand-tied" && presentation !== "vase") return { ok: false, error: "presentation must be hand-tied or vase" };
   const c = b.customer;
   if (!c || typeof c.name !== "string" || c.name.trim().length < 1 || c.name.trim().length > 120) return { ok: false, error: "name required" };
   if (typeof c.email !== "string" || !EMAIL.test(c.email) || c.email.length > 200) return { ok: false, error: "valid email required" };
@@ -88,7 +90,7 @@ function parseCheckout(raw: unknown): { ok: true; body: CheckoutBody } | { ok: f
   }
 
   return { ok: true, body: {
-    sizeId: b.sizeId, date: b.date, fulfillment: b.fulfillment,
+    sizeId: b.sizeId, date: b.date, fulfillment: b.fulfillment, presentation,
     customer: { name: c.name.trim(), email: c.email.trim(), phone: c.phone?.trim() || undefined },
     note: b.note?.trim() || undefined, delivery } };
 }
@@ -258,16 +260,19 @@ export function publicRoutes(): App {
     const stripeExpiresAt = nowSec + config.holdMinutes * 60 + 60;
     const holdUntil = stripeExpiresAt + 120;
     const orderId = crypto.randomUUID();
+    const vaseCents = body.presentation === "vase" ? size.vaseFeeCents : 0;
     const inserted = await tryInsertHeldOrder(c.env.DB, {
       id: orderId, date: body.date, sizeId: size.id, fulfillment: body.fulfillment,
       customerName: body.customer.name, customerEmail: body.customer.email, customerPhone: phone,
-      addressJson, note: body.note ?? null, bouquetCents: size.priceCents, deliveryCents, uberQuoteId,
+      addressJson, note: body.note ?? null, bouquetCents: size.priceCents, deliveryCents,
+      presentation: body.presentation, vaseCents, uberQuoteId,
     }, cap, nowSec, holdUntil);
     if (!inserted) return c.json({ error: "sold_out" }, 409);
 
     const lineItems = [
       { name: `${size.name} — ${body.fulfillment} ${humanDate(body.date)}`, amountCents: size.priceCents, quantity: 1 },
     ];
+    if (vaseCents > 0) lineItems.push({ name: "Vase", amountCents: vaseCents, quantity: 1 });
     if (deliveryCents > 0) lineItems.push({ name: `Delivery — ${humanDate(body.date)}`, amountCents: deliveryCents, quantity: 1 });
 
     let session;

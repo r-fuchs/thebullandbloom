@@ -1,6 +1,6 @@
 import raw from "../store.config.json";
 
-export interface Size { id: string; name: string; description: string; priceCents: number }
+export interface Size { id: string; name: string; description: string; priceCents: number; vaseFeeCents: number }
 export interface Cadence { id: string; name: string; perMonth: number }
 export interface SubscriptionCell { sizeId: string; cadenceId: string; priceCents: number }
 export interface Subscriptions { cadences: Cadence[]; cells: SubscriptionCell[]; note?: string }
@@ -71,6 +71,7 @@ export function validateConfig(cfg: StoreConfig): StoreConfig {
     if (ids.has(s.id)) throw new Error(`config: duplicate size id ${s.id}`);
     ids.add(s.id);
     if (!Number.isInteger(s.priceCents) || s.priceCents <= 0) throw new Error(`config: size ${s.id} priceCents must be a positive integer`);
+    if (!Number.isInteger(s.vaseFeeCents) || s.vaseFeeCents < 0) throw new Error(`config: size ${s.id} vaseFeeCents must be a non-negative integer`);
   }
   const cadences = new Set<string>();
   for (const c of cfg.subscriptions?.cadences ?? []) {

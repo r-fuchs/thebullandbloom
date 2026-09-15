@@ -1,29 +1,32 @@
 export type OrderStatus = "held" | "paid" | "done" | "cancelled" | "refunded";
 export type Fulfillment = "pickup" | "delivery";
+export type Presentation = "hand-tied" | "vase";
 
 export interface Order {
   id: string; createdAt: number; status: OrderStatus; date: string; sizeId: string; fulfillment: Fulfillment;
   customerName: string; customerEmail: string; customerPhone: string | null; addressJson: string | null; note: string | null;
   stripeSessionId: string | null; stripePaymentIntent: string | null; bouquetCents: number; deliveryCents: number;
+  presentation: Presentation; vaseCents: number;
   uberQuoteId: string | null;
   source: "one_time" | "subscription"; holdExpiresAt: number | null; calendarEventId: string | null;
 }
 export interface NewOrder {
   id: string; date: string; sizeId: string; fulfillment: Fulfillment; customerName: string; customerEmail: string;
   customerPhone: string | null; addressJson: string | null; note: string | null;
-  bouquetCents: number; deliveryCents: number; uberQuoteId: string | null;
+  bouquetCents: number; deliveryCents: number; presentation: Presentation; vaseCents: number; uberQuoteId: string | null;
 }
 
 interface Row {
   id: string; created_at: number; status: OrderStatus; date: string; size_id: string; fulfillment: Fulfillment;
   customer_name: string; customer_email: string; customer_phone: string | null; address_json: string | null; note: string | null;
   stripe_session_id: string | null; stripe_payment_intent: string | null; bouquet_cents: number; delivery_cents: number;
+  presentation: Presentation; vase_cents: number;
   uber_quote_id: string | null;
   source: "one_time" | "subscription"; hold_expires_at: number | null; calendar_event_id: string | null;
 }
 const COLS = `id, created_at, status, date, size_id, fulfillment, customer_name, customer_email, customer_phone,
-  address_json, note, stripe_session_id, stripe_payment_intent, bouquet_cents, delivery_cents, uber_quote_id,
-  source, hold_expires_at, calendar_event_id`;
+  address_json, note, stripe_session_id, stripe_payment_intent, bouquet_cents, delivery_cents, presentation, vase_cents,
+  uber_quote_id, source, hold_expires_at, calendar_event_id`;
 
 function fromRow(r: Row): Order {
   return {
@@ -31,6 +34,7 @@ function fromRow(r: Row): Order {
     customerName: r.customer_name, customerEmail: r.customer_email, customerPhone: r.customer_phone,
     addressJson: r.address_json, note: r.note, stripeSessionId: r.stripe_session_id,
     stripePaymentIntent: r.stripe_payment_intent, bouquetCents: r.bouquet_cents, deliveryCents: r.delivery_cents,
+    presentation: r.presentation, vaseCents: r.vase_cents,
     uberQuoteId: r.uber_quote_id,
     source: r.source, holdExpiresAt: r.hold_expires_at, calendarEventId: r.calendar_event_id,
   };
@@ -50,11 +54,12 @@ export async function tryInsertHeldOrder(
 ): Promise<boolean> {
   const res = await db.prepare(
     `INSERT INTO orders (id, created_at, status, date, size_id, fulfillment, customer_name, customer_email,
-       customer_phone, address_json, note, bouquet_cents, delivery_cents, uber_quote_id, source, hold_expires_at)
-     SELECT ?2, ?3, 'held', ?1, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, 'one_time', ?14
+       customer_phone, address_json, note, bouquet_cents, delivery_cents, uber_quote_id, source, hold_expires_at,
+       presentation, vase_cents)
+     SELECT ?2, ?3, 'held', ?1, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, 'one_time', ?14, ?16, ?17
      WHERE (${USED}) < ?15`,
   ).bind(o.date, o.id, now, o.sizeId, o.fulfillment, o.customerName, o.customerEmail, o.customerPhone,
-    o.addressJson, o.note, o.bouquetCents, o.deliveryCents, o.uberQuoteId, holdExpiresAt, cap).run();
+    o.addressJson, o.note, o.bouquetCents, o.deliveryCents, o.uberQuoteId, holdExpiresAt, cap, o.presentation, o.vaseCents).run();
   return res.meta.changes === 1;
 }
 

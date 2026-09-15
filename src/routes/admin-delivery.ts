@@ -56,12 +56,14 @@ export function registerDeliveryAdmin(r: App): void {
 
     let delivery;
     let quotedCents: number;
+    // What the courier is carrying: the bouquet plus the vase it is arranged in (D34).
+    const valueCents = order.bouquetCents + order.vaseCents;
     try {
-      const quote = await uber.quote({ pickup, dropoff, window, valueCents: order.bouquetCents });
+      const quote = await uber.quote({ pickup, dropoff, window, valueCents });
       quotedCents = quote.feeCents;
       delivery = await uber.createDelivery({
-        quoteId: quote.id, pickup, dropoff, window, valueCents: order.bouquetCents,
-        itemName: deliveryItemName(sizeById(config, order.sizeId)?.name ?? order.sizeId),
+        quoteId: quote.id, pickup, dropoff, window, valueCents,
+        itemName: deliveryItemName(sizeById(config, order.sizeId)?.name ?? order.sizeId, order.presentation),
         reference: order.id.slice(0, 8),
         idempotencyKey,
       });

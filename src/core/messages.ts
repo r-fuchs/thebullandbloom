@@ -43,6 +43,7 @@ function contactLine(order: Order): string {
   return order.customerPhone ? `${order.customerEmail} · ${order.customerPhone}` : order.customerEmail;
 }
 function shortId(order: Order): string { return order.id.slice(0, 8); }
+const inVase = (o: Order) => o.presentation === "vase";
 function adminLink(order: Order, siteUrl: string): string { return `${siteUrl}/admin/#${order.date}`; }
 
 /** Lines shared by the calendar description and Anthony's email: who, how to reach them, where, note, order link. */
@@ -64,9 +65,11 @@ export function orderEvent(order: Order, cfg: StoreConfig, siteUrl: string): New
   return {
     id: eventIdFor(order.id),
     date: order.date,
-    summary: `${size} · ${order.customerName} · ${order.fulfillment}${sub ? " (subscription)" : ""}`,
+    summary: `${size}${inVase(order) ? " · vase" : ""} · ${order.customerName} · ${order.fulfillment}${sub ? " (subscription)" : ""}`,
     description: [
-      sub ? `${size} · subscription · ${order.fulfillment}` : `${size} (${dollars(order.bouquetCents)}) · ${order.fulfillment}`,
+      sub
+        ? `${size} · subscription · ${order.fulfillment}`
+        : `${size} (${dollars(order.bouquetCents)})${inVase(order) ? ` · vase (${dollars(order.vaseCents)})` : ""} · ${order.fulfillment}`,
       ...detailLines(order, siteUrl),
     ].join("\n"),
   };
@@ -151,7 +154,7 @@ export function customerEmail(order: Order, cfg: StoreConfig): Mail {
   const lines = [
     `Hi ${firstName},`,
     "",
-    `Thank you. Your ${size} is booked for ${order.fulfillment} on ${longDate(order.date)}.`,
+    `Thank you. Your ${size}${inVase(order) ? ", arranged in a vase," : ""} is booked for ${order.fulfillment} on ${longDate(order.date)}.`,
     "",
   ];
   if (order.fulfillment === "delivery") {
@@ -164,9 +167,9 @@ export function customerEmail(order: Order, cfg: StoreConfig): Mail {
     lines.push(`Pickup: ${cfg.studio.pickupInstructions}`, `Address: ${cfg.studio.pickupAddress}`);
   }
   lines.push("", "What you ordered", `  ${size}: ${dollars(order.bouquetCents)}`);
-  if (order.deliveryCents > 0) {
-    lines.push(`  Delivery: ${dollars(order.deliveryCents)}`, `  Total: ${dollars(order.bouquetCents + order.deliveryCents)}`);
-  }
+  if (order.vaseCents > 0) lines.push(`  Vase: ${dollars(order.vaseCents)}`);
+  if (order.deliveryCents > 0) lines.push(`  Delivery: ${dollars(order.deliveryCents)}`);
+  if (order.vaseCents > 0 || order.deliveryCents > 0) lines.push(`  Total: ${dollars(order.bouquetCents + order.vaseCents + order.deliveryCents)}`);
   if (order.note) lines.push(`  Your note: ${order.note}`);
   lines.push("", "Questions or a change of plans? Just reply to this email.", "", "Anthony", "The Bull and Bloom", "thebullandbloom.com");
   return { to: order.customerEmail, subject: `Your Bull and Bloom bouquet for ${humanDate(order.date)}`, text: lines.join("\n") };
@@ -176,8 +179,11 @@ export function ownerEmail(order: Order, cfg: StoreConfig, siteUrl: string): Mai
   const size = sizeName(order, cfg);
   return {
     to: cfg.studio.ownerEmail,
-    subject: `New order: ${size} · ${order.customerName} · ${humanDate(order.date)} (${order.fulfillment})`,
-    text: [`${size} (${dollars(order.bouquetCents)}) · ${order.fulfillment} · ${longDate(order.date)}`, "", ...detailLines(order, siteUrl)].join("\n"),
+    subject: `New order: ${size}${inVase(order) ? " in a vase" : ""} · ${order.customerName} · ${humanDate(order.date)} (${order.fulfillment})`,
+    text: [
+      `${size} (${dollars(order.bouquetCents)})${inVase(order) ? ` · vase (${dollars(order.vaseCents)})` : ""} · ${order.fulfillment} · ${longDate(order.date)}`,
+      "", ...detailLines(order, siteUrl),
+    ].join("\n"),
   };
 }
 

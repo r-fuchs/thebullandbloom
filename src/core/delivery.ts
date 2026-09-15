@@ -1,5 +1,6 @@
 import type { DeliveryWindow } from "../adapters/uber";
 import type { DeliveryZone, PostalAddress, StoreConfig } from "../config";
+import type { Presentation } from "../store/orders";
 import { instantAt } from "./time";
 
 const MIN = 60_000;
@@ -75,8 +76,8 @@ export function fallbackFeeFor(cfg: StoreConfig, zip: string): number | null {
 }
 
 /** What the courier's manifest says is in the box. No customer detail — couriers see the manifest. */
-export function deliveryItemName(sizeName: string): string {
-  return `${sizeName} — hand-tied flowers`;
+export function deliveryItemName(sizeName: string, presentation: Presentation = "hand-tied"): string {
+  return presentation === "vase" ? `${sizeName} — flowers in a vase` : `${sizeName} — hand-tied flowers`;
 }
 
 /**

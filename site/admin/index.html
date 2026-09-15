@@ -204,7 +204,7 @@
           '<small class="contact"></small><div class="addr"></div><div class="note"></div>' +
           '<div class="track"></div><div class="err"></div><div class="row"></div>';
         el.querySelector('strong').textContent = o.customerName;
-        el.querySelector('.size').textContent = o.sizeId + (o.source === 'subscription' ? ' (subscription)' : '');
+        el.querySelector('.size').textContent = o.sizeId + (o.presentation === 'vase' ? ' · vase' : '') + (o.source === 'subscription' ? ' (subscription)' : '');
         el.querySelector('.st').textContent = o.status + ' · ' + o.fulfillment;
         el.querySelector('.contact').textContent = o.customerEmail + (o.customerPhone ? ' · ' + o.customerPhone : '');
         el.querySelector('.addr').textContent = addressLine(o);
