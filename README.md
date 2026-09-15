@@ -5,7 +5,7 @@ thebullandbloom.com — floral design by Anthony Demonia. Static site plus a Clo
 - `site/` — the pages and images (no build step).
 - `src/` — the Worker: `/api/*` for the storefront, `/webhooks/stripe`, `/webhooks/uber`, `/admin/api/*`.
 - `migrations/` — D1 schema.
-- `store.config.json` — menu, prices, subscription grid (cadences × sizes, monthly price per cell), capacity defaults, studio address/phone/ready time, delivery fallback fee and ZIPs.
+- `store.config.json` — menu, prices, subscription grid (cadences × sizes, monthly price per cell), capacity defaults, studio address/phone/ready time, delivery zones (name, fee, ZIPs) and mode.
 - Design: `docs/superpowers/specs/2026-09-07-store-design.md`.
 
 `npm test` runs everything in a local workerd with a throwaway D1. `npm run dev` serves locally.

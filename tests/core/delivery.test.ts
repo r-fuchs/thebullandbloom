@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  MAX_SCHEDULE_DAYS, addressKey, deliveryItemName, deliveryWindow, fallbackFeeFor, parseAddress, pickupReadyFor,
+  MAX_SCHEDULE_DAYS, addressKey, deliveryItemName, deliveryWindow, fallbackFeeFor, parseAddress, pickupReadyFor, zoneFor,
 } from "../../src/core/delivery";
 import { normalizePhone } from "../../src/core/delivery";
 import { loadConfig } from "../../src/config";
@@ -84,13 +84,17 @@ describe("addressKey", () => {
   });
 });
 
-describe("fallbackFeeFor", () => {
-  it("returns the flat fee for a listed zip and null for anything else", () => {
-    expect(fallbackFeeFor(cfg, cfg.delivery.fallbackZips[0])).toBe(cfg.delivery.fallbackFeeCents);
+describe("zoneFor / fallbackFeeFor", () => {
+  it("finds the zone a zip belongs to and its fee", () => {
+    const first = cfg.delivery.zones[0], last = cfg.delivery.zones[cfg.delivery.zones.length - 1];
+    expect(zoneFor(cfg, first.zips[0])?.name).toBe(first.name);
+    expect(fallbackFeeFor(cfg, first.zips[0])).toBe(first.feeCents);
+    expect(fallbackFeeFor(cfg, last.zips[last.zips.length - 1])).toBe(last.feeCents);
+    expect(zoneFor(cfg, "99999")).toBeNull();
     expect(fallbackFeeFor(cfg, "99999")).toBeNull();
   });
-  it("returns null for every zip when the list is empty", () => {
-    expect(fallbackFeeFor({ ...cfg, delivery: { fallbackFeeCents: 1500, fallbackZips: [] } }, "12534")).toBeNull();
+  it("returns null for every zip when there are no zones", () => {
+    expect(fallbackFeeFor({ ...cfg, delivery: { ...cfg.delivery, zones: [] } }, "12534")).toBeNull();
   });
 });
 

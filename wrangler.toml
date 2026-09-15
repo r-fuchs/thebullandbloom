@@ -37,7 +37,7 @@ crons = ["*/15 * * * *"]
 # Secrets (wrangler secret put): STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, ADMIN_PASSCODE, ADMIN_SECRET,
 # GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, INSTAGRAM_APP_ID, INSTAGRAM_APP_SECRET, UBER_CLIENT_ID,
 # UBER_CLIENT_SECRET, UBER_CUSTOMER_ID, UBER_WEBHOOK_SECRET. The Google, Instagram and Uber sets are
-# optional; without them those features report "not set up" and delivery falls back to the flat-fee
-# zip list (spec §4.5).
+# optional; without them those features report "not set up" and delivery falls back to the zone
+# fee for listed zips (spec §4.5).
 [vars]
 SITE_URL = "https://thebullandbloom.com"

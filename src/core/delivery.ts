@@ -1,5 +1,5 @@
 import type { DeliveryWindow } from "../adapters/uber";
-import type { PostalAddress, StoreConfig } from "../config";
+import type { DeliveryZone, PostalAddress, StoreConfig } from "../config";
 import { instantAt } from "./time";
 
 const MIN = 60_000;
@@ -64,9 +64,14 @@ export function addressKey(a: PostalAddress): string {
   return [a.street, a.unit, a.city, a.state, a.zip].map((v) => v.trim().toLowerCase().replace(/\s+/g, " ")).join("|");
 }
 
-/** The flat fee for a zip on the repo's fallback list, or null when the zip is not on it (spec §4.2). */
+/** The zone a zip belongs to, or null when it is outside the delivery area (spec Plan 5 D35). */
+export function zoneFor(cfg: StoreConfig, zip: string): DeliveryZone | null {
+  return cfg.delivery.zones.find((z) => z.zips.includes(zip)) ?? null;
+}
+
+/** The zone fee for a zip, or null when no zone lists it. */
 export function fallbackFeeFor(cfg: StoreConfig, zip: string): number | null {
-  return cfg.delivery.fallbackZips.includes(zip) ? cfg.delivery.fallbackFeeCents : null;
+  return zoneFor(cfg, zip)?.feeCents ?? null;
 }
 
 /** What the courier's manifest says is in the box. No customer detail — couriers see the manifest. */

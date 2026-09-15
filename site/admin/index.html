@@ -432,12 +432,16 @@
 
   function loadDelivery() {
     $('#delivery-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true;
+    function zoneSummary(zones) {
+      if (!zones || !zones.length) return '(no zones set)';
+      return zones.map(function (z) { return z.name + ' ' + money(z.feeCents) + ' (' + z.zips.length + ' ZIPs)'; }).join(' · ');
+    }
     return api('/delivery/status').then(function (s) {
       $('#d-summary').textContent = s.mode === 'flat'
-        ? 'Uber is switched off. Delivery is a flat ' + money(s.fallbackFeeCents) + ' for ZIPs ' + (s.fallbackZips.join(', ') || '(none set)') + ', and you deliver every order yourself.'
+        ? 'Uber is switched off. Delivery is priced by zone — ' + zoneSummary(s.zones) + ' — and you deliver every order yourself.'
         : s.configured
-        ? 'Uber is set up. Addresses outside its range fall back to ' + money(s.fallbackFeeCents) + ' for ZIPs ' + (s.fallbackZips.join(', ') || '(none set)') + ', which you deliver yourself.'
-        : 'Uber is not set up yet. Delivery is offered only for ZIPs ' + (s.fallbackZips.join(', ') || '(none set)') + ' at ' + money(s.fallbackFeeCents) + ', and you deliver those yourself.';
+        ? 'Uber prices each address. Where Uber will not go, the zone fee applies — ' + zoneSummary(s.zones) + ' — and you deliver those yourself.'
+        : 'Uber is not set up yet. Delivery is priced by zone — ' + zoneSummary(s.zones) + ' — and you deliver every order yourself.';
       var v = s.variance.varianceCents;
       $('#d-variance').textContent = s.variance.deliveries === 0
         ? 'No couriers requested yet.'

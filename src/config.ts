@@ -6,6 +6,7 @@ export interface SubscriptionCell { sizeId: string; cadenceId: string; priceCent
 export interface Subscriptions { cadences: Cadence[]; cells: SubscriptionCell[]; note?: string }
 /** Structured address, the shape the Uber adapter and the storefront both use. */
 export interface PostalAddress { street: string; unit: string; city: string; state: string; zip: string }
+export interface DeliveryZone { name: string; feeCents: number; zips: string[] }
 export interface StoreConfig {
   timezone: string;
   studio: {
@@ -22,11 +23,12 @@ export interface StoreConfig {
   subscriptions: Subscriptions;
   defaults: { cap: number; cutoff: string; openWeekdays: number[] };
   /**
-   * `mode` "uber" (default): Uber prices each address; the flat fee covers listed zips Uber will
-   * not serve (spec §4.2, §4.5). `mode` "flat": Uber is never called, even with its secrets on the
-   * Worker — every listed zip gets the flat fee and Anthony drives. Empty zip list = no fallback.
+   * Delivery pricing (spec Plan 5 D35/D36). `mode` "uber" (default): Uber prices each address and
+   * a zone fee covers listed zips Uber will not serve. `mode` "flat": Uber is never called and
+   * every listed zip gets its zone fee. A zip in no zone is outside the delivery area. Empty
+   * zones = no fallback.
    */
-  delivery: { mode?: "uber" | "flat"; fallbackFeeCents: number; fallbackZips: string[] };
+  delivery: { mode?: "uber" | "flat"; zones: DeliveryZone[] };
   holdMinutes: number;
 }
 
@@ -50,8 +52,17 @@ export function validateConfig(cfg: StoreConfig): StoreConfig {
   if (!/^[A-Z]{2}$/.test(a.state ?? "")) throw new Error("config: studio.address.state must be a two-letter code");
   if (!ZIP.test(a.zip ?? "")) throw new Error("config: studio.address.zip must be five digits");
   const d = cfg.delivery;
-  if (!d || !Number.isInteger(d.fallbackFeeCents) || d.fallbackFeeCents < 0) throw new Error("config: delivery.fallbackFeeCents must be a non-negative integer");
-  if (!Array.isArray(d.fallbackZips) || !d.fallbackZips.every((z) => ZIP.test(z))) throw new Error("config: delivery.fallbackZips must be five-digit zips");
+  if (!d || !Array.isArray(d.zones)) throw new Error("config: delivery.zones must be an array");
+  const seenZips = new Set<string>();
+  for (const z of d.zones) {
+    if (typeof z?.name !== "string" || z.name.trim() === "") throw new Error("config: every delivery zone needs a name");
+    if (!Number.isInteger(z.feeCents) || z.feeCents < 0) throw new Error(`config: delivery zone ${z.name} feeCents must be a non-negative integer`);
+    if (!Array.isArray(z.zips) || !z.zips.every((x) => ZIP.test(x))) throw new Error(`config: delivery zone ${z.name} zips must be five-digit zips`);
+    for (const x of z.zips) {
+      if (seenZips.has(x)) throw new Error(`config: zip ${x} is in two delivery zones`);
+      seenZips.add(x);
+    }
+  }
   if (d.mode !== undefined && d.mode !== "uber" && d.mode !== "flat") throw new Error('config: delivery.mode must be "uber" or "flat" when set');
   if (!cfg.calendars?.closed || !cfg.calendars?.orders || cfg.calendars.closed === cfg.calendars.orders)
     throw new Error("config: calendars.closed and calendars.orders must be two distinct names");

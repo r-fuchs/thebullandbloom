@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import type { App, Services } from "../app";
 import type { Env } from "../env";
-import type { StoreConfig, PostalAddress } from "../config";
+import type { StoreConfig, PostalAddress, DeliveryZone } from "../config";
 import { availabilityFor, capFor, isOrderable } from "../core/capacity";
 import { isYmd, ymdRange, addDays, ymdIn, humanDate } from "../core/time";
 import { loadDefaults } from "../store/settings";
@@ -10,7 +10,7 @@ import { getOverrides } from "../store/overrides";
 import { countUsed, tryInsertHeldOrder, attachSession, cancelOrder } from "../store/orders";
 import { sizeById, subscriptionCell } from "../config";
 import { UberError } from "../adapters/uber";
-import { addressKey, deliveryWindow, fallbackFeeFor, normalizePhone, parseAddress, pickupReadyFor } from "../core/delivery";
+import { addressKey, deliveryWindow, zoneFor, normalizePhone, parseAddress, pickupReadyFor } from "../core/delivery";
 import { signQuote, verifyQuote } from "../core/quote-token";
 
 const MAX_DAYS = 62;
@@ -30,8 +30,8 @@ function lowestPriceCents(cfg: { sizes: Array<{ priceCents: number }> }): number
 }
 
 /** True when a customer can be shown a delivery option at all (spec §4.5). */
-function deliveryOffered(uberConfigured: boolean, cfg: { delivery: { fallbackZips: string[] } }): boolean {
-  return uberConfigured || cfg.delivery.fallbackZips.length > 0;
+function deliveryOffered(uberConfigured: boolean, cfg: { delivery: { zones: DeliveryZone[] } }): boolean {
+  return uberConfigured || cfg.delivery.zones.some((z) => z.zips.length > 0);
 }
 
 /**
@@ -43,14 +43,14 @@ async function fallbackResponse(
   c: Ctx, config: StoreConfig, secret: string, zip: string, date: string, addr: string, nowSec: number,
   noFallbackReason: "outside_area" | "unavailable" = "outside_area",
 ) {
-  const fee = fallbackFeeFor(config, zip);
-  if (fee === null) return c.json({ available: false, reason: noFallbackReason });
+  const zone = zoneFor(config, zip);
+  if (!zone) return c.json({ available: false, reason: noFallbackReason });
   return c.json({
-    available: true, feeCents: fee, kind: "fallback" as const,
-    // A flat config fee is never an estimate — it does not depend on when the courier can go.
+    available: true, feeCents: zone.feeCents, kind: "fallback" as const, zone: zone.name,
+    // A flat zone fee is never an estimate — it does not depend on when the courier can go.
     estimate: false,
     quoteToken: await signQuote(secret, {
-      feeCents: fee, quoteId: null, kind: "fallback", date, addr, exp: nowSec + FALLBACK_TTL_SECONDS,
+      feeCents: zone.feeCents, quoteId: null, kind: "fallback", date, addr, exp: nowSec + FALLBACK_TTL_SECONDS,
     }),
   });
 }

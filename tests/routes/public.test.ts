@@ -123,8 +123,10 @@ describe("POST /api/checkout", () => {
   });
 });
 
-// The zip comes from the repo config so the "listed zip" tests follow whatever fallback list is configured.
-const LISTED_ZIP = loadConfig().delivery.fallbackZips[0];
+// The zip comes from the repo config so the "listed zip" tests follow whatever zones are configured.
+const ZONE = loadConfig().delivery.zones[0];
+const FAR_ZONE = loadConfig().delivery.zones[loadConfig().delivery.zones.length - 1];
+const LISTED_ZIP = ZONE.zips[0];
 const address = { street: "5 Elm Street", unit: "", city: "Albany", state: "NY", zip: LISTED_ZIP };
 const outside = { ...address, zip: "10001" };
 const quoteFor = (fetch: any, body: unknown) =>
@@ -162,8 +164,16 @@ describe("POST /api/quote", () => {
     const { fetch, uber } = testApp();
     uber.failWith("undeliverable", "not in a deliverable area");
     const body = await (await quoteFor(fetch, { date: "2026-09-16", address })).json() as any;
-    expect(body).toMatchObject({ available: true, kind: "fallback", estimate: false });
-    expect(body.feeCents).toBe(loadConfig().delivery.fallbackFeeCents);
+    expect(body).toMatchObject({ available: true, kind: "fallback", estimate: false, zone: ZONE.name });
+    expect(body.feeCents).toBe(ZONE.feeCents);
+  });
+
+  it("prices a zip in the last zone at that zone's fee when Uber refuses", async () => {
+    const { fetch, uber } = testApp();
+    uber.failWith("undeliverable", "too far");
+    const far = { ...address, city: "Hudson", zip: FAR_ZONE.zips[0] };
+    const body = await (await quoteFor(fetch, { date: "2026-09-16", address: far })).json() as any;
+    expect(body).toMatchObject({ available: true, kind: "fallback", feeCents: FAR_ZONE.feeCents, zone: FAR_ZONE.name });
   });
 
   it("offers the fallback when Uber is not configured at all", async () => {
