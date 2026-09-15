@@ -26,7 +26,7 @@
   function isVase() { return form.elements['presentation'] && form.elements['presentation'].value === 'vase'; }
   function sizeOf(id) { return cfgCache ? cfgCache.sizes.filter(function (x) { return x.id === id; })[0] : null; }
   function vaseCents() { var sz = sizeOf(state.sizeId); return sz && sz.vaseFeeCents ? sz.vaseFeeCents : 0; }
-  function renderVaseLabel() { var el = $('#vase-label'); if (el) el.textContent = 'Arranged in a clear glass vase — +' + money(vaseCents()); }
+  function renderVaseLabel() { var el = $('#vase-label'); if (el) el.textContent = 'Arranged in a vase — +' + money(vaseCents()); }
 
   var state = { sizeId: null, tab: 'once' };
   var cfgCache = null;

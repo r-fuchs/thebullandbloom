@@ -52,7 +52,7 @@ Config: each entry in `sizes[]` gains `vaseFeeCents`. Validation: non-negative i
 Storefront (`site/index.html`, `site/store.js`): a "How it comes" fieldset of two pills
 under Pickup or Delivery, radios `name="presentation"`, `hand-tied` checked by default,
 `vase` labelled from config for the chosen size ("Arranged in a glass vase — +$20"). The
-copy: "Hand-tied and wrapped, no vase" / "Arranged in a clear glass vase, ready to set
+copy: "Hand-tied and wrapped, no vase" / "Arranged in a vase, ready to set
 down." The total line lists parts: `Bouquet $85 + vase $20 + delivery $12 = $117`, and
 ends "· tax added at checkout". Changing presentation never re-quotes delivery.
 
