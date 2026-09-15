@@ -11,8 +11,8 @@ export interface Access {
 }
 
 const CERTS_TTL_SEC = 3600;
-/** An unauthenticated caller can name any `kid`, so the unknown-kid refetch is rate-limited to this. */
-const FORCED_REFETCH_EVERY_SEC = 60;
+/** An unauthenticated caller can name any `kid`, so certs fetches are rate-limited to one per this. */
+const FETCH_EVERY_SEC = 60;
 const dec = new TextDecoder();
 const enc = new TextEncoder();
 
@@ -28,7 +28,7 @@ interface Jwk extends JsonWebKey { kid?: string }
 
 export class CloudflareAccess implements Access {
   private certs: { at: number; keys: Jwk[] } | null = null;
-  private lastForcedAt = 0;
+  private lastFetchAt = 0;
 
   constructor(
     private teamDomain: string,
@@ -67,14 +67,14 @@ export class CloudflareAccess implements Access {
   }
 
   private async keyFor(kid: string, nowSec: number, force: boolean): Promise<Jwk | null> {
-    if (force) {
-      // A request nobody has authenticated yet can name any kid, so this path must not be a free
-      // way to make the Worker call Cloudflare: one forced refetch a minute is plenty to pick up a
-      // rotated signing key.
-      if (nowSec - this.lastForcedAt < FORCED_REFETCH_EVERY_SEC) return null;
-      this.lastForcedAt = nowSec;
-    }
-    if (force || !this.certs || nowSec - this.certs.at > CERTS_TTL_SEC) {
+    const needsFetch = force || !this.certs || nowSec - this.certs.at > CERTS_TTL_SEC;
+    // One throttle bounds every call to Cloudflare, whatever asked for it: an unknown kid (which any
+    // unauthenticated request may name), a cache past its TTL, or a cache that stayed stale because
+    // the endpoint keeps answering without keys. Only the very first attempt of the isolate's life
+    // is exempt; once an attempt has been made, a failure costs a minute's wait like anything else.
+    const throttled = this.lastFetchAt !== 0 && nowSec - this.lastFetchAt < FETCH_EVERY_SEC;
+    if (needsFetch && !throttled) {
+      this.lastFetchAt = nowSec;
       try {
         const res = await this.fetchFn(`https://${this.teamDomain}/cdn-cgi/access/certs`, { signal: AbortSignal.timeout(5000) });
         if (!res.ok) {

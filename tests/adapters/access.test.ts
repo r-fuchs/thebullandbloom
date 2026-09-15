@@ -58,8 +58,10 @@ describe("CloudflareAccess.verify", () => {
   it("refetches once for an unknown kid, then rejects", async () => {
     const k = await keypair("k2"); const { fn, calls } = jwksFetch([]);
     const a = new CloudflareAccess(TEAM, AUD, fn);
-    expect(await a.verify(await sign(k.priv, "k2", good), NOW)).toBeNull();
-    expect(calls).toHaveLength(2);
+    await a.verify(await sign(k.priv, "k2", good), NOW); // the first load
+    expect(calls).toHaveLength(1);
+    expect(await a.verify(await sign(k.priv, "k2", { ...good, exp: NOW + 600 }), NOW + 61)).toBeNull();
+    expect(calls).toHaveLength(2); // the unknown kid bought exactly one refetch
   });
   it("rejects a tampered payload, a foreign audience, a foreign issuer, an expired token, a not-yet-valid token, and a non-RS256 header", async () => {
     const k = await keypair("k1"); const a = new CloudflareAccess(TEAM, AUD, jwksFetch([k.jwk]).fn);
@@ -80,15 +82,17 @@ describe("CloudflareAccess.verify", () => {
     expect(await a.verify("", NOW)).toBeNull();
     expect(await a.verify(undefined, NOW)).toBeNull();
   });
-  it("throttles the forced refetch, so unknown kids cannot drive traffic at the certs endpoint", async () => {
+  it("throttles every fetch, so unknown kids cannot drive traffic at the certs endpoint", async () => {
     const k = await keypair("k9"); const { fn, calls } = jwksFetch([]);
     const a = new CloudflareAccess(TEAM, AUD, fn);
     expect(await a.verify(await sign(k.priv, "k9", good), NOW)).toBeNull();
-    expect(calls).toHaveLength(2); // the first load, then one forced refetch
+    expect(calls).toHaveLength(1); // the first load; refetching the keys it just read would buy nothing
     expect(await a.verify(await sign(k.priv, "k9", { ...good, exp: NOW + 600 }), NOW + 10)).toBeNull();
-    expect(calls).toHaveLength(2); // within the minute: no second forced refetch
+    expect(calls).toHaveLength(1); // within the minute: no refetch at all
     expect(await a.verify(await sign(k.priv, "k9", { ...good, exp: NOW + 600 }), NOW + 61)).toBeNull();
-    expect(calls).toHaveLength(3); // a minute on, one more is allowed
+    expect(calls).toHaveLength(2); // a minute on, one more is allowed
+    expect(await a.verify(await sign(k.priv, "k9", { ...good, exp: NOW + 600 }), NOW + 70)).toBeNull();
+    expect(calls).toHaveLength(2); // and that one starts the next minute
   });
   it("keeps a good cache when the certs endpoint answers 200 without keys, and survives a 503", async () => {
     const k = await keypair("k1");
@@ -102,6 +106,35 @@ describe("CloudflareAccess.verify", () => {
     // and a 503 on the next forced refetch is just a null, never a throw
     expect(await a.verify(await sign(k.priv, "kX", { ...good, exp: NOW + 600 }), NOW + 200)).toBeNull();
     expect(calls).toHaveLength(3);
+  });
+  it("throttles the fetches a degraded endpoint provokes once the cache is past its TTL", async () => {
+    const k = await keypair("k1");
+    const { fn, calls } = scriptedFetch([{ body: { keys: [k.jwk] } }, { body: {} }]);
+    const a = new CloudflareAccess(TEAM, AUD, fn);
+    const token = async (nowSec: number) => await sign(k.priv, "k1", { ...good, exp: nowSec + 600 });
+    expect(await a.verify(await token(NOW), NOW)).toEqual({ email: "anthony@example.com" });
+    expect(calls).toHaveLength(1);
+    // past the one-hour TTL the endpoint answers without keys: the old key still verifies, one fetch
+    expect(await a.verify(await token(NOW + 3700), NOW + 3700)).toEqual({ email: "anthony@example.com" });
+    expect(calls).toHaveLength(2);
+    // the cache is still stale, but the next request must not fetch again
+    expect(await a.verify(await token(NOW + 3710), NOW + 3710)).toEqual({ email: "anthony@example.com" });
+    expect(calls).toHaveLength(2);
+    // a minute after the last attempt, one more is allowed
+    expect(await a.verify(await token(NOW + 3770), NOW + 3770)).toEqual({ email: "anthony@example.com" });
+    expect(calls).toHaveLength(3);
+  });
+  it("throttles retries when the first load fails, so a cold isolate cannot hammer a down endpoint", async () => {
+    const k = await keypair("k1");
+    const { fn, calls } = scriptedFetch([{ status: 503, body: { error: "down" } }]);
+    const a = new CloudflareAccess(TEAM, AUD, fn);
+    const token = async (nowSec: number) => await sign(k.priv, "k1", { ...good, exp: nowSec + 600 });
+    expect(await a.verify(await token(NOW), NOW)).toBeNull();
+    expect(calls).toHaveLength(1);
+    expect(await a.verify(await token(NOW + 10), NOW + 10)).toBeNull();
+    expect(calls).toHaveLength(1); // no cache and a recent failure: null, not another call
+    expect(await a.verify(await token(NOW + 61), NOW + 61)).toBeNull();
+    expect(calls).toHaveLength(2);
   });
   it("never throws when the certs endpoint is down", async () => {
     const k = await keypair("k1");
