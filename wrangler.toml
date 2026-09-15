@@ -34,10 +34,12 @@ bucket_name = "bullandbloom-media"
 [triggers]
 crons = ["*/15 * * * *"]
 
-# Secrets (wrangler secret put): STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, ADMIN_PASSCODE, ADMIN_SECRET,
+# Secrets (wrangler secret put): STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, ADMIN_SECRET,
 # GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, INSTAGRAM_APP_ID, INSTAGRAM_APP_SECRET, UBER_CLIENT_ID,
 # UBER_CLIENT_SECRET, UBER_CUSTOMER_ID, UBER_WEBHOOK_SECRET. The Google, Instagram and Uber sets are
 # optional; without them those features report "not set up" and delivery falls back to the zone
 # fee for listed zips (spec §4.5).
 [vars]
 SITE_URL = "https://thebullandbloom.com"
+CF_ACCESS_TEAM_DOMAIN = "foxnacre.cloudflareaccess.com"
+CF_ACCESS_AUD = "f9355393f8797f54fa183665e0e05c916768693c32c95015452bfbf0f70972c0"

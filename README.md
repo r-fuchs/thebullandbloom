@@ -12,11 +12,11 @@ thebullandbloom.com — floral design by Anthony Demonia. Static site plus a Clo
 
 ## Local development
 
-1. Create `.dev.vars` with the four required secrets — `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ADMIN_PASSCODE`, `ADMIN_SECRET` — plus whichever optional sets you want live: `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (without them the admin Google panel says "not set up"), `INSTAGRAM_APP_ID`/`INSTAGRAM_APP_SECRET` (without them the Photos panel says the same), and `UBER_CLIENT_ID`/`UBER_CLIENT_SECRET`/`UBER_CUSTOMER_ID`/`UBER_WEBHOOK_SECRET` (without them every delivery address gets its zone fee from `delivery.zones` in `store.config.json`, or delivery is hidden when no zone lists a ZIP).
+1. Create `.dev.vars` with the three required secrets — `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ADMIN_SECRET` — plus whichever optional sets you want live: `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (without them the admin Google panel says "not set up"), `INSTAGRAM_APP_ID`/`INSTAGRAM_APP_SECRET` (without them the Photos panel says the same), and `UBER_CLIENT_ID`/`UBER_CLIENT_SECRET`/`UBER_CUSTOMER_ID`/`UBER_WEBHOOK_SECRET` (without them every delivery address gets its zone fee from `delivery.zones` in `store.config.json`, or delivery is hidden when no zone lists a ZIP).
 2. Run `npx wrangler d1 migrations apply bullandbloom --local`.
 3. Run `npm run dev`.
 
-`ADMIN_PASSCODE` must be a generated string of at least 20 characters. Rate limiting for `/admin/api/login`, `/api/checkout` and `/api/quote` is configured as Cloudflare rules at deploy, not in code (`/api/quote` is unauthenticated and calls Uber's metered quote API).
+Admin sign-in is Cloudflare Access with Google (Plan 6): the application, policy and login method live in the Cloudflare One dashboard; the Worker verifies the Access token on every `/admin/api` request using `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD` from `wrangler.toml`. Rate limiting for `/api/checkout` and `/api/quote` is configured as Cloudflare rules at deploy, not in code (`/api/quote` is unauthenticated and calls Uber's metered quote API).
 
 ## Deploy
 

@@ -1,47 +1,39 @@
 import { env } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
-import { testApp, seedAdminOverride } from "../helpers";
+import { testApp, seedAdminOverride, asAdmin } from "../helpers";
 
-async function login(fetch: any) {
-  const r = await fetch("/admin/api/login", { method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ passcode: "open-sesame-1234" }) });
-  expect(r.status).toBe(204);
-  const cookie = r.headers.get("set-cookie")!.split(";")[0];
-  return (path: string, init: RequestInit = {}) =>
-    fetch(path, { ...init, headers: { ...(init.headers as any), cookie, "content-type": "application/json" } });
-}
-
-describe("admin auth", () => {
-  it("refuses without a cookie and with a wrong passcode", async () => {
-    const { fetch } = testApp();
-    expect((await fetch("/admin/api/month?from=2026-09-01&to=2026-09-02")).status).toBe(401);
-    const r = await fetch("/admin/api/login", { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ passcode: "wrong" }) });
+describe("admin identity (Cloudflare Access)", () => {
+  it("refuses a request with no Access token", async () => {
+    const { fetch, access } = testApp();
+    const r = await fetch("/admin/api/month?from=2026-09-01&to=2026-09-30");
     expect(r.status).toBe(401);
+    expect(access.seen).toEqual([undefined]);
   });
-  it("sets an HttpOnly cookie on login", async () => {
-    const { fetch } = testApp();
-    const r = await fetch("/admin/api/login", { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ passcode: "open-sesame-1234" }) });
-    expect(r.headers.get("set-cookie")).toMatch(/bb_admin=.*HttpOnly/);
+  it("refuses a token the verifier rejects", async () => {
+    const { fetch, access } = testApp();
+    access.denyAll = true;
+    expect((await asAdmin(fetch)("/admin/api/month?from=2026-09-01&to=2026-09-30")).status).toBe(401);
   });
-  it("refuses logout without a cookie", async () => {
+  it("accepts the CF_Authorization cookie as well as the header", async () => {
     const { fetch } = testApp();
-    expect((await fetch("/admin/api/logout", { method: "POST" })).status).toBe(401);
+    const r = await fetch("/admin/api/me", { headers: { cookie: "CF_Authorization=test:anthony@example.com" } });
+    expect(await r.json()).toEqual({ email: "anthony@example.com" });
   });
-  it("clears the cookie on a logged-in logout", async () => {
+  it("/me says who is signed in", async () => {
     const { fetch } = testApp();
-    const as = await login(fetch);
-    const r = await as("/admin/api/logout", { method: "POST" });
-    expect(r.status).toBe(204);
-    expect(r.headers.get("set-cookie")).toMatch(/bb_admin=;.*(Max-Age=0|Expires=Thu, 01 Jan 1970)/);
+    expect(await (await asAdmin(fetch, "thebullandbloom@gmail.com")("/admin/api/me")).json()).toEqual({ email: "thebullandbloom@gmail.com" });
+  });
+  it("no longer has a login or logout endpoint", async () => {
+    const { fetch } = testApp();
+    expect((await fetch("/admin/api/login", { method: "POST", body: "{}" })).status).toBe(401);
+    expect((await asAdmin(fetch)("/admin/api/logout", { method: "POST" })).status).toBe(404);
   });
 });
 
 describe("admin month and days", () => {
   it("reports counts and applies day edits", async () => {
     const { fetch } = testApp();
-    const as = await login(fetch);
+    const as = asAdmin(fetch);
     await env.DB.prepare(`INSERT INTO orders (id, created_at, status, date, size_id, fulfillment, customer_name, customer_email, bouquet_cents, source)
       VALUES ('m1', 1, 'paid', '2026-09-09', 'bouquet', 'pickup', 'A', 'a@example.com', 8500, 'one_time'),
              ('m2', 1, 'held', '2026-09-09', 'bouquet', 'pickup', 'B', 'b@example.com', 8500, 'one_time'),
@@ -60,7 +52,7 @@ describe("admin month and days", () => {
   });
   it("validates day edits", async () => {
     const { fetch } = testApp();
-    const as = await login(fetch);
+    const as = asAdmin(fetch);
     expect((await as("/admin/api/days/2026-9-9", { method: "PUT", body: JSON.stringify({ cap: 1 }) })).status).toBe(400);
     expect((await as("/admin/api/days/2026-09-09", { method: "PUT", body: JSON.stringify({ cap: -1 }) })).status).toBe(400);
     expect((await as("/admin/api/days/2026-09-09", { method: "PUT", body: JSON.stringify({ cap: 2.5 }) })).status).toBe(400);
@@ -70,7 +62,7 @@ describe("admin month and days", () => {
 describe("admin settings and orders", () => {
   it("reads and updates settings with validation", async () => {
     const { fetch } = testApp();
-    const as = await login(fetch);
+    const as = asAdmin(fetch);
     expect(await (await as("/admin/api/settings")).json()).toEqual({ cap: 4, cutoff: "11:00", openWeekdays: [2, 3, 4, 5, 6] });
     const r = await as("/admin/api/settings", { method: "PUT", body: JSON.stringify({ cap: 7, cutoff: "10:15" }) });
     expect(await r.json()).toEqual({ cap: 7, cutoff: "10:15", openWeekdays: [2, 3, 4, 5, 6] });
@@ -79,7 +71,7 @@ describe("admin settings and orders", () => {
   });
   it("lists a day's orders and toggles done", async () => {
     const { fetch } = testApp();
-    const as = await login(fetch);
+    const as = asAdmin(fetch);
     await env.DB.prepare(`INSERT INTO orders (id, created_at, status, date, size_id, fulfillment, customer_name, customer_email, bouquet_cents)
       VALUES ('d1', 1, 'paid', '2026-09-10', 'posy', 'pickup', 'A', 'a@example.com', 5500),
              ('d2', 2, 'held', '2026-09-10', 'posy', 'pickup', 'B', 'b@example.com', 5500)`).run();

@@ -6,6 +6,7 @@ import { GoogleApi } from "./adapters/google-api";
 import { InstagramApi } from "./adapters/instagram-api";
 import { UberApi } from "./adapters/uber-api";
 import { uberFor } from "./adapters/uber";
+import { CloudflareAccess } from "./adapters/access";
 import { connectionSource } from "./store/google";
 import { tokenCache } from "./store/uber";
 import { runScheduled } from "./scheduled";
@@ -23,7 +24,8 @@ export function servicesFor(env: Env): Services {
       env.UBER_CLIENT_ID, env.UBER_CLIENT_SECRET, env.UBER_CUSTOMER_ID,
       tokenCache(env.DB), env.UBER_ROBOCOURIER === "1",
     ));
-    services = { payments, google, instagram, uber, clock: () => new Date(), config };
+    const access = new CloudflareAccess(env.CF_ACCESS_TEAM_DOMAIN, env.CF_ACCESS_AUD);
+    services = { payments, google, instagram, uber, access, clock: () => new Date(), config };
   }
   return services;
 }
@@ -33,15 +35,15 @@ function appFor(env: Env) {
   return app;
 }
 
-const REQUIRED_SECRETS = ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "ADMIN_PASSCODE", "ADMIN_SECRET"] as const;
+const REQUIRED_ENV = ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "ADMIN_SECRET", "CF_ACCESS_TEAM_DOMAIN", "CF_ACCESS_AUD"] as const;
 
-function missingSecrets(env: Env): string[] {
-  return REQUIRED_SECRETS.filter((k) => typeof env[k] !== "string" || env[k] === "");
+function missingEnv(env: Env): string[] {
+  return REQUIRED_ENV.filter((k) => typeof env[k] !== "string" || env[k] === "");
 }
 
 export default {
   fetch: (req: Request, env: Env, ctx: ExecutionContext) => {
-    const missing = missingSecrets(env);
+    const missing = missingEnv(env);
     if (missing.length > 0) {
       console.error("misconfigured: missing", missing.join(", "));
       return new Response("misconfigured", { status: 500 });

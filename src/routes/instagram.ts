@@ -1,5 +1,5 @@
 import type { App } from "../app";
-import { makeSession, verifySession } from "../admin/session";
+import { makeStateToken, verifyStateToken } from "../core/state-token";
 import { clearIgConnection, deletePost, getPost, insertPost, listPosts, loadIgSync, loadIgToken, saveIgToken, setPostHidden } from "../store/instagram";
 import { refreshFeed } from "../jobs/instagram";
 
@@ -27,7 +27,7 @@ export function instagramPublic(r: App): void {
   });
 }
 
-/** Mounted from adminRoutes() AFTER its cookie middleware, like Google (D25 for the callback). */
+/** Mounted from adminRoutes() AFTER its Access middleware, like Google (D25 for the callback). */
 export function registerInstagramAdmin(r: App): void {
   const deps = (c: any) => ({ db: c.env.DB, media: c.env.MEDIA, instagram: c.get("services").instagram, adminSecret: c.env.ADMIN_SECRET });
 
@@ -43,13 +43,13 @@ export function registerInstagramAdmin(r: App): void {
     const { instagram, clock } = c.get("services");
     if (!instagram.configured() || !c.env.MEDIA) return c.json({ error: "instagram_not_configured" }, 503);
     const nowSec = Math.floor(clock().getTime() / 1000);
-    const state = await makeSession(stateSecret(c.env.ADMIN_SECRET), nowSec, STATE_TTL);
+    const state = await makeStateToken(stateSecret(c.env.ADMIN_SECRET), nowSec, STATE_TTL);
     return c.redirect(instagram.authUrl(state, redirectUri(c.env.SITE_URL)), 302);
   });
   r.get("/admin/instagram/callback", async (c) => {
     const { instagram, clock } = c.get("services");
     const now = clock(), nowSec = Math.floor(now.getTime() / 1000);
-    if (!(await verifySession(c.req.query("state"), stateSecret(c.env.ADMIN_SECRET), nowSec))) return c.text("bad or expired state", 400);
+    if (!(await verifyStateToken(c.req.query("state"), stateSecret(c.env.ADMIN_SECRET), nowSec))) return c.text("bad or expired state", 400);
     if (c.req.query("error")) return c.redirect("/admin/?instagram=denied", 302);
     const code = c.req.query("code");
     if (!code) return c.text("missing code", 400);

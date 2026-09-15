@@ -14,6 +14,9 @@ describe("default export fetch", () => {
     const r = await worker.fetch(new Request("https://example.com/api/health"), badEnv, ctx);
     expect(r.status).toBe(500);
     expect(await r.text()).toBe("misconfigured");
+    const noAccess = { ...env, CF_ACCESS_AUD: "" };
+    const r2 = await worker.fetch(new Request("https://example.com/api/health"), noAccess, ctx);
+    expect(r2.status).toBe(500);
   });
   it("serves normally when all secrets are present", async () => {
     const r = await worker.fetch(new Request("https://example.com/api/health"), env, ctx);

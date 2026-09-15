@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
-import type { App, Services } from "../app";
+import type { App, AppEnv } from "../app";
 import type { Env } from "../env";
 import type { StoreConfig, PostalAddress, DeliveryZone } from "../config";
 import { availabilityFor, capFor, isOrderable } from "../core/capacity";
@@ -23,7 +23,7 @@ const FALLBACK_TTL_SECONDS = 30 * 60;
 
 export { humanDate };
 
-type Ctx = Context<{ Bindings: Env; Variables: { services: Services } }>;
+type Ctx = Context<AppEnv>;
 
 /** The value we declare to the courier when no size has been chosen yet: the cheapest bouquet. */
 function lowestPriceCents(cfg: { sizes: Array<{ priceCents: number }> }): number {

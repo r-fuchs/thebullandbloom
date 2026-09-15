@@ -4,14 +4,16 @@ import type { Payments } from "./adapters/payments";
 import type { Google } from "./adapters/google";
 import type { Instagram } from "./adapters/instagram";
 import type { Uber } from "./adapters/uber";
+import type { Access, AdminIdentity } from "./adapters/access";
 import type { StoreConfig } from "./config";
 import { publicRoutes } from "./routes/public";
 import { webhookRoutes } from "./routes/webhooks";
 import { adminRoutes } from "./routes/admin";
 import { instagramPublic } from "./routes/instagram";
 
-export interface Services { payments: Payments; google: Google; instagram: Instagram; uber: Uber; clock: () => Date; config: StoreConfig }
-export type App = Hono<{ Bindings: Env; Variables: { services: Services } }>;
+export interface Services { payments: Payments; google: Google; instagram: Instagram; uber: Uber; access: Access; clock: () => Date; config: StoreConfig }
+export type AppEnv = { Bindings: Env; Variables: { services: Services; admin: AdminIdentity } };
+export type App = Hono<AppEnv>;
 
 export function buildApp(services: Services): App {
   const app: App = new Hono();

@@ -43,16 +43,13 @@
 <main>
   <h1>The Bull and Bloom — admin</h1>
 
-  <form id="login" class="row">
-    <input type="password" name="passcode" placeholder="Passcode" autocomplete="current-password" required>
-    <button type="submit">Sign in</button><span class="status" id="login-status"></span>
-  </form>
+  <p class="status" id="auth-status" hidden>Your sign-in has expired. <a href="/admin/">Reload to sign in with Google.</a></p>
 
   <section id="app" hidden>
     <div class="row">
       <button id="prev">‹</button><strong id="month-label"></strong><button id="next">›</button>
       <span style="flex:1"></span>
-      <button id="subs-btn">Subscribers</button><button id="ig-btn">Photos</button><button id="settings-btn">Settings</button><button id="google-btn">Google</button><button id="delivery-btn">Delivery</button><button id="logout">Sign out</button>
+      <button id="subs-btn">Subscribers</button><button id="ig-btn">Photos</button><button id="settings-btn">Settings</button><button id="google-btn">Google</button><button id="delivery-btn">Delivery</button><button id="logout">Sign out</button><span class="status" id="who"></span>
     </div>
     <div class="grid" id="grid"></div>
     <p class="status">Tap a day. Number is one-time orders / cap; “+n” is subscription bouquets. Pink = closed, yellow = full.</p>
@@ -154,7 +151,7 @@
   var view = new Date(); view.setDate(1);
   var selected = null, cache = {};
 
-  function show(authed) { $('#login').hidden = authed; $('#app').hidden = !authed; }
+  function show(authed) { $('#app').hidden = !authed; $('#auth-status').hidden = authed; }
   function ymd(y, m, d) { return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0'); }
   function money(c) { return '$' + (c / 100).toFixed(2); }
   function addressLine(o) {
@@ -456,21 +453,8 @@
   }
   $('#delivery-btn').addEventListener('click', loadDelivery);
 
-  $('#login').addEventListener('submit', function (e) {
-    e.preventDefault();
-    $('#login-status').textContent = '…';
-    fetch('/admin/api/login', { method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ passcode: new FormData(e.target).get('passcode') }) })
-      .then(function (r) {
-        if (r.status === 204) { show(true); loadMonth(); }
-        else if (r.status === 401) { $('#login-status').textContent = 'Wrong passcode.'; }
-        else { $('#login-status').textContent = 'Sign-in failed (' + r.status + ').'; }
-      });
-  });
   $('#logout').addEventListener('click', function () {
-    $('#login-status').textContent = '';
-    api('/logout', { method: 'POST' }).then(function () { show(false); })
-      .catch(function (e) { if (e.message === 'unauthorized') return; $('#login-status').textContent = e.message; });
+    location.href = '/cdn-cgi/access/logout';
   });
   $('#prev').addEventListener('click', function () { view.setMonth(view.getMonth() - 1); loadMonth(); });
   $('#next').addEventListener('click', function () { view.setMonth(view.getMonth() + 1); loadMonth(); });
@@ -506,7 +490,8 @@
   if (hashDate) { view = new Date(Number(hashDate[1]), Number(hashDate[2]) - 1, 1); selected = location.hash.slice(1); }
   var flash = /[?&]google=(\w+)/.exec(location.search);
   var igFlash = /[?&]instagram=(\w+)/.exec(location.search);
-  api('/settings').then(function () {
+  api('/me').then(function (me) {
+    $('#who').textContent = me.email;
     show(true);
     return loadMonth();
   }).then(function () {

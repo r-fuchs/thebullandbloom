@@ -1,18 +1,12 @@
 import { env } from "cloudflare:test";
 import { describe, it, expect, beforeEach } from "vitest";
-import { testApp } from "../helpers";
+import { testApp, asAdmin } from "../helpers";
 import { clearIgConnection, listPosts, loadIgToken, saveIgToken } from "../../src/store/instagram";
 import { refreshFeed } from "../../src/jobs/instagram";
 
 const NOW = new Date("2026-09-10T14:00:00Z");
 const NOW_SEC = Math.floor(NOW.getTime() / 1000);
 const token = { accessToken: "ig_long_fake", expiresAt: NOW_SEC + 60 * 86400, userId: "1784", username: "thebullandbloom" };
-async function login(fetch: any) {
-  const r = await fetch("/admin/api/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ passcode: "open-sesame-1234" }) });
-  const cookie = r.headers.get("set-cookie")!.split(";")[0];
-  return (path: string, init: RequestInit = {}) => fetch(path, { ...init, headers: { ...(init.headers as any), cookie, "content-type": "application/json" }, redirect: "manual" });
-}
-
 describe("instagram routes", () => {
   beforeEach(async () => {
     await clearIgConnection(env.DB);
@@ -29,7 +23,7 @@ describe("instagram routes", () => {
 
   it("connects through start → callback, pulls the feed at once, and serves images from our storage", async () => {
     const { fetch, instagram } = testApp(NOW);
-    const api = await login(fetch);
+    const api = asAdmin(fetch);
     expect((await fetch("/admin/api/instagram/status")).status).toBe(401);
     expect(await (await api("/admin/api/instagram/status")).json()).toMatchObject({ configured: true, connected: false, username: null, posts: [] });
     const start = await api("/admin/api/instagram/start");
@@ -58,22 +52,22 @@ describe("instagram routes", () => {
     await saveIgToken(env.DB, env.ADMIN_SECRET, token);
     const { fetch, instagram } = testApp(NOW);
     await refreshFeed({ db: env.DB, media: env.MEDIA!, instagram, adminSecret: env.ADMIN_SECRET }, NOW, true);
-    const api = await login(fetch);
+    const api = asAdmin(fetch);
     expect((await api("/admin/api/instagram/posts/18002", { method: "PUT", body: JSON.stringify({ hidden: true }) })).status).toBe(200);
     expect((await api("/admin/api/instagram/posts/nope", { method: "PUT", body: JSON.stringify({ hidden: true }) })).status).toBe(404);
     expect(((await (await fetch("/api/feed")).json()) as any).posts.map((p: any) => p.id)).toEqual(["18001", "18003"]);
-    const adminPosts = (await (await api("/admin/api/instagram/status")).json()).posts;
+    const adminPosts = (await (await api("/admin/api/instagram/status")).json() as any).posts;
     expect(adminPosts.find((p: any) => p.id === "18002").hidden).toBe(true);
     expect((await api("/admin/api/instagram/refresh", { method: "POST" })).status).toBe(200);
     expect((await api("/admin/api/instagram/disconnect", { method: "POST" })).status).toBe(204);
-    expect((await (await api("/admin/api/instagram/status")).json()).connected).toBe(false);
+    expect((await (await api("/admin/api/instagram/status")).json() as any).connected).toBe(false);
     expect(await listPosts(env.DB, false)).toHaveLength(2); // cached posts survive a disconnect
   });
 
   it("returns 503 from start when the app is not configured", async () => {
     const { fetch, instagram } = testApp(NOW);
     instagram.isConfigured = false;
-    const api = await login(fetch);
+    const api = asAdmin(fetch);
     expect((await api("/admin/api/instagram/start")).status).toBe(503);
   });
 });
@@ -83,7 +77,7 @@ describe("instagram: pasted token", () => {
     await clearIgConnection(env.DB);
     await env.DB.prepare("DELETE FROM ig_posts").run();
     const { fetch, instagram } = testApp(NOW);
-    const api = await login(fetch);
+    const api = asAdmin(fetch);
     expect((await api("/admin/api/instagram/token", { method: "POST", body: JSON.stringify({ accessToken: "short" }) })).status).toBe(400);
     expect((await api("/admin/api/instagram/token", { method: "POST", body: JSON.stringify({ accessToken: "EAAB-not-an-instagram-token-xxxxxxxx" }) })).status).toBe(400);
     const r = await api("/admin/api/instagram/token", { method: "POST", body: JSON.stringify({ accessToken: "IGAAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" }) });
@@ -101,10 +95,9 @@ describe("photos uploaded from admin", () => {
   it("stores an uploaded image, serves it in the feed and by url, and removes it", async () => {
     await env.DB.prepare("DELETE FROM ig_posts").run();
     const { fetch } = testApp(NOW);
-    const api = await login(fetch);
-    const lr = await fetch("/admin/api/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ passcode: "open-sesame-1234" }) });
-    const cookie = lr.headers.get("set-cookie")!.split(";")[0];
-    const raw = (path: string, type: string, body: BodyInit) => fetch(path, { method: "POST", headers: { cookie, "content-type": type }, body });
+    const api = asAdmin(fetch);
+    const raw = (path: string, type: string, body: BodyInit) =>
+      fetch(path, { method: "POST", headers: { "cf-access-jwt-assertion": "test:ryan@fuchsassociates.com", "content-type": type }, body });
     const bytes = new Uint8Array(500).fill(7);
     expect((await raw("/admin/api/photos", "text/plain", "nope")).status).toBe(400);
     const r = await raw("/admin/api/photos?caption=Studio%20table", "image/jpeg", bytes);

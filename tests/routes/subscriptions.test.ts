@@ -1,6 +1,6 @@
 import { env } from "cloudflare:test";
 import { describe, it, expect, beforeEach } from "vitest";
-import { testApp } from "../helpers";
+import { testApp, asAdmin } from "../helpers";
 import { saveState, clearConnection } from "../../src/store/google";
 import { counts } from "../../src/store/outbox";
 import { byStripeSubscription, getSubscriber, insertSubscriber } from "../../src/store/subscribers";
@@ -12,12 +12,6 @@ const hook = (fetch: any) => fetch("/webhooks/stripe", { method: "POST", headers
 const post = (fetch: any, body: unknown) => fetch("/api/subscribe", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 const good = { sizeId: "bouquet", cadenceId: "weekly", weekday: 2, customer: { name: "Pat Smith", email: "pat@example.com", phone: "518-555-0100" }, note: "no lilies" };
 const dates = async (id: string) => (await env.DB.prepare("SELECT date FROM orders WHERE subscriber_id = ? ORDER BY date").bind(id).all<any>()).results.map((r) => r.date);
-async function login(fetch: any) {
-  const r = await fetch("/admin/api/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ passcode: "open-sesame-1234" }) });
-  const cookie = r.headers.get("set-cookie")!.split(";")[0];
-  return (path: string) => fetch(path, { headers: { cookie } });
-}
-
 describe("subscriptions: signup, webhooks, admin", () => {
   beforeEach(async () => {
     await env.DB.prepare("DELETE FROM orders WHERE subscriber_id IS NOT NULL").run();
@@ -126,8 +120,8 @@ describe("subscriptions: signup, webhooks, admin", () => {
     await insertSubscriber(env.DB, { id: "a1", stripeCustomerId: "cus_a", stripeSubscriptionId: "sub_a", sizeId: "statement", cadenceId: "twice-monthly", weekday: 5,
       fulfillment: "pickup", addressJson: null, deliveryAddOnCents: 0, anchorDate: "2026-09-04", customerName: "Ann", customerEmail: "ann@example.com", customerPhone: null, note: null }, 1);
     expect((await fetch("/admin/api/subscribers")).status).toBe(401);
-    const api = await login(fetch);
-    const body = await (await api("/admin/api/subscribers")).json();
+    const api = asAdmin(fetch);
+    const body = await (await api("/admin/api/subscribers")).json() as any;
     expect(body.subscribers).toHaveLength(1);
     expect(body.subscribers[0]).toMatchObject({ id: "a1", status: "active", cadenceName: "Twice a month", weekday: 5, nextDate: "2026-09-18" });
     expect(body.flags).toEqual([]);

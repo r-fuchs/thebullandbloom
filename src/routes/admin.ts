@@ -1,7 +1,6 @@
 import { Hono } from "hono";
-import { getCookie, setCookie, deleteCookie } from "hono/cookie";
+import { getCookie } from "hono/cookie";
 import type { App } from "../app";
-import { COOKIE, makeSession, verifySession, passcodeMatches } from "../admin/session";
 import { availabilityFor, type Defaults } from "../core/capacity";
 import { isYmd, ymdRange } from "../core/time";
 import { loadDefaults, saveDefaults } from "../store/settings";
@@ -16,7 +15,6 @@ import { dueDates } from "../core/subscriptions";
 import { addDays, ymdIn } from "../core/time";
 import { loadFlags } from "../jobs/materialize";
 
-const TTL = 30 * 24 * 3600;
 const MAX_DAYS = 62;
 const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -39,28 +37,19 @@ function validateSettingsPatch(p: any): { ok: true; patch: Partial<Defaults> } |
 export function adminRoutes(): App {
   const r: App = new Hono();
 
-  r.post("/admin/api/login", async (c) => {
-    let body: any = {};
-    try { body = await c.req.json(); } catch { /* fallthrough */ }
-    if (!(await passcodeMatches(String(body.passcode ?? ""), c.env.ADMIN_PASSCODE))) {
-      await new Promise((res) => setTimeout(res, 1000));
-      return c.json({ error: "wrong passcode" }, 401);
-    }
-    const nowSec = Math.floor(c.get("services").clock().getTime() / 1000);
-    setCookie(c, COOKIE, await makeSession(c.env.ADMIN_SECRET, nowSec, TTL), {
-      httpOnly: true, secure: true, sameSite: "Strict", path: "/", maxAge: TTL,
-    });
-    return c.body(null, 204);
-  });
-
+  // Plan 6: Cloudflare Access signs every admin request; the Worker checks the signature itself so the
+  // workers.dev address, which Access does not front, is closed too. No session, no passcode.
   r.use("/admin/api/*", async (c, next) => {
-    if (c.req.path === "/admin/api/login") return next();
-    const nowSec = Math.floor(c.get("services").clock().getTime() / 1000);
-    if (!(await verifySession(getCookie(c, COOKIE), c.env.ADMIN_SECRET, nowSec))) return c.json({ error: "unauthorized" }, 401);
+    const { access, clock } = c.get("services");
+    const nowSec = Math.floor(clock().getTime() / 1000);
+    const token = c.req.header("cf-access-jwt-assertion") ?? getCookie(c, "CF_Authorization");
+    const admin = await access.verify(token, nowSec);
+    if (!admin) return c.json({ error: "unauthorized" }, 401);
+    c.set("admin", admin);
     await next();
   });
 
-  r.post("/admin/api/logout", (c) => { deleteCookie(c, COOKIE, { path: "/" }); return c.body(null, 204); });
+  r.get("/admin/api/me", (c) => c.json({ email: c.get("admin").email }));
 
   r.get("/admin/api/month", async (c) => {
     const { config, clock } = c.get("services");

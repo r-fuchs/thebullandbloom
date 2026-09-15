@@ -11,7 +11,7 @@
 #   CLOUDFLARE_API_TOKEN   an API token made from the "Edit Cloudflare Workers" template, plus D1 edit
 #   CLOUDFLARE_ACCOUNT_ID  from the Workers overview page in the Cloudflare dashboard
 # Worker secrets already live in Cloudflare and are untouched by a deploy: STRIPE_SECRET_KEY,
-# STRIPE_WEBHOOK_SECRET, ADMIN_PASSCODE, ADMIN_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+# STRIPE_WEBHOOK_SECRET, ADMIN_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
 # UBER_CLIENT_ID, UBER_CLIENT_SECRET, UBER_CUSTOMER_ID and UBER_WEBHOOK_SECRET.
 # Optional: INSTAGRAM_APP_ID and INSTAGRAM_APP_SECRET as repository secrets are uploaded to the
 # Worker on each deploy (so the Instagram app keys never need a laptop either).

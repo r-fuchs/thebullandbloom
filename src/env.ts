@@ -4,8 +4,10 @@ export interface Env {
   SITE_URL: string;
   STRIPE_SECRET_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;
-  ADMIN_PASSCODE: string;
   ADMIN_SECRET: string;
+  /** Plan 6: Cloudflare Access team domain (foxnacre.cloudflareaccess.com) and the admin application's audience tag; plain vars in wrangler.toml */
+  CF_ACCESS_TEAM_DOMAIN: string;
+  CF_ACCESS_AUD: string;
   GOOGLE_CLIENT_ID?: string;     // optional: admin reports "not configured" when absent
   GOOGLE_CLIENT_SECRET?: string;
   MEDIA?: R2Bucket;               // cached Instagram images (D12); absent until R2 is enabled on the account

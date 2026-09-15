@@ -5,6 +5,7 @@ import type { Payments, SubscriptionCheckoutInput, WebhookEvent } from "../src/a
 import { FakeGoogle } from "./fakes/google";
 import { FakeInstagram } from "./fakes/instagram";
 import { FakeUber } from "./fakes/uber";
+import { FakeAccess } from "./fakes/access";
 
 // Module-scoped (not per-instance) so session ids stay unique across every
 // RecordingPayments created within a test file, matching the D1 test DB,
@@ -56,10 +57,11 @@ export function testApp(now = new Date("2026-09-08T14:00:00Z")) {
   const google = new FakeGoogle();
   const instagram = new FakeInstagram();
   const uber = new FakeUber();
-  const app = buildApp({ payments, google, instagram, uber, clock: () => now, config: loadConfig() });
+  const access = new FakeAccess();
+  const app = buildApp({ payments, google, instagram, uber, access, clock: () => now, config: loadConfig() });
   const fetch = (path: string, init?: RequestInit) =>
     app.request(new Request(`https://example.com${path}`, init), undefined, env);
-  return { app, payments, google, instagram, uber, fetch };
+  return { app, payments, google, instagram, uber, access, fetch };
 }
 
 /** Services object for jobs and runScheduled tests, sharing testApp's fakes. */
@@ -68,7 +70,14 @@ export function testServices(now = new Date("2026-09-08T14:00:00Z")) {
   const google = new FakeGoogle();
   const instagram = new FakeInstagram();
   const uber = new FakeUber();
-  return { services: { payments, google, instagram, uber, clock: () => now, config: loadConfig() }, payments, google, instagram, uber };
+  const access = new FakeAccess();
+  return { services: { payments, google, instagram, uber, access, clock: () => now, config: loadConfig() }, payments, google, instagram, uber, access };
+}
+
+/** A fetch that carries a Cloudflare Access identity the FakeAccess accepts (Plan 6). */
+export function asAdmin(fetch: (path: string, init?: RequestInit) => Promise<Response> | Response, email = "ryan@fuchsassociates.com") {
+  return async (path: string, init: RequestInit = {}): Promise<Response> =>
+    fetch(path, { ...init, headers: { ...(init.headers as Record<string, string> | undefined), "cf-access-jwt-assertion": `test:${email}`, "content-type": "application/json" } });
 }
 
 export async function seedAdminOverride(date: string, cap: number | null, closed: boolean) {

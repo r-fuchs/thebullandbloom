@@ -13,8 +13,9 @@ declare global {
       SITE_URL: string;
       STRIPE_SECRET_KEY: string;
       STRIPE_WEBHOOK_SECRET: string;
-      ADMIN_PASSCODE: string;
       ADMIN_SECRET: string;
+      CF_ACCESS_TEAM_DOMAIN: string;
+      CF_ACCESS_AUD: string;
       GOOGLE_CLIENT_ID?: string;
       GOOGLE_CLIENT_SECRET?: string;
       MEDIA?: R2Bucket;

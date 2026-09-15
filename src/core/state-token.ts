@@ -1,4 +1,9 @@
-export const COOKIE = "bb_admin";
+/**
+ * Short-lived signed token for the Google and Instagram OAuth `state` parameter: an expiry
+ * stamp plus an HMAC of it, so a consent round-trip can be recognised as one we started
+ * (D25). Formerly src/admin/session.ts, which also held the admin sign-in session that
+ * Plan 6 retired, leaving only this.
+ */
 const enc = new TextEncoder();
 
 async function hmac(secret: string, data: string): Promise<string> {
@@ -18,12 +23,12 @@ function equal(a: Uint8Array, b: Uint8Array): boolean {
   return diff === 0;
 }
 
-export async function makeSession(secret: string, nowSec: number, ttlSec: number): Promise<string> {
+export async function makeStateToken(secret: string, nowSec: number, ttlSec: number): Promise<string> {
   const exp = String(nowSec + ttlSec);
   return `${exp}.${await hmac(secret, exp)}`;
 }
 
-export async function verifySession(token: string | undefined, secret: string, nowSec: number): Promise<boolean> {
+export async function verifyStateToken(token: string | undefined, secret: string, nowSec: number): Promise<boolean> {
   if (!token) return false;
   const i = token.indexOf(".");
   if (i < 0) return false;
@@ -31,9 +36,4 @@ export async function verifySession(token: string | undefined, secret: string, n
   if (!/^\d+$/.test(exp) || Number(exp) <= nowSec) return false;
   const expected = await hmac(secret, exp);
   return equal(await sha256(sig), await sha256(expected));
-}
-
-export async function passcodeMatches(given: string, expected: string): Promise<boolean> {
-  if (!given || !expected) return false;
-  return equal(await sha256(given), await sha256(expected));
 }

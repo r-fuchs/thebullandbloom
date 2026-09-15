@@ -1,5 +1,5 @@
 import type { App } from "../app";
-import { makeSession, verifySession } from "../admin/session";
+import { makeStateToken, verifyStateToken } from "../core/state-token";
 import { clearConnection, loadConnection, loadState, loadSync, saveConnection, saveState } from "../store/google";
 import { counts, retryFailed } from "../store/outbox";
 import { syncBlackouts } from "../jobs/blackouts";
@@ -10,7 +10,7 @@ const STATE_TTL = 600; // seconds a consent round-trip may take
 const stateSecret = (adminSecret: string) => `${adminSecret}:oauth-state`;
 const redirectUri = (siteUrl: string) => `${siteUrl}/admin/google/callback`;
 
-/** Mounted from adminRoutes() AFTER its cookie middleware, so /admin/api/google/* is protected and /admin/google/callback is not (D25). */
+/** Mounted from adminRoutes() AFTER its Access middleware, so /admin/api/google/* is protected and /admin/google/callback is not (D25). */
 export function registerGoogleAdmin(r: App): void {
   r.get("/admin/api/google/status", async (c) => {
     const { google } = c.get("services");
@@ -34,7 +34,7 @@ export function registerGoogleAdmin(r: App): void {
     const { google, clock } = c.get("services");
     if (!google.configured()) return c.json({ error: "google_not_configured" }, 503);
     const nowSec = Math.floor(clock().getTime() / 1000);
-    const state = await makeSession(stateSecret(c.env.ADMIN_SECRET), nowSec, STATE_TTL);
+    const state = await makeStateToken(stateSecret(c.env.ADMIN_SECRET), nowSec, STATE_TTL);
     return c.redirect(google.authUrl(state, redirectUri(c.env.SITE_URL)), 302);
   });
 
@@ -42,7 +42,7 @@ export function registerGoogleAdmin(r: App): void {
     const { google, payments, clock, config } = c.get("services");
     const nowSec = Math.floor(clock().getTime() / 1000);
     const state = c.req.query("state");
-    if (!(await verifySession(state, stateSecret(c.env.ADMIN_SECRET), nowSec))) return c.text("bad or expired state", 400);
+    if (!(await verifyStateToken(state, stateSecret(c.env.ADMIN_SECRET), nowSec))) return c.text("bad or expired state", 400);
     if (c.req.query("error")) return c.redirect("/admin/?google=denied", 302);
     const code = c.req.query("code");
     if (!code) return c.text("missing code", 400);

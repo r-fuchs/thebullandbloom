@@ -1,18 +1,9 @@
 import { env } from "cloudflare:test";
 import { describe, it, expect, beforeEach } from "vitest";
-import { testApp } from "../helpers";
+import { testApp, asAdmin } from "../helpers";
 import { saveState, clearConnection } from "../../src/store/google";
 import { insertDelivery, applyStatus } from "../../src/store/deliveries";
 import { loadConfig } from "../../src/config";
-
-async function login(fetch: any) {
-  const r = await fetch("/admin/api/login", { method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ passcode: "open-sesame-1234" }) });
-  expect(r.status).toBe(204);
-  const cookie = r.headers.get("set-cookie")!.split(";")[0];
-  return (path: string, init: RequestInit = {}) =>
-    fetch(path, { ...init, headers: { ...(init.headers as any), cookie, "content-type": "application/json" } });
-}
 
 const ADDRESS = '{"street":"5 Elm Street","unit":"Apt 2","city":"Hudson","state":"NY","zip":"12534","notes":"porch"}';
 
@@ -43,7 +34,7 @@ describe("POST /admin/api/orders/:id/dispatch", () => {
     await order("d1");
     const { fetch, uber, google } = testApp(new Date("2026-09-23T15:00:00Z"));
     uber.quoteFee = 1450;
-    const as = await login(fetch);
+    const as = asAdmin(fetch);
     const r = await as("/admin/api/orders/d1/dispatch", { method: "POST" });
     expect(r.status).toBe(200);
     const body = await r.json() as any;
@@ -71,7 +62,7 @@ describe("POST /admin/api/orders/:id/dispatch", () => {
   it("queues the email but still succeeds when Google is not connected", async () => {
     await order("d2");
     const { fetch, google } = testApp();
-    const as = await login(fetch);
+    const as = asAdmin(fetch);
     expect((await as("/admin/api/orders/d2/dispatch", { method: "POST" })).status).toBe(200);
     expect(google.sent).toHaveLength(0);
     const box = await env.DB.prepare("SELECT kind, done_at FROM outbox WHERE order_id = 'd2'").first<any>();
@@ -82,7 +73,7 @@ describe("POST /admin/api/orders/:id/dispatch", () => {
     await order("d3", { fulfillment: "pickup", address: null });
     await order("d4", { status: "held" });
     const { fetch } = testApp();
-    const as = await login(fetch);
+    const as = asAdmin(fetch);
     expect((await as("/admin/api/orders/d3/dispatch", { method: "POST" })).status).toBe(409);
     expect((await as("/admin/api/orders/d4/dispatch", { method: "POST" })).status).toBe(409);
     expect((await as("/admin/api/orders/nope/dispatch", { method: "POST" })).status).toBe(404);
@@ -92,7 +83,7 @@ describe("POST /admin/api/orders/:id/dispatch", () => {
     await order("d5b");
     const { fetch, uber } = testApp();
     uber.nextStatus = "teleported";
-    const as = await login(fetch);
+    const as = asAdmin(fetch);
     expect((await as("/admin/api/orders/d5b/dispatch", { method: "POST" })).status).toBe(200);
     const row = await env.DB.prepare("SELECT status FROM deliveries WHERE order_id = 'd5b'").first<any>();
     expect(row.status).toBe("pending");
@@ -101,7 +92,7 @@ describe("POST /admin/api/orders/:id/dispatch", () => {
   it("refuses a second courier while one is live, and allows one after a cancellation", async () => {
     await order("d5");
     const { fetch } = testApp();
-    const as = await login(fetch);
+    const as = asAdmin(fetch);
     expect((await as("/admin/api/orders/d5/dispatch", { method: "POST" })).status).toBe(200);
     const dup = await as("/admin/api/orders/d5/dispatch", { method: "POST" });
     expect(dup.status).toBe(409);
@@ -113,7 +104,7 @@ describe("POST /admin/api/orders/:id/dispatch", () => {
   it("leaves the order paid and reports the reason when Uber fails, so Anthony can retry or drive", async () => {
     await order("d6");
     const { fetch, uber } = testApp();
-    const as = await login(fetch);
+    const as = asAdmin(fetch);
     uber.failWith("unavailable", "uber /deliveries 500: boom");
     const r = await as("/admin/api/orders/d6/dispatch", { method: "POST" });
     expect(r.status).toBe(502);
@@ -127,7 +118,7 @@ describe("POST /admin/api/orders/:id/dispatch", () => {
     await order("d7");
     const { fetch, uber } = testApp();
     uber.isConfigured = false;
-    const as = await login(fetch);
+    const as = asAdmin(fetch);
     const r = await as("/admin/api/orders/d7/dispatch", { method: "POST" });
     expect(r.status).toBe(503);
     expect((await r.json() as any).error).toBe("uber_not_configured");
@@ -136,7 +127,7 @@ describe("POST /admin/api/orders/:id/dispatch", () => {
   it("tells the courier it is a vase and declares the vase in the parcel value", async () => {
     await order("d7", { presentation: "vase", vaseCents: 2000 });
     const { fetch, uber } = testApp();
-    const as = await login(fetch);
+    const as = asAdmin(fetch);
     expect((await as("/admin/api/orders/d7/dispatch", { method: "POST" })).status).toBe(200);
     expect(uber.created[uber.created.length - 1].itemName).toBe("Bouquet — flowers in a vase");
     expect(uber.created[uber.created.length - 1].valueCents).toBe(10500);
@@ -146,7 +137,7 @@ describe("POST /admin/api/orders/:id/dispatch", () => {
     await order("d8", { address: null });
     await order("d9", { phone: null });
     const { fetch } = testApp();
-    const as = await login(fetch);
+    const as = asAdmin(fetch);
     expect((await as("/admin/api/orders/d8/dispatch", { method: "POST" })).status).toBe(409);
     expect((await as("/admin/api/orders/d9/dispatch", { method: "POST" })).status).toBe(409);
   });
@@ -154,7 +145,7 @@ describe("POST /admin/api/orders/:id/dispatch", () => {
   it("reports a booked courier when the record fails to save, so Anthony knows to retry rather than drive blind", async () => {
     await order("d10");
     const { fetch, uber } = testApp();
-    const as = await login(fetch);
+    const as = asAdmin(fetch);
     // Force just the batch write to fail, deterministically, after Uber has already accepted
     // the job — dropping `deliveries` itself would also break the earlier activeDeliveryFor()
     // check the route makes before ever calling Uber, which is a different (already-covered)
@@ -199,7 +190,7 @@ describe("GET /admin/api/delivery/status", () => {
       quotedCents: 1500, feeCents: 1500, trackingUrl: "https://t.test/1", at: 10,
     });
     const { fetch } = testApp();
-    const as = await login(fetch);
+    const as = asAdmin(fetch);
     const body = await (await as("/admin/api/delivery/status")).json() as any;
     expect(body.configured).toBe(true);
     expect(Array.isArray(body.zones)).toBe(true);
@@ -217,7 +208,7 @@ describe("GET /admin/api/orders with deliveries", () => {
       quotedCents: 1200, feeCents: 1200, trackingUrl: "https://t.test/2", at: 10,
     });
     const { fetch } = testApp();
-    const as = await login(fetch);
+    const as = asAdmin(fetch);
     const body = await (await as("/admin/api/orders?date=2026-09-23")).json() as any;
     expect(body.orders.map((o: any) => o.id)).toContain("o1");
     expect(body.deliveries.o1).toMatchObject({ status: "dropoff", trackingUrl: "https://t.test/2", feeCents: 1200 });
@@ -227,7 +218,7 @@ describe("GET /admin/api/orders with deliveries", () => {
 describe("GET /admin/api/delivery/status", () => {
   it("reports the delivery mode and the zones", async () => {
     const { fetch } = testApp();
-    const as = await login(fetch);
+    const as = asAdmin(fetch);
     const body = await (await as("/admin/api/delivery/status")).json() as any;
     const cfg = loadConfig();
     expect(body).toMatchObject({ mode: cfg.delivery.mode ?? "uber", zones: cfg.delivery.zones });
