@@ -193,8 +193,7 @@ describe("GET /admin/api/delivery/status", () => {
     const as = await login(fetch);
     const body = await (await as("/admin/api/delivery/status")).json() as any;
     expect(body.configured).toBe(true);
-    expect(body.fallbackFeeCents).toBeGreaterThan(0);
-    expect(Array.isArray(body.fallbackZips)).toBe(true);
+    expect(Array.isArray(body.zones)).toBe(true);
     expect(body.variance).toEqual({ deliveries: 1, varianceCents: 300 });
   });
 });
@@ -217,11 +216,11 @@ describe("GET /admin/api/orders with deliveries", () => {
 });
 
 describe("GET /admin/api/delivery/status", () => {
-  it("reports the configured delivery mode alongside the fallback fee and zips", async () => {
+  it("reports the delivery mode and the zones", async () => {
     const { fetch } = testApp();
     const as = await login(fetch);
     const body = await (await as("/admin/api/delivery/status")).json() as any;
     const cfg = loadConfig();
-    expect(body).toMatchObject({ mode: cfg.delivery.mode ?? "uber", fallbackFeeCents: cfg.delivery.fallbackFeeCents, fallbackZips: cfg.delivery.fallbackZips });
+    expect(body).toMatchObject({ mode: cfg.delivery.mode ?? "uber", zones: cfg.delivery.zones });
   });
 });

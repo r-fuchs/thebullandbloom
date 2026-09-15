@@ -16,8 +16,7 @@ export function registerDeliveryAdmin(r: App): void {
     return c.json({
       configured: uber.configured(),
       mode: config.delivery.mode ?? "uber",
-      fallbackFeeCents: config.delivery.fallbackFeeCents,
-      fallbackZips: config.delivery.fallbackZips,
+      zones: config.delivery.zones,
       variance: await varianceTotal(c.env.DB),
     });
   });

@@ -125,6 +125,7 @@
         if (r.ok && r.body.available) {
           quote = { feeCents: r.body.feeCents, token: r.body.quoteToken, kind: r.body.kind };
           quoteNote.textContent = 'Delivery ' + money(r.body.feeCents) +
+            (r.body.zone ? ' (' + r.body.zone + ')' : '') +
             (r.body.estimate === true ? ' (estimated — priced as of today)' : '') +
             (r.body.kind === 'fallback' ? ' — Anthony delivers this one himself.' : '');
         } else {
