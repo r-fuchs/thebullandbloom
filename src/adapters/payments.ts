@@ -1,6 +1,13 @@
-export interface CheckoutLineItem { name: string; amountCents: number; quantity: number }
+import type { PostalAddress } from "../config";
+
+/** Which Stripe tax code a line carries (spec Plan 5 D37). */
+export type TaxCategory = "flowers" | "vase" | "delivery";
+export interface CheckoutLineItem { name: string; amountCents: number; quantity: number; taxCategory: TaxCategory }
 export interface CheckoutInput {
-  orderId: string; customerEmail: string; lineItems: CheckoutLineItem[];
+  orderId: string; customerEmail: string; customerName: string;
+  /** where the flowers go: the delivery address, or the studio for pickup. Stripe Tax's location. */
+  taxAddress: PostalAddress;
+  lineItems: CheckoutLineItem[];
   successUrl: string; cancelUrl: string; expiresAt: number; // unix seconds
 }
 export interface CheckoutSession { id: string; url: string }
@@ -15,7 +22,7 @@ export interface SubscriptionCheckoutInput {
 }
 
 export type WebhookEvent =
-  | { type: "checkout.session.completed"; sessionId: string; paymentIntent: string }
+  | { type: "checkout.session.completed"; sessionId: string; paymentIntent: string; taxCents: number }
   | { type: "checkout.session.expired"; sessionId: string }
   | { type: "subscription.started"; sessionId: string; customerId: string; subscriptionId: string; customerEmail: string; metadata: Record<string, string> }
   | { type: "subscription.updated"; subscriptionId: string; status: string; paused: boolean }

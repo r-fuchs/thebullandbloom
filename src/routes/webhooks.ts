@@ -40,7 +40,7 @@ export function webhookRoutes(): App {
 
     if (event.type === "checkout.session.completed") {
       const order = await markPaidBySession(
-        c.env.DB, event.sessionId, event.paymentIntent,
+        c.env.DB, event.sessionId, event.paymentIntent, event.taxCents,
         enqueueForSessionStatements(c.env.DB, event.sessionId, ORDER_PAID_KINDS, nowSec),
       );
       if (!order) console.error("webhook: completed but no held order for session", event.sessionId);

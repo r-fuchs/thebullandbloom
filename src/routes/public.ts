@@ -9,6 +9,7 @@ import { loadDefaults } from "../store/settings";
 import { getOverrides } from "../store/overrides";
 import { countUsed, tryInsertHeldOrder, attachSession, cancelOrder, type Presentation } from "../store/orders";
 import { sizeById, subscriptionCell } from "../config";
+import type { CheckoutLineItem } from "../adapters/payments";
 import { UberError } from "../adapters/uber";
 import { addressKey, deliveryWindow, zoneFor, normalizePhone, parseAddress, pickupReadyFor } from "../core/delivery";
 import { signQuote, verifyQuote } from "../core/quote-token";
@@ -269,16 +270,18 @@ export function publicRoutes(): App {
     }, cap, nowSec, holdUntil);
     if (!inserted) return c.json({ error: "sold_out" }, 409);
 
-    const lineItems = [
-      { name: `${size.name} — ${body.fulfillment} ${humanDate(body.date)}`, amountCents: size.priceCents, quantity: 1 },
+    const lineItems: CheckoutLineItem[] = [
+      { name: `${size.name} — ${body.fulfillment} ${humanDate(body.date)}`, amountCents: size.priceCents, quantity: 1, taxCategory: "flowers" },
     ];
-    if (vaseCents > 0) lineItems.push({ name: "Vase", amountCents: vaseCents, quantity: 1 });
-    if (deliveryCents > 0) lineItems.push({ name: `Delivery — ${humanDate(body.date)}`, amountCents: deliveryCents, quantity: 1 });
+    if (vaseCents > 0) lineItems.push({ name: "Vase", amountCents: vaseCents, quantity: 1, taxCategory: "vase" });
+    if (deliveryCents > 0) lineItems.push({ name: `Delivery — ${humanDate(body.date)}`, amountCents: deliveryCents, quantity: 1, taxCategory: "delivery" });
 
     let session;
     try {
       session = await payments.createCheckout({
-        orderId, customerEmail: body.customer.email, lineItems,
+        orderId, customerEmail: body.customer.email, customerName: body.customer.name,
+        taxAddress: body.fulfillment === "delivery" ? body.delivery!.address : config.studio.address,
+        lineItems,
         successUrl: `${c.env.SITE_URL}/thanks?order=${orderId}`,
         cancelUrl: `${c.env.SITE_URL}/#order`,
         expiresAt: stripeExpiresAt,

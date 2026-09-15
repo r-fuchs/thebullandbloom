@@ -58,7 +58,8 @@ describe("POST /api/checkout", () => {
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual({ url: "https://checkout.example/1" });
     const c = payments.created[0];
-    expect(c.lineItems).toEqual([{ name: "Bouquet — pickup Wed Sep 9", amountCents: 8500, quantity: 1 }]);
+    expect(c.lineItems).toEqual([{ name: "Bouquet — pickup Wed Sep 9", amountCents: 8500, quantity: 1, taxCategory: "flowers" }]);
+    expect(c.taxAddress).toEqual(loadConfig().studio.address);
     expect(c.expiresAt).toBe(Math.floor(new Date("2026-09-08T14:31:00Z").getTime() / 1000));
     expect(c.successUrl).toBe(`https://thebullandbloom.com/thanks?order=${c.orderId}`);
     const row = await env.DB.prepare("SELECT status, stripe_session_id, note, hold_expires_at FROM orders WHERE id = ?").bind(c.orderId).first<any>();
@@ -230,9 +231,11 @@ describe("POST /api/checkout — delivery", () => {
     expect(r.status).toBe(200);
     const c = payments.created[payments.created.length - 1];
     expect(c.lineItems).toEqual([
-      { name: "Bouquet — delivery Wed Sep 23", amountCents: 8500, quantity: 1 },
-      { name: "Delivery — Wed Sep 23", amountCents: 1350, quantity: 1 },
+      { name: "Bouquet — delivery Wed Sep 23", amountCents: 8500, quantity: 1, taxCategory: "flowers" },
+      { name: "Delivery — Wed Sep 23", amountCents: 1350, quantity: 1, taxCategory: "delivery" },
     ]);
+    expect(c.customerName).toBe("Pat Lee");
+    expect(c.taxAddress).toEqual({ street: "5 Elm Street", unit: "", city: "Albany", state: "NY", zip: LISTED_ZIP });
     const row = await env.DB.prepare(
       "SELECT fulfillment, delivery_cents, uber_quote_id, customer_phone, address_json FROM orders WHERE id = ?",
     ).bind(c.orderId).first<any>();
@@ -293,7 +296,7 @@ describe("POST /api/checkout — delivery", () => {
     const r = await post(fetch, { ...good, date: "2026-09-25" });
     expect(r.status).toBe(200);
     const c = payments.created[payments.created.length - 1];
-    expect(c.lineItems).toEqual([{ name: "Bouquet — pickup Fri Sep 25", amountCents: 8500, quantity: 1 }]);
+    expect(c.lineItems).toEqual([{ name: "Bouquet — pickup Fri Sep 25", amountCents: 8500, quantity: 1, taxCategory: "flowers" }]);
     const row = await env.DB.prepare("SELECT delivery_cents, address_json FROM orders WHERE id = ?").bind(c.orderId).first<any>();
     expect(row).toEqual({ delivery_cents: 0, address_json: null });
   });
@@ -307,8 +310,8 @@ describe("POST /api/checkout — presentation", () => {
     expect(r.status).toBe(200);
     const c = payments.created[payments.created.length - 1];
     expect(c.lineItems).toEqual([
-      { name: "Bouquet — pickup Tue Sep 29", amountCents: 8500, quantity: 1 },
-      { name: "Vase", amountCents: vaseFee(), quantity: 1 },
+      { name: "Bouquet — pickup Tue Sep 29", amountCents: 8500, quantity: 1, taxCategory: "flowers" },
+      { name: "Vase", amountCents: vaseFee(), quantity: 1, taxCategory: "vase" },
     ]);
     const row = await env.DB.prepare("SELECT presentation, vase_cents FROM orders WHERE id = ?").bind(c.orderId).first<any>();
     expect(row).toEqual({ presentation: "vase", vase_cents: vaseFee() });

@@ -18,17 +18,17 @@ describe("POST /webhooks/stripe", () => {
   it("marks the order paid on completion and is idempotent", async () => {
     await heldOrder("w1", "cs_w1");
     const { fetch, payments } = testApp();
-    payments.nextEvent = { type: "checkout.session.completed", sessionId: "cs_w1", paymentIntent: "pi_w1" };
+    payments.nextEvent = { type: "checkout.session.completed", sessionId: "cs_w1", paymentIntent: "pi_w1", taxCents: 680 };
     expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "paid" });
     expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "ignored" });
-    const row = await env.DB.prepare("SELECT status, stripe_payment_intent, hold_expires_at FROM orders WHERE id = 'w1'").first<any>();
-    expect(row).toEqual({ status: "paid", stripe_payment_intent: "pi_w1", hold_expires_at: null });
+    const row = await env.DB.prepare("SELECT status, stripe_payment_intent, hold_expires_at, tax_cents FROM orders WHERE id = 'w1'").first<any>();
+    expect(row).toEqual({ status: "paid", stripe_payment_intent: "pi_w1", hold_expires_at: null, tax_cents: 680 });
   });
   it("resurrects a cancelled (expired-hold) order when completion arrives late, and is idempotent (D17)", async () => {
     await heldOrder("w1c", "cs_w1c");
     await env.DB.prepare("UPDATE orders SET status = 'cancelled' WHERE id = 'w1c'").run();
     const { fetch, payments } = testApp();
-    payments.nextEvent = { type: "checkout.session.completed", sessionId: "cs_w1c", paymentIntent: "pi_w1c" };
+    payments.nextEvent = { type: "checkout.session.completed", sessionId: "cs_w1c", paymentIntent: "pi_w1c", taxCents: 0 };
     expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "paid" });
     const row = await env.DB.prepare("SELECT status, stripe_payment_intent, hold_expires_at FROM orders WHERE id = 'w1c'").first<any>();
     expect(row).toEqual({ status: "paid", stripe_payment_intent: "pi_w1c", hold_expires_at: null });
@@ -58,7 +58,7 @@ describe("POST /webhooks/stripe → outbox", () => {
     await env.DB.prepare("DELETE FROM outbox").run();
     await heldOrder("w5", "cs_w5");
     const { fetch, payments, google } = testApp();
-    payments.nextEvent = { type: "checkout.session.completed", sessionId: "cs_w5", paymentIntent: "pi_w5" };
+    payments.nextEvent = { type: "checkout.session.completed", sessionId: "cs_w5", paymentIntent: "pi_w5", taxCents: 0 };
     // not connected: rows wait, webhook still 200
     expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "paid" });
     expect(await counts(env.DB)).toEqual({ pending: 3, failed: 0 });
@@ -74,7 +74,7 @@ describe("POST /webhooks/stripe → outbox", () => {
     await saveState(env.DB, { account: "a@b.c", closedCalendarId: "c1", ordersCalendarId: "c2", connectedAt: 1 });
     await heldOrder("w6", "cs_w6");
     const { fetch, payments, google } = testApp();
-    payments.nextEvent = { type: "checkout.session.completed", sessionId: "cs_w6", paymentIntent: "pi_w6" };
+    payments.nextEvent = { type: "checkout.session.completed", sessionId: "cs_w6", paymentIntent: "pi_w6", taxCents: 0 };
     google.failNext = "calendar down";
     const r = await hook(fetch);
     expect(r.status).toBe(200);
