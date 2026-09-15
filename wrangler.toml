@@ -3,6 +3,14 @@ main = "src/index.ts"
 compatibility_date = "2026-08-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Production hostnames. A deploy attaches these to the Worker as Custom Domains and replaces the
+# zone's existing records for them (the old GitHub Pages CNAMEs). Needs the zone in the same
+# Cloudflare account and an API token with Zone DNS edit + Workers Routes edit.
+routes = [
+  { pattern = "thebullandbloom.com", custom_domain = true },
+  { pattern = "www.thebullandbloom.com", custom_domain = true }
+]
+
 [assets]
 directory = "./site"
 binding = "ASSETS"
