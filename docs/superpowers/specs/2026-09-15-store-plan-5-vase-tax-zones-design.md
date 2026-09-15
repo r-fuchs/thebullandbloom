@@ -201,3 +201,12 @@ Open: Ryan's promotion-code walk-through (100% code, duration once, one redempti
 Anthony wants Uber's 10-mile radius raised in the Uber Direct dashboard (Locations → delivery
 settings) so Schenectady and Clifton Park get couriers; existing live subscriptions are not
 taxed until updated in the Stripe dashboard.
+
+## 7. Amendment 2026-09-15 evening: distance bands (D41)
+
+Ryan replaced the three named zones with six bands by straight-line distance from the studio
+(zip centroids via zippopotam.us, studio geocoded by Nominatim): Capital District (inside Uber's
+10-mile radius) $10 fallback; 10–15 mi $15; 15–20 mi $20; 20–27 mi $25; 27–35 mi $30; over 35 mi
+$35. Same 81 zips. Saratoga Springs (27.9 mi) and Hudson (29.2 mi) now sit in the $30 band. The
+customer sees the band name, e.g. "Delivery $20 (15 to 20 miles) — Anthony delivers this one
+himself." Config only; no code change.
