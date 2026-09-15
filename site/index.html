@@ -177,6 +177,7 @@
   .tab:hover{color:var(--ink)}
   .days label.sold{opacity:.45;cursor:not-allowed;text-decoration:line-through}
   .form-note{font-size:.95rem;color:var(--sepia);margin:.25rem 0 0}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .sub-price{margin:-.25rem 0 .25rem;min-height:1.6em}
   .sub-price span{font-size:1.9rem}
 </style>
@@ -225,7 +226,7 @@
     <div id="panel-once" role="tabpanel" aria-labelledby="tab-once">
       <form class="form" id="order-form" novalidate>
       <input type="hidden" name="sizeId" id="once-size">
-      <fieldset class="full" id="day-picker"><legend>Day</legend><div class="cal" id="cal"></div><p class="form-note" id="day-note"></p></fieldset>
+      <fieldset class="full" id="day-picker"><legend>Day</legend><div class="cal" id="cal"></div><p class="form-note" id="day-note" role="status" aria-live="polite"></p></fieldset>
       <fieldset class="full sizes" id="fulfillment-picker" hidden>
         <legend>Pickup or delivery</legend>
         <label><input type="radio" name="fulfillment" value="pickup" checked><span>Pickup — free</span></label>
