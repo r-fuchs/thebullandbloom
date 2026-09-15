@@ -23,6 +23,10 @@
 
   function val(name) { var el = form.elements[name]; return el && el.value ? el.value.trim() : ''; }
   function isDelivery() { return form.elements['fulfillment'] && form.elements['fulfillment'].value === 'delivery'; }
+  function isVase() { return form.elements['presentation'] && form.elements['presentation'].value === 'vase'; }
+  function sizeOf(id) { return cfgCache ? cfgCache.sizes.filter(function (x) { return x.id === id; })[0] : null; }
+  function vaseCents() { var sz = sizeOf(state.sizeId); return sz && sz.vaseFeeCents ? sz.vaseFeeCents : 0; }
+  function renderVaseLabel() { var el = $('#vase-label'); if (el) el.textContent = 'Arranged in a clear glass vase — +' + money(vaseCents()); }
 
   var state = { sizeId: null, tab: 'once' };
   var cfgCache = null;
@@ -45,7 +49,7 @@
     if (once) once.value = state.sizeId || ''; if (sub) sub.value = state.sizeId || '';
     if (subForm) renderSubPrice();
   }
-  function chooseSize(id) { state.sizeId = id; renderCardPrices(); refreshTotal(); }
+  function chooseSize(id) { state.sizeId = id; renderCardPrices(); renderVaseLabel(); refreshTotal(); }
   function renderSizes(cfg) {
     cfgCache = cfg;
     menu.innerHTML = '';
@@ -63,6 +67,7 @@
     renderCardPrices();
     deliveryOffered = !!(cfg.delivery && cfg.delivery.offered);
     fulfil.hidden = !deliveryOffered;
+    renderVaseLabel();
     applyFulfillment();
   }
 
@@ -94,13 +99,13 @@
     var b = bouquetCents();
     var dayChosen = !!(new FormData(form)).get('date');
     if (!b || !dayChosen) { totalLine.textContent = ''; pay.disabled = true; return; }
+    var parts = ['Bouquet ' + money(b)], total = b, v = vaseCents();
+    if (isVase()) { parts.push('vase ' + money(v)); total += v; }
     if (isDelivery()) {
       if (!quote) { totalLine.textContent = ''; pay.disabled = true; return; }
-      totalLine.textContent = 'Bouquet ' + money(b) + ' + delivery ' + money(quote.feeCents) + ' = ' + money(b + quote.feeCents);
-      pay.disabled = false;
-      return;
+      parts.push('delivery ' + money(quote.feeCents)); total += quote.feeCents;
     }
-    totalLine.textContent = 'Total ' + money(b) + ' · pickup is free';
+    totalLine.textContent = (parts.length > 1 ? parts.join(' + ') + ' = ' + money(total) : 'Total ' + money(total) + ' · pickup is free') + ' · tax added at checkout';
     pay.disabled = false;
   }
 
@@ -153,6 +158,7 @@
   var ADDRESS_FIELDS = { street: 1, unit: 1, city: 1, state: 1, zip: 1 };
   form.addEventListener('change', function (e) {
     var n = e.target.name;
+    if (n === 'presentation') { refreshTotal(); return; }
     if (n === 'fulfillment') { applyFulfillment(); askForQuote(); return; }
     if (n === 'date') { refreshTotal(); askForQuote(); return; }
     if (ADDRESS_FIELDS[n]) scheduleQuote();
@@ -327,6 +333,7 @@
     pay.disabled = true; status.textContent = 'One moment…';
     var body = {
       sizeId: state.sizeId, date: f.get('date'), fulfillment: isDelivery() ? 'delivery' : 'pickup',
+      presentation: isVase() ? 'vase' : 'hand-tied',
       customer: { name: f.get('name'), email: f.get('email'), phone: f.get('phone') || undefined },
       note: f.get('note') || undefined
     };

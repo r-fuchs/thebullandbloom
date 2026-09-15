@@ -18,6 +18,12 @@ describe("config", () => {
     expect(() => validateConfig({ ...base, sizes: [base.sizes[0], base.sizes[0]] })).toThrow(/duplicate/);
     expect(() => validateConfig({ ...base, sizes: [{ ...base.sizes[0], priceCents: 1.5 }] })).toThrow(/priceCents/);
   });
+  it("loads a vase fee per size and rejects a bad one", () => {
+    const base = loadConfig();
+    for (const s of base.sizes) expect(Number.isInteger(s.vaseFeeCents) && s.vaseFeeCents >= 0).toBe(true);
+    expect(() => validateConfig({ ...base, sizes: [{ ...base.sizes[0], vaseFeeCents: -5 }] })).toThrow(/vaseFeeCents/);
+    expect(() => validateConfig({ ...base, sizes: [{ ...base.sizes[0], vaseFeeCents: 1.5 }] })).toThrow(/vaseFeeCents/);
+  });
   it("rejects a bad owner email and identical calendar names", () => {
     const base = loadConfig();
     expect(() => validateConfig({ ...base, studio: { ...base.studio, ownerEmail: "nope" } })).toThrow(/ownerEmail/);

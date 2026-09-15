@@ -23,19 +23,22 @@
       "id": "posy",
       "name": "Posy",
       "description": "A small hand-tied bunch.",
-      "priceCents": 5500
+      "priceCents": 5500,
+      "vaseFeeCents": 1500
     },
     {
       "id": "bouquet",
       "name": "Bouquet",
       "description": "The classic 10–12 stem bouquet.",
-      "priceCents": 8500
+      "priceCents": 8500,
+      "vaseFeeCents": 2000
     },
     {
       "id": "statement",
       "name": "Statement",
       "description": "A generous, showpiece bouquet.",
-      "priceCents": 13500
+      "priceCents": 13500,
+      "vaseFeeCents": 2500
     }
   ],
   "defaults": {

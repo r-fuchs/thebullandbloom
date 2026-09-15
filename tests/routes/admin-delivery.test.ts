@@ -16,13 +16,13 @@ async function login(fetch: any) {
 
 const ADDRESS = '{"street":"5 Elm Street","unit":"Apt 2","city":"Hudson","state":"NY","zip":"12534","notes":"porch"}';
 
-async function order(id: string, over: Partial<{ status: string; fulfillment: string; phone: string | null; address: string | null; deliveryCents: number }> = {}) {
-  const o = { status: "paid", fulfillment: "delivery", phone: "+15185550100", address: ADDRESS, deliveryCents: 1200, ...over };
+async function order(id: string, over: Partial<{ status: string; fulfillment: string; phone: string | null; address: string | null; deliveryCents: number; presentation: string; vaseCents: number }> = {}) {
+  const o = { status: "paid", fulfillment: "delivery", phone: "+15185550100", address: ADDRESS, deliveryCents: 1200, presentation: "hand-tied", vaseCents: 0, ...over };
   await env.DB.prepare(
     `INSERT OR REPLACE INTO orders (id, created_at, status, date, size_id, fulfillment, customer_name, customer_email,
-       customer_phone, address_json, bouquet_cents, delivery_cents)
-     VALUES (?, 1, ?, '2026-09-23', 'bouquet', ?, 'Pat Smith', 'pat@example.com', ?, ?, 8500, ?)`,
-  ).bind(id, o.status, o.fulfillment, o.phone, o.address, o.deliveryCents).run();
+       customer_phone, address_json, bouquet_cents, delivery_cents, presentation, vase_cents)
+     VALUES (?, 1, ?, '2026-09-23', 'bouquet', ?, 'Pat Smith', 'pat@example.com', ?, ?, 8500, ?, ?, ?)`,
+  ).bind(id, o.status, o.fulfillment, o.phone, o.address, o.deliveryCents, o.presentation, o.vaseCents).run();
 }
 
 describe("POST /admin/api/orders/:id/dispatch", () => {
@@ -131,6 +131,15 @@ describe("POST /admin/api/orders/:id/dispatch", () => {
     const r = await as("/admin/api/orders/d7/dispatch", { method: "POST" });
     expect(r.status).toBe(503);
     expect((await r.json() as any).error).toBe("uber_not_configured");
+  });
+
+  it("tells the courier it is a vase and declares the vase in the parcel value", async () => {
+    await order("d7", { presentation: "vase", vaseCents: 2000 });
+    const { fetch, uber } = testApp();
+    const as = await login(fetch);
+    expect((await as("/admin/api/orders/d7/dispatch", { method: "POST" })).status).toBe(200);
+    expect(uber.created[uber.created.length - 1].itemName).toBe("Bouquet — flowers in a vase");
+    expect(uber.created[uber.created.length - 1].valueCents).toBe(10500);
   });
 
   it("refuses an order whose address or phone the courier could not use", async () => {
