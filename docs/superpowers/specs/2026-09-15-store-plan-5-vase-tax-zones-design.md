@@ -176,3 +176,28 @@ per-region delivery day for batching Anthony's drives; turning Link off (dashboa
   or falls back to $35 with the zone named; a Hudson address likewise.
 - On production after the push to main: the same three quotes via curl, and the first
   real order's tax line checked in Stripe.
+
+## 6. Outcome (2026-09-15)
+
+Shipped to production the same day: commits `8cffd1c`..`efb28f2` on main (Deploy run after
+`efb28f2`; the first run failed on `wrangler secret put` because an undeployed preview version
+existed, fixed by promoting that version with `wrangler versions deploy` and rerunning).
+323 tests green. Migrations 0006 and 0007 applied by Ryan by hand ahead of the deploy so the
+preview version could take orders.
+
+Verified live:
+- Uber quotes with the production keys (D38 confirmed: no `customer_blocked` after the cache
+  fix): Albany 12207/12203/12208 and Delmar 12054 $7.99, Troy 12180 $10.99.
+- Uber's account radius is 10 miles from the studio. Schenectady 12305 and Clifton Park 12065
+  fall back to Capital District $10; Saratoga Springs 12866 and Hudson 12534 to their $35 zones;
+  Kingston 12401 is outside the area. One Albany street ("1 Washington Ave") geocoded 12.9 miles
+  away once and fell back; a known Uber geocoder quirk, not a store bug.
+- Stripe Tax on the preview version: a Washington-state billing address on an Albany delivery
+  left the sales tax at the New York rate (Ryan, on the Stripe page), confirming the
+  per-order Customer's shipping address is the tax location.
+- Vase pills, per-size total line, and "Arranged in a vase" copy (Ryan's wording) on the live page.
+
+Open: Ryan's promotion-code walk-through (100% code, duration once, one redemption); whether
+Anthony wants Uber's 10-mile radius raised in the Uber Direct dashboard (Locations → delivery
+settings) so Schenectady and Clifton Park get couriers; existing live subscriptions are not
+taxed until updated in the Stripe dashboard.
