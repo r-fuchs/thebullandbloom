@@ -42,7 +42,7 @@ export function adminRoutes(): App {
   r.use("/admin/api/*", async (c, next) => {
     const { access, clock } = c.get("services");
     const nowSec = Math.floor(clock().getTime() / 1000);
-    const token = c.req.header("cf-access-jwt-assertion") ?? getCookie(c, "CF_Authorization");
+    const token = c.req.header("cf-access-jwt-assertion") || getCookie(c, "CF_Authorization");
     const admin = await access.verify(token, nowSec);
     if (!admin) return c.json({ error: "unauthorized" }, 401);
     c.set("admin", admin);

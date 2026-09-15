@@ -19,6 +19,12 @@ describe("admin identity (Cloudflare Access)", () => {
     const r = await fetch("/admin/api/me", { headers: { cookie: "CF_Authorization=test:anthony@example.com" } });
     expect(await r.json()).toEqual({ email: "anthony@example.com" });
   });
+  it("falls through to the cookie when the header is present but empty", async () => {
+    const { fetch } = testApp();
+    const r = await fetch("/admin/api/me", { headers: { "cf-access-jwt-assertion": "", cookie: "CF_Authorization=test:anthony@example.com" } });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ email: "anthony@example.com" });
+  });
   it("/me says who is signed in", async () => {
     const { fetch } = testApp();
     expect(await (await asAdmin(fetch, "thebullandbloom@gmail.com")("/admin/api/me")).json()).toEqual({ email: "thebullandbloom@gmail.com" });

@@ -39,8 +39,8 @@ In scope for v1:
    courier requested by Anthony with one tap on the day. Pickup is free.
 7. **Instagram carousel**: official Instagram API, polled every six hours,
    images cached in our storage, per-post hide switch in admin.
-8. **Admin page**: one passcode-protected page. Month grid with counts, close a
-   day, edit cap, orders per day with "request courier" and "done", subscriber
+8. **Admin page**: one page, behind Cloudflare Access with Google sign-in
+   (Plan 6). Month grid with counts, close a day, edit cap, orders per day with "request courier" and "done", subscriber
    list with per-week pause, Instagram connect and hide list, delivery fee
    variance total.
 9. **Anthony's calendar view**: every confirmed order is written to a second
@@ -214,10 +214,14 @@ image (thumbnail for video/carousel) to R2, insert `ig_posts`. Feed endpoint
 refresh monthly via the long-lived token refresh endpoint; failure emails
 Ryan and Anthony with a reconnect link.
 
-**Admin auth.** Private path plus a passcode. Passcode check sets a signed,
-HttpOnly cookie valid 30 days. Rate limiting is a Cloudflare rule on the login
-and checkout endpoints, configured at deploy, not application code. The
-passcode must be high-entropy (a generated 20+ character string). No user
+**Admin auth (Plan 6, D42–D45, 2026-09-15).** Cloudflare Access fronts
+`/admin` on the site domain with Google as the only login method and a policy
+naming the two admin emails. The Worker verifies Access's RS256 identity token
+on every `/admin/api` request against the team's public keys
+(`CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD` in `wrangler.toml`), so the
+workers.dev address is closed too. No passcode, no session cookie; sign-out is
+Cloudflare's `/cdn-cgi/access/logout`. Rate limiting is a Cloudflare rule on
+the checkout endpoints, configured at deploy, not application code. No user
 accounts.
 
 ### 4.5 Failure modes
@@ -252,8 +256,9 @@ Cloudflare Pages project connected to the GitHub repo; `main` deploys to
 production, other branches to preview URLs. Workers, D1, and R2 bound to the
 Pages project. DNS for thebullandbloom.com moves from GitHub Pages to
 Cloudflare. That DNS change is the one manual step at launch and is Ryan's.
-Secrets (Stripe, Uber, Google, Instagram, admin passcode) live in Cloudflare
-environment secrets, never in the repo.
+Secrets (Stripe, Uber, Google, Instagram) live in Cloudflare environment
+secrets, never in the repo. Admin sign-in needs no secret of its own: it is
+Cloudflare Access with Google (Plan 6).
 
 ## 5. Modules and their contracts
 
@@ -304,7 +309,8 @@ Config Anthony supplies:
   size × cadence cells are offered, monthly price per cell.
 - Daily cap, cutoff time, open weekdays, studio ready time for courier pickup.
 - Studio pickup address and pickup instructions.
-- Admin passcode.
+- The Google accounts allowed to sign in to admin (Cloudflare Access policy,
+  Plan 6; there is no passcode to supply).
 
 ## 8. Verification
 
@@ -325,7 +331,7 @@ Plan 2 (Google calendars and Gmail), verified 2026-09-09 on the preview deployme
 - Anthony connected as thebullandbloom@gmail.com through the "unverified app" interstitial; the store created "Bull and Bloom: Closed" and "Bull and Bloom: Orders" (D19).
 - Closed-calendar sync: five all-day events (Sept 23–27) became five closed days in admin and left the storefront picker; deleting one reopened that day; admin-closed days (Sept 10–13) were untouched. The 15-minute cron advanced "last checked" on its own.
 - Order path: a sandbox purchase (Bouquet, pickup, Sept 17) flipped to `paid`, got its Orders-calendar event id, and drained the outbox to zero; the customer confirmation arrived from thebullandbloom@gmail.com with size, day, pickup text, price, and note.
-- Manual step found (should be app behavior): the preview admin passcode had to be re-uploaded with `wrangler secret put` because the Plan 1 value was recorded nowhere retrievable.
+- Manual step found (should be app behavior): the preview admin passcode had to be re-uploaded with `wrangler secret put` because the Plan 1 value was recorded nowhere retrievable. (Moot since Plan 6: the passcode is gone, replaced by Cloudflare Access.)
 
 Road test, 2026-09-10, Ryan and Anthony from their phones against the preview, with a scripted checklist (Claude session):
 

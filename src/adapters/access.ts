@@ -11,6 +11,8 @@ export interface Access {
 }
 
 const CERTS_TTL_SEC = 3600;
+/** An unauthenticated caller can name any `kid`, so the unknown-kid refetch is rate-limited to this. */
+const FORCED_REFETCH_EVERY_SEC = 60;
 const dec = new TextDecoder();
 const enc = new TextEncoder();
 
@@ -26,6 +28,7 @@ interface Jwk extends JsonWebKey { kid?: string }
 
 export class CloudflareAccess implements Access {
   private certs: { at: number; keys: Jwk[] } | null = null;
+  private lastForcedAt = 0;
 
   constructor(
     private teamDomain: string,
@@ -64,17 +67,28 @@ export class CloudflareAccess implements Access {
   }
 
   private async keyFor(kid: string, nowSec: number, force: boolean): Promise<Jwk | null> {
+    if (force) {
+      // A request nobody has authenticated yet can name any kid, so this path must not be a free
+      // way to make the Worker call Cloudflare: one forced refetch a minute is plenty to pick up a
+      // rotated signing key.
+      if (nowSec - this.lastForcedAt < FORCED_REFETCH_EVERY_SEC) return null;
+      this.lastForcedAt = nowSec;
+    }
     if (force || !this.certs || nowSec - this.certs.at > CERTS_TTL_SEC) {
       try {
         const res = await this.fetchFn(`https://${this.teamDomain}/cdn-cgi/access/certs`, { signal: AbortSignal.timeout(5000) });
-        if (!res.ok) return null;
+        if (!res.ok) {
+          console.error("access: certs endpoint returned", res.status);
+          return null;
+        }
         const body = await res.json() as { keys?: Jwk[] };
-        this.certs = { at: nowSec, keys: Array.isArray(body.keys) ? body.keys : [] };
+        // A malformed answer leaves the keys we already trust in place rather than emptying them.
+        if (Array.isArray(body.keys)) this.certs = { at: nowSec, keys: body.keys };
       } catch (err) {
         console.error("access: could not fetch team certs", err);
         return null;
       }
     }
-    return this.certs.keys.find((k) => k.kid === kid) ?? null;
+    return this.certs?.keys.find((k) => k.kid === kid) ?? null;
   }
 }

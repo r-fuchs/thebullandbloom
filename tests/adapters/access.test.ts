@@ -27,6 +27,16 @@ function jwksFetch(keys: JsonWebKey[]) {
   }) as typeof fetch;
   return { fn, calls };
 }
+/** A certs endpoint that answers each call from `bodies` in turn (the last one repeats). */
+function scriptedFetch(bodies: Array<{ status?: number; body: unknown }>) {
+  const calls: string[] = [];
+  const fn = (async (input: RequestInfo | URL) => {
+    const b = bodies[Math.min(calls.length, bodies.length - 1)];
+    calls.push(typeof input === "string" ? input : input.toString());
+    return new Response(JSON.stringify(b.body), { status: b.status ?? 200, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
+  return { fn, calls };
+}
 
 const TEAM = "foxnacre.cloudflareaccess.com", AUD = "aud-1", NOW = 1_800_000_000;
 const good = { aud: [AUD], iss: `https://${TEAM}`, email: "anthony@example.com", exp: NOW + 600, nbf: NOW - 60, iat: NOW - 60, sub: "u1" };
@@ -69,6 +79,29 @@ describe("CloudflareAccess.verify", () => {
     expect(await a.verify("not.a.jwt", NOW)).toBeNull();
     expect(await a.verify("", NOW)).toBeNull();
     expect(await a.verify(undefined, NOW)).toBeNull();
+  });
+  it("throttles the forced refetch, so unknown kids cannot drive traffic at the certs endpoint", async () => {
+    const k = await keypair("k9"); const { fn, calls } = jwksFetch([]);
+    const a = new CloudflareAccess(TEAM, AUD, fn);
+    expect(await a.verify(await sign(k.priv, "k9", good), NOW)).toBeNull();
+    expect(calls).toHaveLength(2); // the first load, then one forced refetch
+    expect(await a.verify(await sign(k.priv, "k9", { ...good, exp: NOW + 600 }), NOW + 10)).toBeNull();
+    expect(calls).toHaveLength(2); // within the minute: no second forced refetch
+    expect(await a.verify(await sign(k.priv, "k9", { ...good, exp: NOW + 600 }), NOW + 61)).toBeNull();
+    expect(calls).toHaveLength(3); // a minute on, one more is allowed
+  });
+  it("keeps a good cache when the certs endpoint answers 200 without keys, and survives a 503", async () => {
+    const k = await keypair("k1");
+    const { fn, calls } = scriptedFetch([{ body: { keys: [k.jwk] } }, { body: {} }, { status: 503, body: { error: "down" } }]);
+    const a = new CloudflareAccess(TEAM, AUD, fn);
+    expect(await a.verify(await sign(k.priv, "k1", good), NOW)).toEqual({ email: "anthony@example.com" });
+    // an unknown kid forces a refetch; the keyless 200 must not wipe the cached key
+    expect(await a.verify(await sign(k.priv, "kX", { ...good, exp: NOW + 600 }), NOW + 120)).toBeNull();
+    expect(calls).toHaveLength(2);
+    expect(await a.verify(await sign(k.priv, "k1", { ...good, exp: NOW + 600 }), NOW + 130)).toEqual({ email: "anthony@example.com" });
+    // and a 503 on the next forced refetch is just a null, never a throw
+    expect(await a.verify(await sign(k.priv, "kX", { ...good, exp: NOW + 600 }), NOW + 200)).toBeNull();
+    expect(calls).toHaveLength(3);
   });
   it("never throws when the certs endpoint is down", async () => {
     const k = await keypair("k1");
