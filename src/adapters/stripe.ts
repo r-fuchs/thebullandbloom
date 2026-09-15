@@ -62,7 +62,11 @@ export function toWebhookEvent(e: { type: string; data: { object: any } }): Webh
         customerEmail: o.customer_details?.email ?? o.customer_email ?? "", metadata: stringMap(o.metadata),
       };
     }
-    return { type: "checkout.session.completed", sessionId: o.id, paymentIntent: idOf(o.payment_intent), taxCents: Number(o.total_details?.amount_tax ?? 0) || 0 };
+    return {
+      type: "checkout.session.completed", sessionId: o.id, paymentIntent: idOf(o.payment_intent),
+      taxCents: Number(o.total_details?.amount_tax ?? 0) || 0,
+      discountCents: Number(o.total_details?.amount_discount ?? 0) || 0,
+    };
   }
   if (e.type === "checkout.session.expired") return { type: "checkout.session.expired", sessionId: o.id };
   if (e.type === "customer.subscription.updated") {

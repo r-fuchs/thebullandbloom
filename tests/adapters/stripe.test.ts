@@ -2,9 +2,9 @@ import { describe, it, expect } from "vitest";
 import { checkoutParams, subscriptionParams, toWebhookEvent } from "../../src/adapters/stripe";
 
 describe("toWebhookEvent", () => {
-  it("maps completed sessions, with the tax Stripe collected", () => {
-    expect(toWebhookEvent({ type: "checkout.session.completed", data: { object: { id: "cs_1", payment_intent: "pi_1", total_details: { amount_tax: 680 } } } }))
-      .toEqual({ type: "checkout.session.completed", sessionId: "cs_1", paymentIntent: "pi_1", taxCents: 680 });
+  it("maps completed sessions, with the tax Stripe collected and any promotion-code discount", () => {
+    expect(toWebhookEvent({ type: "checkout.session.completed", data: { object: { id: "cs_1", payment_intent: "pi_1", total_details: { amount_tax: 680, amount_discount: 850 } } } }))
+      .toEqual({ type: "checkout.session.completed", sessionId: "cs_1", paymentIntent: "pi_1", taxCents: 680, discountCents: 850 });
   });
   it("maps expired sessions", () => {
     expect(toWebhookEvent({ type: "checkout.session.expired", data: { object: { id: "cs_2" } } }))
@@ -15,7 +15,7 @@ describe("toWebhookEvent", () => {
   });
   it("tolerates an expanded payment_intent object and a session with no tax details", () => {
     expect(toWebhookEvent({ type: "checkout.session.completed", data: { object: { id: "cs_3", payment_intent: { id: "pi_3" } } } }))
-      .toEqual({ type: "checkout.session.completed", sessionId: "cs_3", paymentIntent: "pi_3", taxCents: 0 });
+      .toEqual({ type: "checkout.session.completed", sessionId: "cs_3", paymentIntent: "pi_3", taxCents: 0, discountCents: 0 });
   });
 });
 

@@ -45,24 +45,24 @@ describe("orders", () => {
     const a = fresh("2026-09-22");
     await tryInsertHeldOrder(env.DB, a, 5, NOW, NOW + 1800);
     await attachSession(env.DB, a.id, "cs_1");
-    const paid = await markPaidBySession(env.DB, "cs_1", "pi_1", 0);
+    const paid = await markPaidBySession(env.DB, "cs_1", "pi_1", 0, 0);
     expect(paid?.status).toBe("paid");
     expect(paid?.holdExpiresAt).toBeNull();
-    expect(await markPaidBySession(env.DB, "cs_1", "pi_1", 0)).toBeNull();
+    expect(await markPaidBySession(env.DB, "cs_1", "pi_1", 0, 0)).toBeNull();
     expect((await getOrder(env.DB, a.id))?.stripePaymentIntent).toBe("pi_1");
   });
-  it("records the tax Stripe collected when marking paid", async () => {
+  it("records the tax Stripe collected and the promotion-code discount when marking paid", async () => {
     const o = fresh("2026-09-28");
     await tryInsertHeldOrder(env.DB, o, 5, NOW, NOW + 1800);
     await attachSession(env.DB, o.id, "cs_tax");
-    const paid = await markPaidBySession(env.DB, "cs_tax", "pi_tax", 680);
-    expect(paid).toMatchObject({ status: "paid", taxCents: 680 });
+    const paid = await markPaidBySession(env.DB, "cs_tax", "pi_tax", 680, 850);
+    expect(paid).toMatchObject({ status: "paid", taxCents: 680, discountCents: 850 });
   });
   it("cancels a held order by session but never a paid one", async () => {
     const a = fresh("2026-09-23");
     await tryInsertHeldOrder(env.DB, a, 5, NOW, NOW + 1800);
     await attachSession(env.DB, a.id, "cs_2");
-    await markPaidBySession(env.DB, "cs_2", "pi_2", 0);
+    await markPaidBySession(env.DB, "cs_2", "pi_2", 0, 0);
     expect(await cancelHeldBySession(env.DB, "cs_2")).toBe(false);
     const b = fresh("2026-09-23");
     await tryInsertHeldOrder(env.DB, b, 5, NOW, NOW + 1800);
@@ -116,12 +116,12 @@ describe("markPaidBySession extras and calendar id", () => {
        VALUES ('px1', 1, 'held', '2026-09-09', 'bouquet', 'pickup', 'Pat', 'pat@example.com', 8500, 'cs_px1', 99)`,
     ).run();
     const marker = env.DB.prepare("INSERT INTO settings (key, value_json) VALUES ('test.px1', '1')");
-    const o = await markPaidBySession(env.DB, "cs_px1", "pi_px1", 0, [marker]);
+    const o = await markPaidBySession(env.DB, "cs_px1", "pi_px1", 0, 0, [marker]);
     expect(o?.status).toBe("paid");
     expect(await env.DB.prepare("SELECT value_json FROM settings WHERE key = 'test.px1'").first()).toEqual({ value_json: "1" });
     await env.DB.prepare("DELETE FROM settings WHERE key = 'test.px1'").run();
     // a duplicate flip changes nothing and returns null; callers guard their extras (outbox uses INSERT OR IGNORE + a status check)
-    expect(await markPaidBySession(env.DB, "cs_px1", "pi_px1", 0)).toBeNull();
+    expect(await markPaidBySession(env.DB, "cs_px1", "pi_px1", 0, 0)).toBeNull();
   });
   it("stores the calendar event id", async () => {
     await setCalendarEventId(env.DB, "px1", "bbpx1");

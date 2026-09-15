@@ -22,7 +22,7 @@ export interface SubscriptionCheckoutInput {
 }
 
 export type WebhookEvent =
-  | { type: "checkout.session.completed"; sessionId: string; paymentIntent: string; taxCents: number }
+  | { type: "checkout.session.completed"; sessionId: string; paymentIntent: string; taxCents: number; discountCents: number }
   | { type: "checkout.session.expired"; sessionId: string }
   | { type: "subscription.started"; sessionId: string; customerId: string; subscriptionId: string; customerEmail: string; metadata: Record<string, string> }
   | { type: "subscription.updated"; subscriptionId: string; status: string; paused: boolean }

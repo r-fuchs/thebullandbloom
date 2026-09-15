@@ -169,9 +169,11 @@ export function customerEmail(order: Order, cfg: StoreConfig): Mail {
   lines.push("", "What you ordered", `  ${size}: ${dollars(order.bouquetCents)}`);
   if (order.vaseCents > 0) lines.push(`  Vase: ${dollars(order.vaseCents)}`);
   if (order.deliveryCents > 0) lines.push(`  Delivery: ${dollars(order.deliveryCents)}`);
+  if (order.discountCents > 0) lines.push(`  Discount: -${dollars(order.discountCents)}`);
   if (order.taxCents > 0) lines.push(`  Sales tax: ${dollars(order.taxCents)}`);
-  if (order.vaseCents > 0 || order.deliveryCents > 0 || order.taxCents > 0) {
-    lines.push(`  Total: ${dollars(order.bouquetCents + order.vaseCents + order.deliveryCents + order.taxCents)}`);
+  if (order.vaseCents > 0 || order.deliveryCents > 0 || order.taxCents > 0 || order.discountCents > 0) {
+    const total = order.bouquetCents + order.vaseCents + order.deliveryCents - order.discountCents + order.taxCents;
+    lines.push(`  Total: ${dollars(total)}`);
   }
   if (order.note) lines.push(`  Your note: ${order.note}`);
   lines.push("", "Questions or a change of plans? Just reply to this email.", "", "Anthony", "The Bull and Bloom", "thebullandbloom.com");

@@ -10,7 +10,7 @@ const order: Order = {
   fulfillment: "pickup", customerName: "Pat Smith", customerEmail: "pat@example.com", customerPhone: "518-555-0100",
   addressJson: null, note: "For my mother. Something soft.", stripeSessionId: "cs_1", stripePaymentIntent: "pi_1",
   bouquetCents: 8500, deliveryCents: 0, uberQuoteId: null, source: "one_time", holdExpiresAt: null, calendarEventId: null,
-  presentation: "hand-tied", vaseCents: 0, taxCents: 0,
+  presentation: "hand-tied", vaseCents: 0, taxCents: 0, discountCents: 0,
 };
 
 describe("dollars", () => {
@@ -82,6 +82,10 @@ describe("customerEmail", () => {
     const m = customerEmail({ ...order, taxCents: 680 }, cfg);
     expect(m.text).toContain("  Bouquet: $85.00\n  Sales tax: $6.80\n  Total: $91.80");
   });
+  it("shows a promotion-code discount above the tax, and a total net of it", () => {
+    const m = customerEmail({ ...order, taxCents: 612, discountCents: 850 }, cfg);
+    expect(m.text).toContain("  Bouquet: $85.00\n  Discount: -$8.50\n  Sales tax: $6.12\n  Total: $82.62");
+  });
   it("uses the first name only and skips the note line when there is none", () => {
     const m = customerEmail({ ...order, customerName: "Pat", note: null }, cfg);
     expect(m.text.startsWith("Hi Pat,\n")).toBe(true);
@@ -116,7 +120,7 @@ function deliveryOrder(over: Partial<Order> = {}): Order {
     customerPhone: "+15185550100", addressJson: JSON.stringify(ADDRESS), note: "for a birthday",
     stripeSessionId: "cs_1", stripePaymentIntent: "pi_1", bouquetCents: 8500, deliveryCents: 1350,
     uberQuoteId: "dqt_1", source: "one_time", holdExpiresAt: null, calendarEventId: null,
-    presentation: "hand-tied", vaseCents: 0, taxCents: 0, ...over,
+    presentation: "hand-tied", vaseCents: 0, taxCents: 0, discountCents: 0, ...over,
   };
 }
 
