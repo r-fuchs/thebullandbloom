@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { testApp } from "../helpers";
 import { saveState, clearConnection } from "../../src/store/google";
 import { insertDelivery, applyStatus } from "../../src/store/deliveries";
+import { loadConfig } from "../../src/config";
 
 async function login(fetch: any) {
   const r = await fetch("/admin/api/login", { method: "POST", headers: { "content-type": "application/json" },
@@ -212,5 +213,15 @@ describe("GET /admin/api/orders with deliveries", () => {
     const body = await (await as("/admin/api/orders?date=2026-09-23")).json() as any;
     expect(body.orders.map((o: any) => o.id)).toContain("o1");
     expect(body.deliveries.o1).toMatchObject({ status: "dropoff", trackingUrl: "https://t.test/2", feeCents: 1200 });
+  });
+});
+
+describe("GET /admin/api/delivery/status", () => {
+  it("reports the configured delivery mode alongside the fallback fee and zips", async () => {
+    const { fetch } = testApp();
+    const as = await login(fetch);
+    const body = await (await as("/admin/api/delivery/status")).json() as any;
+    const cfg = loadConfig();
+    expect(body).toMatchObject({ mode: cfg.delivery.mode ?? "uber", fallbackFeeCents: cfg.delivery.fallbackFeeCents, fallbackZips: cfg.delivery.fallbackZips });
   });
 });

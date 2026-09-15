@@ -15,6 +15,7 @@ export function registerDeliveryAdmin(r: App): void {
     const { uber, config } = c.get("services");
     return c.json({
       configured: uber.configured(),
+      mode: config.delivery.mode ?? "uber",
       fallbackFeeCents: config.delivery.fallbackFeeCents,
       fallbackZips: config.delivery.fallbackZips,
       variance: await varianceTotal(c.env.DB),

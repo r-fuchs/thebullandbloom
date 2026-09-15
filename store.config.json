@@ -98,7 +98,8 @@
     "note": "Monthly prices approved by Ryan and Anthony 2026-09-10. One-time prices ($55 / $85 / $135) approved by Ryan 2026-09-10. Size descriptions are placeholders until Anthony writes his."
   },
   "delivery": {
-    "fallbackFeeCents": 1500,
+    "mode": "flat",
+    "fallbackFeeCents": 1000,
     "fallbackZips": [
       "12202",
       "12203",
@@ -109,7 +110,33 @@
       "12208",
       "12209",
       "12210",
-      "12211"
+      "12211",
+      "12222",
+      "12110",
+      "12009",
+      "12047",
+      "12054",
+      "12061",
+      "12065",
+      "12077",
+      "12084",
+      "12144",
+      "12158",
+      "12159",
+      "12180",
+      "12182",
+      "12183",
+      "12186",
+      "12189",
+      "12198",
+      "12302",
+      "12303",
+      "12304",
+      "12305",
+      "12306",
+      "12307",
+      "12308",
+      "12309"
     ]
   }
 }

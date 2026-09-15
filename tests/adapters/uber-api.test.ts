@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { UberApi, encodeAddress } from "../../src/adapters/uber-api";
-import { UberError, verifyUberSignature, type DeliveryWindow, type Party } from "../../src/adapters/uber";
+import { UberError, uberFor, verifyUberSignature, type DeliveryWindow, type Party } from "../../src/adapters/uber";
+import { loadConfig } from "../../src/config";
 import type { CachedToken, TokenCache } from "../../src/store/uber";
 
 type Canned = { status: number; body: unknown };
@@ -248,5 +249,21 @@ describe("verifyUberSignature", () => {
     expect(await verifyUberSignature("other-key", PAYLOAD, SIG)).toBe(false);
     expect(await verifyUberSignature(KEY, PAYLOAD, undefined)).toBe(false);
     expect(await verifyUberSignature("", PAYLOAD, SIG)).toBe(false);
+  });
+});
+
+describe("uberFor (delivery.mode)", () => {
+  const cfg = loadConfig();
+  const real = new UberApi("id", "secret", "cust", memoryCache(), false, fakeFetch([]).fn);
+  it("hands back the real adapter unless the config says flat", () => {
+    expect(uberFor({ ...cfg, delivery: { ...cfg.delivery, mode: "uber" } }, real)).toBe(real);
+    expect(uberFor({ ...cfg, delivery: { ...cfg.delivery, mode: undefined } }, real)).toBe(real);
+  });
+  it("in flat mode reports unconfigured and never calls Uber, even with secrets present", async () => {
+    const u = uberFor({ ...cfg, delivery: { ...cfg.delivery, mode: "flat" } }, real);
+    expect(real.configured()).toBe(true);
+    expect(u.configured()).toBe(false);
+    await expect(u.quote({} as any)).rejects.toMatchObject({ name: "UberError", code: "unconfigured" });
+    await expect(u.createDelivery({} as any)).rejects.toMatchObject({ name: "UberError", code: "unconfigured" });
   });
 });

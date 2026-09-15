@@ -433,7 +433,9 @@
   function loadDelivery() {
     $('#delivery-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true;
     return api('/delivery/status').then(function (s) {
-      $('#d-summary').textContent = s.configured
+      $('#d-summary').textContent = s.mode === 'flat'
+        ? 'Uber is switched off. Delivery is a flat ' + money(s.fallbackFeeCents) + ' for ZIPs ' + (s.fallbackZips.join(', ') || '(none set)') + ', and you deliver every order yourself.'
+        : s.configured
         ? 'Uber is set up. Addresses outside its range fall back to ' + money(s.fallbackFeeCents) + ' for ZIPs ' + (s.fallbackZips.join(', ') || '(none set)') + ', which you deliver yourself.'
         : 'Uber is not set up yet. Delivery is offered only for ZIPs ' + (s.fallbackZips.join(', ') || '(none set)') + ' at ' + money(s.fallbackFeeCents) + ', and you deliver those yourself.';
       var v = s.variance.varianceCents;

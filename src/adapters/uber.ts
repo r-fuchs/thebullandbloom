@@ -1,7 +1,7 @@
 // Uber Direct behind one interface. Core, jobs and routes depend on this file only; the real
 // implementation (uber-api.ts) and the test fake both satisfy it.
 // Wire details verified from developer.uber.com on 2026-09-09; see the plan's Global Constraints.
-import type { PostalAddress } from "../config";
+import type { PostalAddress, StoreConfig } from "../config";
 
 /**
  * The four timestamps Uber wants on a quote and a delivery. The API's own constraints
@@ -81,6 +81,17 @@ export interface Uber {
   configured(): boolean;
   quote(req: QuoteRequest): Promise<UberQuote>;
   createDelivery(req: DeliveryRequest): Promise<UberDelivery>;
+}
+
+/**
+ * The adapter the app should use. With `delivery.mode: "flat"` in the config, Uber is switched off
+ * at the wiring — quotes, the storefront's "offered" flag, admin status and Request courier all see
+ * an unconfigured Uber and take the flat-fee path — without touching the secrets on the Worker.
+ */
+export function uberFor(cfg: StoreConfig, real: Uber): Uber {
+  if (cfg.delivery.mode !== "flat") return real;
+  const off = async () => { throw new UberError("unconfigured", "uber: switched off by delivery.mode flat"); };
+  return { configured: () => false, quote: off, createDelivery: off };
 }
 
 const enc = new TextEncoder();

@@ -21,8 +21,12 @@ export interface StoreConfig {
   /** Size × cadence grid sold as Stripe subscriptions (spec §2 item 5). Present in config ahead of Plan 4 so prices have a home. */
   subscriptions: Subscriptions;
   defaults: { cap: number; cutoff: string; openWeekdays: number[] };
-  /** Used only when Uber is unavailable for the address (spec §4.2, §4.5). Empty zip list = no fallback. */
-  delivery: { fallbackFeeCents: number; fallbackZips: string[] };
+  /**
+   * `mode` "uber" (default): Uber prices each address; the flat fee covers listed zips Uber will
+   * not serve (spec §4.2, §4.5). `mode` "flat": Uber is never called, even with its secrets on the
+   * Worker — every listed zip gets the flat fee and Anthony drives. Empty zip list = no fallback.
+   */
+  delivery: { mode?: "uber" | "flat"; fallbackFeeCents: number; fallbackZips: string[] };
   holdMinutes: number;
 }
 
@@ -48,6 +52,7 @@ export function validateConfig(cfg: StoreConfig): StoreConfig {
   const d = cfg.delivery;
   if (!d || !Number.isInteger(d.fallbackFeeCents) || d.fallbackFeeCents < 0) throw new Error("config: delivery.fallbackFeeCents must be a non-negative integer");
   if (!Array.isArray(d.fallbackZips) || !d.fallbackZips.every((z) => ZIP.test(z))) throw new Error("config: delivery.fallbackZips must be five-digit zips");
+  if (d.mode !== undefined && d.mode !== "uber" && d.mode !== "flat") throw new Error('config: delivery.mode must be "uber" or "flat" when set');
   if (!cfg.calendars?.closed || !cfg.calendars?.orders || cfg.calendars.closed === cfg.calendars.orders)
     throw new Error("config: calendars.closed and calendars.orders must be two distinct names");
   const ids = new Set<string>();

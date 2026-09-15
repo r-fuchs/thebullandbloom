@@ -68,6 +68,15 @@ describe("config", () => {
     expect(() => validateConfig({ ...base, delivery: { fallbackFeeCents: -1, fallbackZips: [] } })).toThrow(/fallbackFeeCents/);
     expect(() => validateConfig({ ...base, delivery: { fallbackFeeCents: 1500, fallbackZips: ["1253"] } })).toThrow(/fallbackZips/);
   });
+  it("accepts delivery.mode uber, flat or absent, and rejects anything else", () => {
+    const base = loadConfig();
+    const d = base.delivery;
+    expect(validateConfig({ ...base, delivery: { ...d, mode: "flat" } }).delivery.mode).toBe("flat");
+    expect(validateConfig({ ...base, delivery: { ...d, mode: "uber" } }).delivery.mode).toBe("uber");
+    const { mode: _m, ...noMode } = d;
+    expect(validateConfig({ ...base, delivery: noMode }).delivery.mode).toBeUndefined();
+    expect(() => validateConfig({ ...base, delivery: { ...d, mode: "sometimes" as any } })).toThrow(/delivery.mode/);
+  });
   it("accepts an empty fallback zip list (no fallback offered)", () => {
     const base = loadConfig();
     expect(validateConfig({ ...base, delivery: { fallbackFeeCents: 1500, fallbackZips: [] } }).delivery.fallbackZips).toEqual([]);
