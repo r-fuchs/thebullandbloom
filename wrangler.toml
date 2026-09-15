@@ -2,6 +2,8 @@ name = "thebullandbloom"
 main = "src/index.ts"
 compatibility_date = "2026-08-01"
 compatibility_flags = ["nodejs_compat"]
+# Keep the workers.dev URL alive alongside the custom domains (adding routes turns it off by default).
+workers_dev = true
 
 # Production hostnames. A deploy attaches these to the Worker as Custom Domains and replaces the
 # zone's existing records for them (the old GitHub Pages CNAMEs). Needs the zone in the same
