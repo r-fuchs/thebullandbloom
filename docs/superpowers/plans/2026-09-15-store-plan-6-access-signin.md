@@ -383,3 +383,10 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 - [ ] Push the branch; Ryan pushes main. After the deploy: `curl -s -o /dev/null -w "%{http_code}" https://thebullandbloom.com/admin/api/me` is 302 to the Access login (edge), and `curl -s https://thebullandbloom.thebullandbloom.workers.dev/admin/api/me` is 401 (Worker). Ryan signs in with Google at thebullandbloom.com/admin and sees his email in the toolbar; Anthony does the same.
 - [ ] Ryan deletes the retired secret: `npx wrangler secret delete ADMIN_PASSCODE`.
+
+## Outcome (2026-09-15 evening)
+
+Shipped: `f6ac1a0`..`50fd1f8` on main, deploy green, 334 tests. Live checks: `thebullandbloom.com/admin/api/me`
+302s to the Access login at foxnacre.cloudflareaccess.com; the workers.dev address answers 401 with no token
+and 401 with a forged token; `/api/health` 200. Left for Ryan: `npx wrangler secret delete ADMIN_PASSCODE` and
+dropping the line from `.dev.vars`; sign in once to confirm the email shows; Anthony the same.
