@@ -1,12 +1,14 @@
 import type { Google } from "../adapters/google";
-import type { StoreConfig } from "../config";
+import { offerById, type StoreConfig } from "../config";
+import { bookingConfirmedEmail, ownerBookingEmail } from "../core/booking-messages";
+import { countTaken, getBooking } from "../store/bookings";
 import { courierEmail, customerEmail, orderEvent, ownerEmail, ownerSubscriptionEmail, subscriptionCancelledEmail, subscriptionConfirmedEmail } from "../core/messages";
 import type { Payments } from "../adapters/payments";
 import { activeDeliveryFor } from "../store/deliveries";
 import { getSubscriber } from "../store/subscribers";
 import { loadState, type GoogleState } from "../store/google";
 import { getOrder, setCalendarEventId, type Order } from "../store/orders";
-import { backoff, claimItem, CLAIM_LEASE_SECONDS, dueItems, isSubscriberKind, KNOWN_KINDS, markDone, markFailed, type OutboxItem } from "../store/outbox";
+import { backoff, claimItem, CLAIM_LEASE_SECONDS, dueItems, isBookingKind, isSubscriberKind, KNOWN_KINDS, markDone, markFailed, type OutboxItem } from "../store/outbox";
 
 export interface OutboxDeps { db: D1Database; google: Google; payments: Payments; config: StoreConfig; siteUrl: string }
 export interface DrainResult { status: "skipped" | "ok"; delivered: number; failed: number }
@@ -57,6 +59,7 @@ export async function drainOutbox(deps: OutboxDeps, now: Date): Promise<DrainRes
 
 /** Returns whether the item was actually delivered (false when dropped because the order no longer qualifies). */
 async function deliver(deps: OutboxDeps, state: GoogleState, item: OutboxItem): Promise<boolean> {
+  if (isBookingKind(item.kind)) return deliverBooking(deps, item);
   if (isSubscriberKind(item.kind)) return deliverSubscriber(deps, item);
   const order = await getOrder(deps.db, item.orderId);
   if (!order || (order.status !== "paid" && order.status !== "done")) {
@@ -97,6 +100,29 @@ async function deliverSubscriber(deps: OutboxDeps, item: OutboxItem): Promise<bo
     case "sub_cancelled_customer": await deps.google.sendMail(subscriptionCancelledEmail(sub, deps.config)); return true;
     case "sub_cancelled_owner": await deps.google.sendMail(ownerSubscriptionEmail(sub, deps.config, deps.siteUrl, "cancelled")); return true;
     default: console.error(`outbox: unknown subscriber kind ${item.kind}`); return false;
+  }
+}
+
+/** Booking emails (Plan 7): the outbox subject is the booking id. */
+async function deliverBooking(deps: OutboxDeps, item: OutboxItem): Promise<boolean> {
+  const booking = await getBooking(deps.db, item.orderId);
+  if (!booking || booking.status !== "paid") {
+    console.error(`outbox: booking ${item.orderId} is ${booking?.status ?? "missing"}; dropping ${item.kind}`);
+    return false;
+  }
+  const offer = offerById(deps.config, booking.offerId);
+  const session = offer?.sessions.find((s) => s.id === booking.sessionId);
+  // A paid seat whose offer or session left the config is a real problem; retry (and eventually
+  // show as failed in admin) rather than silently dropping the customer's confirmation.
+  if (!offer || !session) throw new Error(`booking ${booking.id}: offer ${booking.offerId} session ${booking.sessionId} is not in config`);
+  switch (item.kind) {
+    case "booking_confirmed_customer": await deps.google.sendMail(bookingConfirmedEmail(booking, offer, session, deps.config)); return true;
+    case "booking_confirmed_owner": {
+      const taken = (await countTaken(deps.db, offer.id)).get(session.id) ?? 0;
+      await deps.google.sendMail(ownerBookingEmail(booking, offer, session, deps.config, taken, deps.siteUrl));
+      return true;
+    }
+    default: console.error(`outbox: unknown booking kind ${item.kind}`); return false;
   }
 }
 
