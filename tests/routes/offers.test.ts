@@ -63,7 +63,7 @@ describe("POST /api/book", () => {
     expect(c.customerEmail).toBe("jane@example.com");
     expect(c.expiresAt).toBe(NOW_SEC + 30 * 60 + 60);
     expect(c.successUrl).toBe(`https://thebullandbloom.com/thanks?booking=${c.orderId}&offer=${WREATH.id}&seats=1`);
-    expect(c.cancelUrl).toBe("https://thebullandbloom.com/offers/wreath-test");
+    expect(c.cancelUrl).toBe(`https://thebullandbloom.com/offers/wreath-test?cancelled=${c.orderId}`);
     const row = await env.DB.prepare("SELECT status, offer_id, session_id, customer_name, customer_phone, note, price_cents, stripe_session_id, hold_expires_at, seats FROM bookings WHERE id = ?").bind(c.orderId).first<any>();
     expect(row).toMatchObject({ status: "held", offer_id: WREATH.id, session_id: "sat", customer_name: "Jane Doe", customer_phone: "518-555-0100", note: "first wreath", price_cents: 8500, hold_expires_at: c.expiresAt + 120, seats: 1 });
     expect(row.stripe_session_id).toMatch(/^cs_/);
@@ -138,6 +138,30 @@ describe("POST /api/book", () => {
     expect(rows.results).toEqual([{ status: "cancelled" }]);
     // the seat is free again
     expect((await post(fetch, good)).status).toBe(200);
+  });
+});
+
+describe("POST /api/book/:id/release", () => {
+  beforeEach(async () => { await env.DB.prepare("DELETE FROM bookings").run(); });
+
+  it("frees a held party's seats at once, says not held for a paid or unknown booking, and the seats are bookable again", async () => {
+    const { fetch, payments } = testApp(undefined, offersConfig());
+    expect((await post(fetch, { ...good, seats: 2 })).status).toBe(200);
+    const id = payments.created[0].orderId;
+    let { offers } = await (await fetch("/api/offers")).json() as any;
+    expect(offers[0].sessions.find((s: any) => s.id === "sat").remaining).toBe(0);
+
+    const r = await fetch(`/api/book/${id}/release`, { method: "POST" });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ ok: true });
+    expect((await env.DB.prepare("SELECT status, hold_expires_at FROM bookings WHERE id = ?").bind(id).first<any>())).toEqual({ status: "cancelled", hold_expires_at: null });
+    ({ offers } = await (await fetch("/api/offers")).json() as any);
+    expect(offers[0].sessions.find((s: any) => s.id === "sat")).toMatchObject({ remaining: 2, bookable: true });
+
+    expect((await fetch(`/api/book/${id}/release`, { method: "POST" })).status).toBe(404); // already cancelled
+    await env.DB.prepare("UPDATE bookings SET status = 'paid' WHERE id = ?").bind(id).run();
+    expect((await fetch(`/api/book/${id}/release`, { method: "POST" })).status).toBe(404); // paid stays paid
+    expect((await fetch("/api/book/nope/release", { method: "POST" })).status).toBe(404);
   });
 });
 

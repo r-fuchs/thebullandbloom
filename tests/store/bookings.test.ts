@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { describe, it, expect, beforeEach } from "vitest";
 import {
-  attachSession, cancelBooking, cancelHeldBySession, countTaken, expireHolds, getBooking, listForOffer,
+  attachSession, cancelBooking, cancelHeldById, cancelHeldBySession, countTaken, expireHolds, getBooking, listForOffer,
   markPaidBySession, tryInsertHeldBooking, type NewBooking,
 } from "../../src/store/bookings";
 import { BOOKING_PAID_KINDS, counts, enqueueForBookingSessionStatements } from "../../src/store/outbox";
@@ -80,6 +80,18 @@ describe("bookings", () => {
     // a session nobody paid for enqueues nothing
     await env.DB.batch(enqueueForBookingSessionStatements(env.DB, "cs_nobody", BOOKING_PAID_KINDS, NOW));
     expect(await counts(env.DB)).toEqual({ pending: 2, failed: 0 });
+  });
+  it("cancelHeldById frees a held row only; paid, cancelled and unknown rows return false", async () => {
+    const a = fresh(), b = fresh();
+    await tryInsertHeldBooking(env.DB, a, 8, NOW, NOW + 1800);
+    await tryInsertHeldBooking(env.DB, b, 8, NOW, NOW + 1800);
+    await env.DB.prepare("UPDATE bookings SET status = 'paid' WHERE id = ?").bind(b.id).run();
+    expect(await cancelHeldById(env.DB, a.id)).toBe(true);
+    expect((await getBooking(env.DB, a.id))?.status).toBe("cancelled");
+    expect(await cancelHeldById(env.DB, a.id)).toBe(false);
+    expect(await cancelHeldById(env.DB, b.id)).toBe(false);
+    expect((await getBooking(env.DB, b.id))?.status).toBe("paid");
+    expect(await cancelHeldById(env.DB, "nope")).toBe(false);
   });
   it("cancels a held booking by session but never a paid one", async () => {
     const a = fresh();

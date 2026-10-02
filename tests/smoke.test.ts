@@ -75,6 +75,8 @@ describe("worker", () => {
     expect(offerJsText).toContain("'autoConfig', false");
     expect(offerJsText).toContain("onerror");
     expect(offerJsText).toContain("seats: chosenSeats()");
+    expect(offerJsText).toContain("/release'");
+    expect(offerJsText).toContain("[?&]cancelled=");
     expect(offerJsText).toContain("Only ' + left");
   });
 
