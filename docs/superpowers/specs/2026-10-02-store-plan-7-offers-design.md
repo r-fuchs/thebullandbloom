@@ -30,10 +30,12 @@ The first offer is Wreath & Sip; nothing in the build is specific to wreaths.
   homepage's "Current offers" section is a card pointing there. Two switches per offer:
   `enabled` (bookable at all) and `showOnHome` (teaser on the homepage). The teaser also
   hides itself when nothing is bookable.
-- **D50 Copy makes no drink claims.** The name is "Wreath & Sip"; the page describes the
-  evening, the materials and the wreath you take home. It never says what is poured or
-  asks anyone to bring anything. The page says "at the studio in Albany"; the street
-  address appears only in the confirmation email.
+- **D50 Copy names the home studio and promises refreshments, nothing more specific.**
+  The name is "Wreath & Sip"; the page describes the evening, the materials and the
+  wreath you take home, and says "Refreshments will be provided." It never names a drink
+  or asks anyone to bring anything, on the page, in the email or in an ad. The page says
+  "Hosted at Anthony's home studio in Albany. The address comes with your
+  confirmation."; the street address appears only in the confirmation email.
 - **D51 Meta Pixel on the landing page and the thanks page only,** loaded only when
   `marketing.metaPixelId` is set. The homepage and the order flow stay tracker-free. The
   privacy page's "no advertising trackers" sentence is replaced (§3.9).
@@ -93,7 +95,8 @@ offer. The Worker gets a route `GET /offers/:slug` that returns that asset (thro
 URL and picks the offer from `GET /api/offers`.
 
 The page shows the photo, the name and tagline, the description, the price per seat, the
-length, "at the studio in Albany", a row of session buttons ("Sat Nov 7 · 6 pm · 3 seats
+length, "Refreshments will be provided.", the home-studio line from D50, a row of session
+buttons ("Sat Nov 7 · 6 pm · 3 seats
 left"; full ones read "Sold out" and are disabled; a closed one reads "Closed"), and the
 form: name, email, phone (optional), note (optional), "Reserve my seat". Submitting posts
 to `/api/book` and follows the Stripe URL, with the same status line and error texts the
@@ -196,9 +199,10 @@ booking id, as it carries a subscriber id today). The drain job loads the bookin
 the offer and sends through the Google adapter:
 
 - Customer: subject "Your seat at Wreath & Sip"; the date, start time and length; the
-  studio's street address with a line that it is Anthony's home studio; what to expect
-  and that everything is provided; the cancellation terms from §6; Anthony's phone and
-  email for questions.
+  studio's street address with a line that it is Anthony's home studio; what to expect,
+  that all materials are provided and that refreshments will be provided (the same words
+  as the page, D50); the cancellation terms from §6; Anthony's phone and email for
+  questions.
 - Anthony: "Jane Doe booked Wreath & Sip, Sat Nov 7 — 5 of 8 seats"; the customer's
   email, phone and note.
 
