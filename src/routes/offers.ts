@@ -3,7 +3,7 @@ import type { App } from "../app";
 import { offerById, offerBySlug, offersOf, type Offer } from "../config";
 import { bookingBlocker, isBookable, seatsRemaining, sessionLabel, sessionStart } from "../core/offers";
 import { ymdIn } from "../core/time";
-import { attachSession, cancelBooking, countTaken, tryInsertHeldBooking } from "../store/bookings";
+import { attachSession, cancelBooking, cancelHeldById, countTaken, tryInsertHeldBooking } from "../store/bookings";
 
 /** The most seats one booking may hold: friends come in twos and threes, not busloads. */
 export const MAX_PARTY = 6;
@@ -83,7 +83,7 @@ export function offerRoutes(): App {
         orderId: bookingId, customerEmail: cust.customer.email, customerName: cust.customer.name,
         taxAddress: config.studio.address, lineItems,
         successUrl: `${c.env.SITE_URL}/thanks?booking=${bookingId}&offer=${offer.id}&seats=${seats}`,
-        cancelUrl: `${c.env.SITE_URL}/offers/${offer.slug}`,
+        cancelUrl: `${c.env.SITE_URL}/offers/${offer.slug}?cancelled=${bookingId}`,
         expiresAt: stripeExpiresAt,
       });
     } catch (err) {
@@ -99,6 +99,14 @@ export function offerRoutes(): App {
       return c.json({ error: "payments_unavailable" }, 503);
     }
     return c.json({ url: stripeSession.url });
+  });
+
+  // The page calls this when Stripe sends the customer back through the cancel link, so an abandoned
+  // checkout stops saying "5 seats left" to the next person for half an hour. Only a held row changes;
+  // a late payment on the same Stripe session still lands through the webhook's resurrection path (D17).
+  r.post("/api/book/:id/release", async (c) => {
+    const did = await cancelHeldById(c.env.DB, c.req.param("id"));
+    return did ? c.json({ ok: true }) : c.json({ error: "not held" }, 404);
   });
 
   // One static page serves every offer; the script reads the slug from the URL (D49). An unknown or

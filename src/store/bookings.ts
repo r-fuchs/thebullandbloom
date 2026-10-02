@@ -87,6 +87,14 @@ export async function markPaidBySession(
   return r ? fromRow(r) : null;
 }
 
+/** The customer came back from Stripe without paying: free the party's seats now rather than at expiry. A paid row is never touched. */
+export async function cancelHeldById(db: D1Database, id: string): Promise<boolean> {
+  const res = await db.prepare(
+    "UPDATE bookings SET status = 'cancelled', hold_expires_at = NULL WHERE id = ? AND status = 'held'",
+  ).bind(id).run();
+  return res.meta.changes === 1;
+}
+
 export async function cancelHeldBySession(db: D1Database, sessionId: string): Promise<boolean> {
   const res = await db.prepare(
     "UPDATE bookings SET status = 'cancelled', hold_expires_at = NULL WHERE stripe_session_id = ? AND status = 'held'",

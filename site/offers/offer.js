@@ -99,6 +99,15 @@
     });
   }
 
+  // Back from Stripe without paying: free the held seats before the counts load, then clean the address.
+  function releaseCancelled() {
+    var m = /[?&]cancelled=([0-9a-f-]{36})/.exec(location.search);
+    if (!m) return Promise.resolve(false);
+    history.replaceState(null, '', location.pathname);
+    return fetch('/api/book/' + m[1] + '/release', { method: 'POST' })
+      .then(function () { return true; }, function () { return true; });
+  }
+
   sessionsBox.addEventListener('change', function () { refreshSeats(); refreshTotal(); });
   seatsSel.addEventListener('change', refreshTotal);
 
@@ -133,5 +142,9 @@
       .catch(function () { btn.disabled = false; status.textContent = 'Something went wrong. Try again.'; });
   });
 
-  load();
+  releaseCancelled().then(function (cancelled) {
+    return load().then(function () {
+      if (cancelled && offer) status.textContent = 'Checkout was cancelled and nothing was charged. Your seats are free again whenever you are ready.';
+    });
+  });
 })();
