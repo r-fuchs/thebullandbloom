@@ -7,6 +7,7 @@ import type { Uber } from "./adapters/uber";
 import type { Access, AdminIdentity } from "./adapters/access";
 import type { StoreConfig } from "./config";
 import { publicRoutes } from "./routes/public";
+import { offerRoutes } from "./routes/offers";
 import { webhookRoutes } from "./routes/webhooks";
 import { adminRoutes } from "./routes/admin";
 import { instagramPublic } from "./routes/instagram";
@@ -20,6 +21,7 @@ export function buildApp(services: Services): App {
   app.use("*", async (c, next) => { c.set("services", services); await next(); });
   app.get("/api/health", (c) => c.json({ ok: true }));
   app.route("/", publicRoutes());
+  app.route("/", offerRoutes());
   instagramPublic(app);
   app.route("/", webhookRoutes());
   app.route("/", adminRoutes());

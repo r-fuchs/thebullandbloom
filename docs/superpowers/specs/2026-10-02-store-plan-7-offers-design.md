@@ -114,7 +114,7 @@ stylesheet out of `index.html` is out of scope.
 
 ### 3.3 Homepage teaser and nav
 
-`site/index.html` gains `<section id="offers" hidden>` between `#order` and `#about`,
+`site/index.html` gains `<section id="offers" hidden>` above `#order` (Ryan, 2026-10-02: the offer leads the page; the store heading becomes "Order a bouquet"),
 headed "Current offers", and a nav link "Offers" that is also hidden by default.
 `store.js` fetches `/api/offers` and, for each offer with `showOnHome` true and at least
 one bookable session, renders a card: the photo, the name, the tagline, "Next: Sat Nov 7

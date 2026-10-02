@@ -1,7 +1,7 @@
 import type { PostalAddress } from "../config";
 
-/** Which Stripe tax code a line carries (spec Plan 5 D37). */
-export type TaxCategory = "flowers" | "vase" | "delivery";
+/** Which Stripe tax code a line carries (spec Plan 5 D37; `workshop` is a class seat, Plan 7 §3.6). */
+export type TaxCategory = "flowers" | "vase" | "delivery" | "workshop";
 export interface CheckoutLineItem { name: string; amountCents: number; quantity: number; taxCategory: TaxCategory }
 export interface CheckoutInput {
   orderId: string; customerEmail: string; customerName: string;

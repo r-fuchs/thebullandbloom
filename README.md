@@ -5,7 +5,7 @@ thebullandbloom.com — floral design by Anthony Demonia. Static site plus a Clo
 - `site/` — the pages and images (no build step).
 - `src/` — the Worker: `/api/*` for the storefront, `/webhooks/stripe`, `/webhooks/uber`, `/admin/api/*`.
 - `migrations/` — D1 schema.
-- `store.config.json` — menu, prices, subscription grid (cadences × sizes, monthly price per cell), capacity defaults, studio address/phone/ready time, delivery zones (name, fee, ZIPs) and mode.
+- `store.config.json` — menu, prices, subscription grid (cadences × sizes, monthly price per cell), capacity defaults, studio address/phone/ready time, delivery zones (name, fee, ZIPs) and mode, classes sold by the seat (`offers`: name, copy, photo, price, sessions with seats, `enabled` / `showOnHome` switches, booking cutoff) and the Meta Pixel id (`marketing.metaPixelId`, empty = no pixel).
 - Design: `docs/superpowers/specs/2026-09-07-store-design.md`.
 
 `npm test` runs everything in a local workerd with a throwaway D1. `npm run dev` serves locally.
@@ -29,3 +29,5 @@ Preview URL until DNS cutover: https://thebullandbloom.thebullandbloom.workers.d
 Google: `scripts/google-setup.sh` uploads the OAuth client secrets, applies migrations, and redeploys to the preview. Anthony connects from admin → Google. The OAuth client's redirect URIs must include `<site>/admin/google/callback` for both the preview and thebullandbloom.com.
 
 Uber Direct: `scripts/uber-setup.sh` reads the four `UBER_*` values from `.dev.vars`, uploads them as Cloudflare secrets, applies the delivery migration remotely, and redeploys the preview with `UBER_ROBOCOURIER=1` so sandbox deliveries drive themselves. Uber's dashboard needs the delivery-status webhook pointed at `<site>/webhooks/uber`. On a GitHub deploy, set the workflow's `uber_robocourier` input to `1` for a sandbox run and leave it empty for real couriers.
+
+Classes (Plan 7): each offer in `store.config.json` has a landing page at `/offers/<slug>` (the address to put in an ad) and, with `showOnHome`, a card on the homepage. Adding a date, changing seats or price, or retiring an offer is a config edit and a deploy. Seats are counted in D1 (`bookings`); the Stripe webhook marks a seat paid and queues the confirmation emails through the outbox. Refund in Stripe, then cancel the booking in admin → Classes to free the seat. The photo lives at `site/assets/<name>.jpg` and is named by the offer's `image`.

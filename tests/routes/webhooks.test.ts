@@ -14,6 +14,13 @@ async function heldOrder(id: string, session: string) {
 const hook = (fetch: any, sig = "good") =>
   fetch("/webhooks/stripe", { method: "POST", headers: { "stripe-signature": sig }, body: "{}" });
 
+async function heldBooking(id: string, session: string) {
+  await env.DB.prepare(
+    `INSERT INTO bookings (id, created_at, status, offer_id, session_id, customer_name, customer_email, price_cents, stripe_session_id, hold_expires_at)
+     VALUES (?, 1, 'held', 'wreath-test', 'sat', 'Jane', 'jane@example.com', 8500, ?, 99)`,
+  ).bind(id, session).run();
+}
+
 describe("POST /webhooks/stripe", () => {
   it("marks the order paid on completion and is idempotent", async () => {
     await heldOrder("w1", "cs_w1");
@@ -216,5 +223,46 @@ describe("POST /webhooks/uber", () => {
     const { fetch } = testApp();
     expect(await (await uberHook(fetch, statusEvent("del_6", "teleported"))).json()).toEqual({ received: true, applied: "ignored" });
     expect((await env.DB.prepare("SELECT status FROM deliveries WHERE uber_delivery_id = 'del_6'").first<any>()).status).toBe("pending");
+  });
+});
+
+describe("POST /webhooks/stripe → bookings (Plan 7)", () => {
+  beforeEach(async () => {
+    await clearConnection(env.DB);
+    await env.DB.prepare("DELETE FROM outbox").run();
+    await env.DB.prepare("DELETE FROM bookings").run();
+  });
+  it("marks a booking paid when no order matches the session, queues both emails, and is idempotent", async () => {
+    await heldBooking("bw1", "cs_bw1");
+    const { fetch, payments } = testApp();
+    payments.nextEvent = { type: "checkout.session.completed", sessionId: "cs_bw1", paymentIntent: "pi_bw1", taxCents: 680, discountCents: 0 };
+    expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "paid" });
+    const row = await env.DB.prepare("SELECT status, stripe_payment_intent, tax_cents, hold_expires_at FROM bookings WHERE id = 'bw1'").first<any>();
+    expect(row).toEqual({ status: "paid", stripe_payment_intent: "pi_bw1", tax_cents: 680, hold_expires_at: null });
+    expect(await counts(env.DB)).toEqual({ pending: 2, failed: 0 });
+    const kinds = await env.DB.prepare("SELECT kind FROM outbox WHERE order_id = 'bw1' ORDER BY kind").all<any>();
+    expect(kinds.results.map((k) => k.kind)).toEqual(["booking_confirmed_customer", "booking_confirmed_owner"]);
+    expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "ignored" });
+    expect(await counts(env.DB)).toEqual({ pending: 2, failed: 0 });
+  });
+  it("still marks an order paid first when both tables could match", async () => {
+    await heldOrder("ow1", "cs_shared");
+    await heldBooking("bw2", "cs_shared");
+    const { fetch, payments } = testApp();
+    payments.nextEvent = { type: "checkout.session.completed", sessionId: "cs_shared", paymentIntent: "pi_s", taxCents: 0, discountCents: 0 };
+    expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "paid" });
+    expect((await env.DB.prepare("SELECT status FROM bookings WHERE id = 'bw2'").first<any>()).status).toBe("held");
+    expect((await env.DB.prepare("SELECT status FROM orders WHERE id = 'ow1'").first<any>()).status).toBe("paid");
+    // A replay must not fall through and claim the booking that shares the session id.
+    expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "ignored" });
+    expect((await env.DB.prepare("SELECT status FROM bookings WHERE id = 'bw2'").first<any>()).status).toBe("held");
+  });
+  it("cancels a held booking on expiry", async () => {
+    await heldBooking("bw3", "cs_bw3");
+    const { fetch, payments } = testApp();
+    payments.nextEvent = { type: "checkout.session.expired", sessionId: "cs_bw3" };
+    expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "cancelled" });
+    expect((await env.DB.prepare("SELECT status FROM bookings WHERE id = 'bw3'").first<any>()).status).toBe("cancelled");
+    expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "ignored" });
   });
 });

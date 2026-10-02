@@ -1,11 +1,11 @@
 import { env } from "cloudflare:test";
 import { describe, it, expect, beforeEach } from "vitest";
 import { drainOutbox } from "../../src/jobs/outbox";
-import { ORDER_PAID_KINDS, counts, enqueueCourierEmailStatement, enqueueForSessionStatements } from "../../src/store/outbox";
+import { BOOKING_PAID_KINDS, ORDER_PAID_KINDS, counts, enqueueCourierEmailStatement, enqueueForBookingSessionStatements, enqueueForSessionStatements } from "../../src/store/outbox";
 import { clearConnection, saveState } from "../../src/store/google";
 import { loadConfig } from "../../src/config";
 import { FakeGoogle } from "../fakes/google";
-import { RecordingPayments } from "../helpers";
+import { RecordingPayments, WREATH, offersConfig } from "../helpers";
 import { insertDelivery, applyStatus } from "../../src/store/deliveries";
 
 const NOW = new Date("2026-09-08T14:00:00Z");
@@ -28,13 +28,21 @@ async function paidDeliveryOrder(id: string, session: string) {
        '{"street":"5 Elm Street","unit":"","city":"Hudson","state":"NY","zip":"12534","notes":"porch"}', NULL, 8500, 1350, ?)`,
   ).bind(id, session).run();
 }
-const deps = (google: FakeGoogle) => ({ db: env.DB, google, payments: new RecordingPayments(), config: cfg, siteUrl: "https://x.test" });
+async function paidBooking(id: string, session: string, sessionId = "sat", offerId = WREATH.id) {
+  await env.DB.prepare(
+    `INSERT OR REPLACE INTO bookings (id, created_at, status, offer_id, session_id, customer_name, customer_email, customer_phone, note, price_cents, stripe_session_id)
+     VALUES (?, 1, 'paid', ?, ?, 'Jane Doe', 'jane@example.com', '518-555-0100', 'first wreath', 8500, ?)`,
+  ).bind(id, offerId, sessionId, session).run();
+  await env.DB.batch(enqueueForBookingSessionStatements(env.DB, session, BOOKING_PAID_KINDS, NOW_SEC));
+}
+const deps = (google: FakeGoogle, config = cfg) => ({ db: env.DB, google, payments: new RecordingPayments(), config, siteUrl: "https://x.test" });
 
 describe("drainOutbox", () => {
   beforeEach(async () => {
     await clearConnection(env.DB);
     await env.DB.prepare("DELETE FROM outbox").run();
     await env.DB.prepare("DELETE FROM deliveries").run();
+    await env.DB.prepare("DELETE FROM bookings").run();
   });
 
   it("skips without touching rows when Google is not connected", async () => {
@@ -174,6 +182,54 @@ describe("drainOutbox", () => {
       const row = await env.DB.prepare("SELECT attempts, last_error FROM outbox WHERE order_id = 'cd3'").first<any>();
       expect(row.attempts).toBe(1);
       expect(row.last_error).toBe("gmail down");
+    });
+  });
+
+  describe("booking emails (Plan 7)", () => {
+    it("sends the customer confirmation and Anthony's headcount email", async () => {
+      await saveState(env.DB, STATE);
+      await paidBooking("bk1", "cs_bk1");
+      await env.DB.prepare(`INSERT INTO bookings (id, created_at, status, offer_id, session_id, customer_name, customer_email, price_cents)
+        VALUES ('bk1b', 1, 'held', ?, 'sat', 'B', 'b@example.com', 8500)`).bind(WREATH.id).run();
+      const g = new FakeGoogle();
+      expect(await drainOutbox(deps(g, offersConfig()), NOW)).toEqual({ status: "ok", delivered: 2, failed: 0 });
+      const customer = g.sent.find((m) => m.to === "jane@example.com")!;
+      expect(customer.subject).toBe("Your seat at Wreath & Sip");
+      expect(customer.text).toContain("Refreshments will be provided.");
+      expect(customer.text).toContain(cfg.studio.address.street);
+      const owner = g.sent.find((m) => m.to === cfg.studio.ownerEmail)!;
+      expect(owner.subject).toBe("Jane Doe booked Wreath & Sip, Sat Sep 12 · 2 of 2 seats");
+      expect(owner.text).toContain("518-555-0100");
+      expect(await counts(env.DB)).toEqual({ pending: 0, failed: 0 });
+      expect(await drainOutbox(deps(g, offersConfig()), NOW)).toEqual({ status: "ok", delivered: 0, failed: 0 });
+      expect(g.sent).toHaveLength(2);
+    });
+    it("drops both emails when the booking is no longer paid", async () => {
+      await saveState(env.DB, STATE);
+      await paidBooking("bk2", "cs_bk2");
+      await env.DB.prepare("UPDATE bookings SET status = 'cancelled' WHERE id = 'bk2'").run();
+      const g = new FakeGoogle();
+      expect(await drainOutbox(deps(g, offersConfig()), NOW)).toEqual({ status: "ok", delivered: 0, failed: 0 });
+      expect(g.sent).toHaveLength(0);
+      expect(await counts(env.DB)).toEqual({ pending: 0, failed: 0 });
+    });
+    it("keeps retrying when the session has been removed from config, so the loss is visible", async () => {
+      await saveState(env.DB, STATE);
+      await paidBooking("bk3", "cs_bk3", "gone");
+      const g = new FakeGoogle();
+      expect(await drainOutbox(deps(g, offersConfig()), NOW)).toEqual({ status: "ok", delivered: 0, failed: 2 });
+      const row = await env.DB.prepare("SELECT last_error FROM outbox WHERE order_id = 'bk3' LIMIT 1").first<any>();
+      expect(row.last_error).toContain("gone");
+      expect(await counts(env.DB)).toEqual({ pending: 2, failed: 0 });
+    });
+    it("retries with backoff when Gmail is down", async () => {
+      await saveState(env.DB, STATE);
+      await paidBooking("bk4", "cs_bk4");
+      const g = new FakeGoogle();
+      g.failNext = "gmail down";
+      expect(await drainOutbox(deps(g, offersConfig()), NOW)).toEqual({ status: "ok", delivered: 1, failed: 1 });
+      expect(await drainOutbox(deps(g, offersConfig()), new Date((NOW_SEC + 120) * 1000))).toEqual({ status: "ok", delivered: 1, failed: 0 });
+      expect(g.sent).toHaveLength(2);
     });
   });
 });
