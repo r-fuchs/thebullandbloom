@@ -63,6 +63,17 @@ interface CheckoutBody {
   delivery?: DeliveryBody;
 }
 
+export interface Customer { name: string; email: string; phone?: string }
+
+/** The customer block every paid form sends (checkout, and /api/book in Plan 7): name ≤120, a real email ≤200, phone ≤40. */
+export function parseCustomer(raw: unknown): { ok: true; customer: Customer } | { ok: false; error: string } {
+  const c = raw as any;
+  if (!c || typeof c.name !== "string" || c.name.trim().length < 1 || c.name.trim().length > 120) return { ok: false, error: "name required" };
+  if (typeof c.email !== "string" || !EMAIL.test(c.email) || c.email.length > 200) return { ok: false, error: "valid email required" };
+  if (c.phone !== undefined && (typeof c.phone !== "string" || c.phone.length > 40)) return { ok: false, error: "phone too long" };
+  return { ok: true, customer: { name: c.name.trim(), email: c.email.trim(), phone: c.phone?.trim() || undefined } };
+}
+
 function parseCheckout(raw: unknown): { ok: true; body: CheckoutBody } | { ok: false; error: string } {
   const b = raw as any;
   if (!b || typeof b !== "object") return { ok: false, error: "body must be an object" };
@@ -71,10 +82,8 @@ function parseCheckout(raw: unknown): { ok: true; body: CheckoutBody } | { ok: f
   if (b.fulfillment !== "pickup" && b.fulfillment !== "delivery") return { ok: false, error: "fulfillment must be pickup or delivery" };
   const presentation: Presentation = b.presentation === undefined ? "hand-tied" : b.presentation;
   if (presentation !== "hand-tied" && presentation !== "vase") return { ok: false, error: "presentation must be hand-tied or vase" };
-  const c = b.customer;
-  if (!c || typeof c.name !== "string" || c.name.trim().length < 1 || c.name.trim().length > 120) return { ok: false, error: "name required" };
-  if (typeof c.email !== "string" || !EMAIL.test(c.email) || c.email.length > 200) return { ok: false, error: "valid email required" };
-  if (c.phone !== undefined && (typeof c.phone !== "string" || c.phone.length > 40)) return { ok: false, error: "phone too long" };
+  const cust = parseCustomer(b.customer);
+  if (!cust.ok) return cust;
   if (b.note !== undefined && (typeof b.note !== "string" || b.note.length > 500)) return { ok: false, error: "note must be 500 characters or fewer" };
 
   let delivery: DeliveryBody | undefined;
@@ -86,13 +95,13 @@ function parseCheckout(raw: unknown): { ok: true; body: CheckoutBody } | { ok: f
     if (!addr.ok) return { ok: false, error: addr.error };
     if (d.notes !== undefined && (typeof d.notes !== "string" || d.notes.length > 280)) return { ok: false, error: "delivery instructions must be 280 characters or fewer" };
     // Uber needs a number the courier can call; Plan 1 left the phone optional for pickup.
-    if (normalizePhone(c.phone) === null) return { ok: false, error: "a phone number we can dial is required for delivery" };
+    if (normalizePhone(cust.customer.phone) === null) return { ok: false, error: "a phone number we can dial is required for delivery" };
     delivery = { address: addr.address, notes: d.notes?.trim() || undefined, quoteToken: d.quoteToken };
   }
 
   return { ok: true, body: {
     sizeId: b.sizeId, date: b.date, fulfillment: b.fulfillment, presentation,
-    customer: { name: c.name.trim(), email: c.email.trim(), phone: c.phone?.trim() || undefined },
+    customer: cust.customer,
     note: b.note?.trim() || undefined, delivery } };
 }
 

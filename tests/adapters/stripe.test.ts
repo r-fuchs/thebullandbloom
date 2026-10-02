@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { checkoutParams, subscriptionParams, toWebhookEvent } from "../../src/adapters/stripe";
+import { loadConfig } from "../../src/config";
 
 describe("toWebhookEvent", () => {
   it("maps completed sessions, with the tax Stripe collected and any promotion-code discount", () => {
@@ -62,6 +63,15 @@ describe("checkoutParams (Stripe Tax, D37; promotion codes, D40)", () => {
     expect(p.line_items![1].price_data!.unit_amount).toBe(2000);
     expect(p.metadata).toEqual({ order_id: "o1" });
     expect(p.expires_at).toBe(1_800_000_000);
+  });
+  it("maps the workshop category to the general tangible goods code (Plan 7 §3.6)", () => {
+    const p = checkoutParams({
+      orderId: "b1", customerEmail: "pat@example.com", customerName: "Pat", taxAddress: loadConfig().studio.address,
+      lineItems: [{ name: "Wreath & Sip — Sat Nov 7, 6 pm", amountCents: 8500, quantity: 1, taxCategory: "workshop" }],
+      successUrl: "https://x.test/thanks", cancelUrl: "https://x.test/offers/w", expiresAt: 1,
+    }, "cus_1");
+    expect(p.line_items![0].price_data!.product_data!.tax_code).toBe("txcd_99999999");
+    expect(p.line_items![0].price_data!.tax_behavior).toBe("exclusive");
   });
   it("subscription sessions get tax and promotion codes too", () => {
     const p = subscriptionParams({ customerEmail: "pat@example.com", productName: "Bouquet · every week", amountCents: 29000, metadata: { cell: "bouquet/weekly" }, successUrl: "https://x/ok", cancelUrl: "https://x/no" });

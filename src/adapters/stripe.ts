@@ -8,8 +8,9 @@ function stringMap(m: unknown): Record<string, string> {
 }
 const idOf = (x: any): string => (typeof x === "string" ? x : x?.id ?? "");
 
-/** Stripe Tax codes. No floral-specific code exists; shipping lets Stripe apply NY's taxable-delivery rule. */
-const TAX_CODES: Record<TaxCategory, string> = { flowers: "txcd_99999999", vase: "txcd_99999999", delivery: "txcd_92010001" };
+/** Stripe Tax codes. No floral-specific code exists; shipping lets Stripe apply NY's taxable-delivery rule.
+ *  A class seat leaves with a wreath, so it is general tangible goods too (Plan 7 §3.6). */
+const TAX_CODES: Record<TaxCategory, string> = { flowers: "txcd_99999999", vase: "txcd_99999999", delivery: "txcd_92010001", workshop: "txcd_99999999" };
 
 export function checkoutParams(input: CheckoutInput, customerId: string): Stripe.Checkout.SessionCreateParams {
   return {
