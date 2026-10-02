@@ -198,7 +198,7 @@ describe("drainOutbox", () => {
       expect(customer.text).toContain("Refreshments will be provided.");
       expect(customer.text).toContain(cfg.studio.address.street);
       const owner = g.sent.find((m) => m.to === cfg.studio.ownerEmail)!;
-      expect(owner.subject).toBe("Jane Doe booked Wreath & Sip, Sat Sep 12 — 2 of 2 seats");
+      expect(owner.subject).toBe("Jane Doe booked Wreath & Sip, Sat Sep 12 · 2 of 2 seats");
       expect(owner.text).toContain("518-555-0100");
       expect(await counts(env.DB)).toEqual({ pending: 0, failed: 0 });
       expect(await drainOutbox(deps(g, offersConfig()), NOW)).toEqual({ status: "ok", delivered: 0, failed: 0 });

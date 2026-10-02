@@ -74,7 +74,7 @@ describe("worker", () => {
 
   it("thanks page carries the booking variant and fires Purchase only through the pixel loader (Plan 7 §3.4, §3.9)", async () => {
     const body = await (await SELF.fetch("https://example.com/thanks")).text();
-    expect(body).toContain("Your seat is saved. The details, including where to come, are in the email on its way to you.");
+    expect(body).toContain("Your seat is booked. The address and the details are in the email on its way to you.");
     expect(body).toContain("[?&]booking=");
     expect(body).toContain("fbq('track', 'Purchase'");
     expect(body).toContain("currency: 'USD'");

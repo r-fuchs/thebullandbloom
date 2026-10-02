@@ -22,18 +22,14 @@ export function bookingConfirmedEmail(booking: Booking, offer: Offer, session: O
   const lines = [
     `Hi ${firstNameOf(booking.customerName)},`,
     "",
-    `Your seat is saved for ${offer.name} on ${longDate(session.date)} at ${humanTime(session.start)}.${length ? ` Plan on about ${length}.` : ""}`,
+    `Thank you. Your seat at ${offer.name} is booked for ${longDate(session.date)} at ${humanTime(session.start)}.${length ? ` The class runs about ${length}.` : ""}`,
     "",
     "Where: Anthony's home studio",
     formatAddress(cfg.studio.address),
     "",
-    "Everything you need is provided, and what you make goes home with you.",
-    "Refreshments will be provided.",
+    "Everything is included, and you take home what you make. Refreshments will be provided.",
     "",
-    "Can't make it? Email or call Anthony as soon as you know.",
-    "",
-    `Questions? Reply to this email or call ${prettyPhone(cfg.studio.phone)}.`,
-    cfg.studio.ownerEmail,
+    `Questions or a change of plans? Just reply to this email, or call ${prettyPhone(cfg.studio.phone)}.`,
     "",
     "Anthony",
     "The Bull and Bloom",
@@ -55,7 +51,7 @@ export function ownerBookingEmail(booking: Booking, offer: Offer, session: Offer
   lines.push("", `Booking ${booking.id.slice(0, 8)} · paid online`, `${siteUrl}/admin/`);
   return {
     to: cfg.studio.ownerEmail,
-    subject: `${booking.customerName} booked ${offer.name}, ${humanDate(session.date)} — ${taken} of ${session.seats} seats`,
+    subject: `${booking.customerName} booked ${offer.name}, ${humanDate(session.date)} · ${taken} of ${session.seats} seats`,
     text: lines.join("\n"),
   };
 }

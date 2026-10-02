@@ -103,7 +103,7 @@
         if (r.ok) { window.location.href = r.body.url; return; }
         btn.disabled = false;
         var err = r.body && r.body.error;
-        if (err === 'sold_out') { status.textContent = 'That date just filled up — pick another.'; load(); }
+        if (err === 'sold_out') { status.textContent = 'That date just filled up. Pick another.'; load(); }
         else if (err === 'closed') { status.textContent = 'Bookings for that date have closed. Pick another.'; load(); }
         else if (err === 'disabled') { showUnavailable(); }
         else if (r.status === 503) { status.textContent = 'Payments are down, try again in a minute.'; }

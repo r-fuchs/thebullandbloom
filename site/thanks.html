@@ -26,7 +26,7 @@
         return;
       }
       if (!booking) return;
-      msg.textContent = "Your seat is saved. The details, including where to come, are in the email on its way to you.";
+      msg.textContent = "Your seat is booked. The address and the details are in the email on its way to you.";
       // D51: the Meta Pixel loads on this page only for a class booking, and only with an id. Nothing here affects the booking.
       fetch('/api/offers').then(function (r) { return r.json(); }).then(function (data) {
         var id = data.marketing && data.marketing.metaPixelId;

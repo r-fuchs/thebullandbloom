@@ -22,26 +22,25 @@ describe("booking messages (D50: home studio named, refreshments promised, nothi
     expect(m.to).toBe("jane@example.com");
     expect(m.subject).toBe("Your seat at Wreath & Sip");
     expect(m.text).toContain("Hi Jane,");
-    expect(m.text).toContain("Your seat is saved for Wreath & Sip on Saturday, September 12 at 6 pm. Plan on about 2 hours.");
+    expect(m.text).toContain("Thank you. Your seat at Wreath & Sip is booked for Saturday, September 12 at 6 pm. The class runs about 2 hours.");
     expect(m.text).toContain("Where: Anthony's home studio");
     expect(m.text).toContain(`${cfg.studio.address.street}, ${cfg.studio.address.city}, ${cfg.studio.address.state} ${cfg.studio.address.zip}`);
-    expect(m.text).toContain("Everything you need is provided, and what you make goes home with you.");
+    expect(m.text).toContain("Everything is included, and you take home what you make.");
     expect(m.text).toContain("Refreshments will be provided.");
-    expect(m.text).toContain("Can't make it? Email or call Anthony as soon as you know.");
+    expect(m.text).toContain("Questions or a change of plans? Just reply to this email, or call");
     expect(m.text).toContain(`${prettyPhone(cfg.studio.phone)}`);
-    expect(m.text).toContain(cfg.studio.ownerEmail);
     expect(m.text).not.toMatch(/wine|beer|cocktail|bring/i);
     expect(m.text.trim().endsWith("Anthony\nThe Bull and Bloom\nthebullandbloom.com")).toBe(true);
   });
   it("customer email leaves out the length when the offer has none", () => {
     const m = bookingConfirmedEmail(booking, { ...WREATH, durationMinutes: 0 }, session, cfg);
     expect(m.text).toContain("at 6 pm.\n");
-    expect(m.text).not.toContain("Plan on");
+    expect(m.text).not.toContain("The class runs");
   });
   it("owner email names who booked, the date and the headcount, with contact and note", () => {
     const m = ownerBookingEmail(booking, WREATH, session, cfg, 5, "https://x.test");
     expect(m.to).toBe(cfg.studio.ownerEmail);
-    expect(m.subject).toBe("Jane Doe booked Wreath & Sip, Sat Sep 12 — 5 of 2 seats");
+    expect(m.subject).toBe("Jane Doe booked Wreath & Sip, Sat Sep 12 · 5 of 2 seats");
     expect(m.text).toContain("jane@example.com · 518-555-0100");
     expect(m.text).toContain("Note: first wreath");
     expect(m.text).toContain("Sat Sep 12, 6 pm · 5 of 2 seats taken");
