@@ -46,7 +46,15 @@ Waiting for your word before anything dispatches.
 
 ## Stage 2: dispatch
 
-(filled in after the word)
+Ryan approved all six recommendations ("That works for me", 2026-10-02). Sprint branch
+`sprint/2026-10-02` from origin/main @ 563c26d, worktree `.worktrees/sprint-2026-10-02`.
+Spec: `docs/superpowers/specs/2026-10-02-mail-sender-design.md` (commit bef93f5), written in the main session.
+
+- Lane A `lane/mailer` (#1): sonnet, worktree isolation, dispatched 2026-10-02 after the spec landed.
+- Lane B `lane/alerts` (#2 #3): sonnet, dispatched after lane A lands (shared wiring files).
+
+Ryan's rollout steps (spec §5) run in parallel with the lanes: Resend account + domain + key, Email
+Routing destinations.
 
 ## Landed
 
