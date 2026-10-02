@@ -54,17 +54,28 @@ describe("worker", () => {
       const body = await r.text();
       expect(body).toContain('id="book-form"');
       expect(body).toContain("Reserve my seat");
-      expect(body).toContain("Refreshments will be provided.");
+      expect(body).toContain("Refreshments will be provided");
       expect(body).toContain("Hosted at Anthony's home studio in Albany. The address comes with your confirmation.");
       expect(body).toContain('src="offer.js"');
       expect(body).toContain('id="load-status"');
       expect(body).not.toContain("40 Manning");
+      // the conversion pass: a call to action up top, what's included, the teacher, a cancellation line, a seats picker
+      expect(body).toContain('<a class="btn btn-small" href="#booking">Pick a date</a>');
+      expect(body).toContain('<ul class="included">');
+      expect(body).toContain("no experience is needed");
+      expect(body).toContain('src="/assets/anthony.jpg"');
+      expect(body).toContain("Anthony Demonia is the floral designer behind The Bull and Bloom.");
+      expect(body).toContain('href="https://instagram.com/thebullandbloom"');
+      expect(body).toContain("at least 48 hours before and we'll move you to another date or refund you.");
+      expect(body).toContain('<select name="seats" id="seats">');
     }
     const offerJs = await SELF.fetch("https://example.com/offers/offer.js");
     expect(offerJs.status).toBe(200);
     const offerJsText = await offerJs.text();
     expect(offerJsText).toContain("'autoConfig', false");
     expect(offerJsText).toContain("onerror");
+    expect(offerJsText).toContain("seats: chosenSeats()");
+    expect(offerJsText).toContain("Only ' + left");
   });
 
   it("renders share tags for a live offer so a Facebook or iMessage preview shows the class, and leaves unknown slugs plain", async () => {
@@ -111,8 +122,10 @@ describe("worker", () => {
 
   it("thanks page carries the booking variant and fires Purchase only through the pixel loader (Plan 7 §3.4, §3.9)", async () => {
     const body = await (await SELF.fetch("https://example.com/thanks")).text();
-    expect(body).toContain("Your seat is booked. The address and the details are in the email on its way to you.");
+    expect(body).toContain('"Your seat is booked.") + " The address and the details are in the email on its way to you."');
     expect(body).toContain("[?&]booking=");
+    expect(body).toContain("[?&]seats=");
+    expect(body).toContain("value: offer.priceCents * seats / 100");
     expect(body).toContain("fbq('track', 'Purchase'");
     expect(body).toContain("currency: 'USD'");
     expect(body).toContain("'autoConfig', false");

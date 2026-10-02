@@ -20,13 +20,14 @@
   <script>
     (function () {
       var q = location.search, msg = document.getElementById('msg');
-      var booking = /[?&]booking=([^&]+)/.exec(q), offerId = /[?&]offer=([^&]+)/.exec(q);
+      var booking = /[?&]booking=([^&]+)/.exec(q), offerId = /[?&]offer=([^&]+)/.exec(q), seatsM = /[?&]seats=(\d+)/.exec(q);
+      var seats = seatsM ? Math.max(1, parseInt(seatsM[1], 10)) : 1;
       if (/[?&]subscription=1/.test(q)) {
         msg.textContent = "Your subscription is set. Your first bouquet's date, and the link to cancel or change your card, are in the email on its way to you.";
         return;
       }
       if (!booking) return;
-      msg.textContent = "Your seat is booked. The address and the details are in the email on its way to you.";
+      msg.textContent = (seats > 1 ? "Your " + seats + " seats are booked." : "Your seat is booked.") + " The address and the details are in the email on its way to you.";
       // D51: the Meta Pixel loads on this page only for a class booking, and only with an id. Nothing here affects the booking.
       fetch('/api/offers').then(function (r) { return r.json(); }).then(function (data) {
         var id = data.marketing && data.marketing.metaPixelId;
@@ -41,7 +42,7 @@
         var key = 'bb.purchase.' + booking[1], seen = false;
         try { seen = !!window.sessionStorage.getItem(key); } catch (e) {}
         if (!seen) {
-          window.fbq('track', 'Purchase', { value: offer.priceCents / 100, currency: 'USD' });
+          window.fbq('track', 'Purchase', { value: offer.priceCents * seats / 100, currency: 'USD', num_items: seats });
           try { window.sessionStorage.setItem(key, '1'); } catch (e) {}
         }
       }).catch(function () {});
