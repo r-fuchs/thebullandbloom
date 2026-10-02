@@ -28,7 +28,7 @@ describe("runScheduled", () => {
       blackouts: { status: "skipped" },
       subscriptions: { status: "ok", created: 0, skippedWeeks: 0 },
       instagram: { status: "skipped" },
-      outbox: { status: "skipped", delivered: 0, failed: 0 },
+      outbox: { status: "ok", delivered: 0, failed: 0, waiting: 0 },
     });
     const s = await env.DB.prepare("SELECT id, status FROM orders WHERE id IN ('s1','s2') ORDER BY id").all<any>();
     expect(s.results).toEqual([{ id: "s1", status: "cancelled" }, { id: "s2", status: "held" }]);
@@ -45,7 +45,7 @@ describe("runScheduled", () => {
     expect(r.expiredHolds).toBe(0);
     expect(r.expiredBookingHolds).toBe(0);
     expect(r.blackouts).toEqual({ status: "error", error: "listEvents exploded" });
-    expect(r.outbox).toEqual({ status: "ok", delivered: 0, failed: 0 });
+    expect(r.outbox).toEqual({ status: "ok", delivered: 0, failed: 0, waiting: 0 });
     const r2 = await runScheduled(env, services, new Date("2026-09-08T14:15:00Z"));
     expect(r2.blackouts).toEqual({ status: "ok", added: 1, removed: 0, closed: 1 });
   });

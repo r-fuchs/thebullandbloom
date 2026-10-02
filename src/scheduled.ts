@@ -22,7 +22,7 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 /** Every 15 minutes (wrangler.toml). Each job is isolated so one failure never blocks the others. */
 export async function runScheduled(env: Env, services: Services, now: Date): Promise<ScheduledReport> {
   const nowSec = Math.floor(now.getTime() / 1000);
-  const { google, payments, instagram, config } = services;
+  const { google, mailer, alerts, payments, instagram, config } = services;
 
   let expiredHolds: ScheduledReport["expiredHolds"];
   try { expiredHolds = await expireHolds(env.DB, nowSec); }
@@ -47,7 +47,7 @@ export async function runScheduled(env: Env, services: Services, now: Date): Pro
   catch (e) { console.error("scheduled: refreshFeed threw", e); instagramRes = { status: "error", error: msg(e) }; }
 
   let outbox: ScheduledReport["outbox"];
-  try { outbox = await drainOutbox({ db: env.DB, google, payments, config, siteUrl: env.SITE_URL }, now); }
+  try { outbox = await drainOutbox({ db: env.DB, google, mailer, alerts, payments, config, siteUrl: env.SITE_URL }, now); }
   catch (e) { console.error("scheduled: drainOutbox threw", e); outbox = { status: "error", error: msg(e) }; }
 
   return { expiredHolds, expiredBookingHolds, blackouts, subscriptions, instagram: instagramRes, outbox };

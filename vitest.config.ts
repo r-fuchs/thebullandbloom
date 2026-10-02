@@ -21,6 +21,7 @@ export default defineConfig(async () => {
             CF_ACCESS_TEAM_DOMAIN: "test.cloudflareaccess.com",
             CF_ACCESS_AUD: "test-aud",
             ADMIN_SECRET: "test-secret",
+            RESEND_API_KEY: "re_test",
             GOOGLE_CLIENT_ID: "test-client-id",
             GOOGLE_CLIENT_SECRET: "test-client-secret",
             INSTAGRAM_APP_ID: "ig-app-id",

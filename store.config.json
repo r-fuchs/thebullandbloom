@@ -1,5 +1,6 @@
 {
   "timezone": "America/New_York",
+  "mail": { "from": "The Bull and Bloom <orders@thebullandbloom.com>", "replyTo": "thebullandbloom@gmail.com" },
   "studio": {
     "pickupAddress": "40 Manning Blvd, Albany, NY 12203",
     "pickupInstructions": "Text Anthony directly at (518) 334-0517 to coordinate your pickup.",

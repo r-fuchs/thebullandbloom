@@ -1,4 +1,6 @@
 import type { Google } from "../adapters/google";
+import type { Alerts } from "../adapters/alerts";
+import type { Mail, Mailer } from "../adapters/mailer";
 import { offerById, type StoreConfig } from "../config";
 import { bookingConfirmedEmail, ownerBookingEmail } from "../core/booking-messages";
 import { countTaken, getBooking } from "../store/bookings";
@@ -10,15 +12,16 @@ import { loadState, type GoogleState } from "../store/google";
 import { getOrder, setCalendarEventId, type Order } from "../store/orders";
 import { backoff, claimItem, CLAIM_LEASE_SECONDS, dueItems, isBookingKind, isSubscriberKind, KNOWN_KINDS, markDone, markFailed, type OutboxItem } from "../store/outbox";
 
-export interface OutboxDeps { db: D1Database; google: Google; payments: Payments; config: StoreConfig; siteUrl: string }
-export interface DrainResult { status: "skipped" | "ok"; delivered: number; failed: number }
+export interface OutboxDeps { db: D1Database; google: Google; mailer: Mailer; alerts: Alerts; payments: Payments; config: StoreConfig; siteUrl: string }
+/** `waiting` counts due rows left untouched because their channel (Google for calendar rows, the mailer for mail rows) is not set up. */
+export interface DrainResult { status: "ok"; delivered: number; failed: number; waiting: number }
 
 /** Deliver every due outbox row once. Failures are rescheduled with backoff; nothing here throws. */
 export async function drainOutbox(deps: OutboxDeps, now: Date): Promise<DrainResult> {
   const state = await loadState(deps.db);
-  if (!state) return { status: "skipped", delivered: 0, failed: 0 };
+  const mailReady = deps.mailer.configured();
   const nowSec = Math.floor(now.getTime() / 1000);
-  let delivered = 0, failed = 0;
+  let delivered = 0, failed = 0, waiting = 0;
   for (const item of await dueItems(deps.db, nowSec)) {
     // Claim the row before delivering: an overlapping drain (webhook + cron, or two
     // near-simultaneous checkouts) racing on the same SELECT must not both send.
@@ -27,6 +30,9 @@ export async function drainOutbox(deps: OutboxDeps, now: Date): Promise<DrainRes
     // A kind this build does not know (written by other code against the same database) is left
     // exactly as it is for whichever build owns it; marking it done would silently lose a message.
     if (!KNOWN_KINDS.includes(item.kind)) { console.error(`outbox: leaving unknown kind ${item.kind} (${item.id}) alone`); continue; }
+    // Each channel waits on its own: calendar rows need a Google connection, mail rows need the mailer.
+    // A row that waits is left unclaimed with no attempt counted.
+    if (item.kind === "calendar_event" ? !state : !mailReady) { waiting++; continue; }
     if (!(await claimItem(deps.db, item.id, item.nextAttemptAt, nowSec + CLAIM_LEASE_SECONDS))) continue;
 
     let sent: boolean;
@@ -54,11 +60,11 @@ export async function drainOutbox(deps: OutboxDeps, now: Date): Promise<DrainRes
     }
     if (sent) delivered++;
   }
-  return { status: "ok", delivered, failed };
+  return { status: "ok", delivered, failed, waiting };
 }
 
 /** Returns whether the item was actually delivered (false when dropped because the order no longer qualifies). */
-async function deliver(deps: OutboxDeps, state: GoogleState, item: OutboxItem): Promise<boolean> {
+async function deliver(deps: OutboxDeps, state: GoogleState | null, item: OutboxItem): Promise<boolean> {
   if (isBookingKind(item.kind)) return deliverBooking(deps, item);
   if (isSubscriberKind(item.kind)) return deliverSubscriber(deps, item);
   const order = await getOrder(deps.db, item.orderId);
@@ -67,9 +73,9 @@ async function deliver(deps: OutboxDeps, state: GoogleState, item: OutboxItem): 
     return false;
   }
   switch (item.kind) {
-    case "calendar_event": await calendarEvent(deps, state, order); return true;
-    case "email_customer": await deps.google.sendMail(customerEmail(order, deps.config)); return true;
-    case "email_owner": await deps.google.sendMail(ownerEmail(order, deps.config, deps.siteUrl)); return true;
+    case "calendar_event": await calendarEvent(deps, state!, order); return true;
+    case "email_customer": await deps.mailer.send(customerEmail(order, deps.config)); return true;
+    case "email_owner": await sendOwner(deps, ownerEmail(order, deps.config, deps.siteUrl)); return true;
     case "courier_email": {
       // The tracking link belongs to a live courier job. If the job was canceled between the
       // dispatch and this drain, there is nothing worth telling the customer to follow.
@@ -78,7 +84,7 @@ async function deliver(deps: OutboxDeps, state: GoogleState, item: OutboxItem): 
         console.error(`outbox: order ${order.id} has no live delivery; dropping courier_email`);
         return false;
       }
-      await deps.google.sendMail(courierEmail(order, deps.config, delivery.trackingUrl));
+      await deps.mailer.send(courierEmail(order, deps.config, delivery.trackingUrl));
       return true;
     }
     default: console.error(`outbox: unknown order kind ${item.kind}`); return false;
@@ -93,12 +99,12 @@ async function deliverSubscriber(deps: OutboxDeps, item: OutboxItem): Promise<bo
     case "sub_confirmed_customer": {
       if (sub.status === "cancelled") return false;
       const portal = await deps.payments.portalLink(sub.stripeCustomerId, `${deps.siteUrl}/`);
-      await deps.google.sendMail(subscriptionConfirmedEmail(sub, deps.config, portal));
+      await deps.mailer.send(subscriptionConfirmedEmail(sub, deps.config, portal));
       return true;
     }
-    case "sub_confirmed_owner": await deps.google.sendMail(ownerSubscriptionEmail(sub, deps.config, deps.siteUrl, "started")); return true;
-    case "sub_cancelled_customer": await deps.google.sendMail(subscriptionCancelledEmail(sub, deps.config)); return true;
-    case "sub_cancelled_owner": await deps.google.sendMail(ownerSubscriptionEmail(sub, deps.config, deps.siteUrl, "cancelled")); return true;
+    case "sub_confirmed_owner": await sendOwner(deps, ownerSubscriptionEmail(sub, deps.config, deps.siteUrl, "started")); return true;
+    case "sub_cancelled_customer": await deps.mailer.send(subscriptionCancelledEmail(sub, deps.config)); return true;
+    case "sub_cancelled_owner": await sendOwner(deps, ownerSubscriptionEmail(sub, deps.config, deps.siteUrl, "cancelled")); return true;
     default: console.error(`outbox: unknown subscriber kind ${item.kind}`); return false;
   }
 }
@@ -116,13 +122,30 @@ async function deliverBooking(deps: OutboxDeps, item: OutboxItem): Promise<boole
   // show as failed in admin) rather than silently dropping the customer's confirmation.
   if (!offer || !session) throw new Error(`booking ${booking.id}: offer ${booking.offerId} session ${booking.sessionId} is not in config`);
   switch (item.kind) {
-    case "booking_confirmed_customer": await deps.google.sendMail(bookingConfirmedEmail(booking, offer, session, deps.config)); return true;
+    case "booking_confirmed_customer": await deps.mailer.send(bookingConfirmedEmail(booking, offer, session, deps.config)); return true;
     case "booking_confirmed_owner": {
       const taken = (await countTaken(deps.db, offer.id)).get(session.id) ?? 0;
-      await deps.google.sendMail(ownerBookingEmail(booking, offer, session, deps.config, taken, deps.siteUrl));
+      await sendOwner(deps, ownerBookingEmail(booking, offer, session, deps.config, taken, deps.siteUrl));
       return true;
     }
     default: console.error(`outbox: unknown booking kind ${item.kind}`); return false;
+  }
+}
+
+/**
+ * D58: an owner email the provider rejects is also sent, shortened, on the alert channel so Anthony
+ * hears about the order either way. Best-effort; the original error is rethrown so the row retries.
+ */
+async function sendOwner(deps: OutboxDeps, mail: Mail): Promise<void> {
+  try {
+    await deps.mailer.send(mail);
+  } catch (e) {
+    try {
+      await deps.alerts.notify(mail.subject, mail.text.split("\n").slice(0, 8).join("\n"));
+    } catch (e2) {
+      console.error("outbox: owner alert failed", e2);
+    }
+    throw e;
   }
 }
 

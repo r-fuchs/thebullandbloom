@@ -27,6 +27,8 @@ export interface Offer {
 export interface Marketing { metaPixelId: string }
 export interface StoreConfig {
   timezone: string;
+  /** D55/D60: sender and reply-to for every email the store sends */
+  mail: { from: string; replyTo: string };
   studio: {
     pickupAddress: string; pickupInstructions: string; ownerEmail: string;
     /** studio-local HH:MM the bouquets are ready for a courier (spec §7) */
@@ -109,7 +111,12 @@ function validateMarketing(m: unknown): void {
   if (typeof id !== "string" || (id !== "" && !/^\d+$/.test(id))) throw new Error("config: marketing.metaPixelId must be a string of digits, or empty");
 }
 
+const EMAIL = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
+const NAMED_EMAIL = /^[^<>@]+<[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+>$/;
+
 export function validateConfig(cfg: StoreConfig): StoreConfig {
+  if (typeof cfg.mail?.from !== "string" || !(EMAIL.test(cfg.mail.from) || NAMED_EMAIL.test(cfg.mail.from.trim()))) throw new Error("config: mail.from must be an email address or Name <email>");
+  if (typeof cfg.mail?.replyTo !== "string" || !EMAIL.test(cfg.mail.replyTo)) throw new Error("config: mail.replyTo must be an email address");
   if (!cfg.timezone) throw new Error("config: timezone required");
   if (!HM.test(cfg.defaults.cutoff)) throw new Error("config: defaults.cutoff must be HH:MM");
   if (!Number.isInteger(cfg.defaults.cap) || cfg.defaults.cap < 0) throw new Error("config: defaults.cap must be a non-negative integer");

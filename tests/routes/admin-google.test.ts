@@ -21,11 +21,12 @@ describe("admin google", () => {
   });
 
   it("reports not connected, then connects through start → callback and creates both calendars", async () => {
-    const { fetch, google } = testApp(NOW);
+    const { fetch, google, mailer } = testApp(NOW);
     const api = asAdmin(fetch);
     expect(await (await api("/admin/api/google/status")).json()).toEqual({
       configured: true, connected: false, account: null, calendars: null, connectedAt: null,
       lastSyncAt: null, lastSyncError: null, outbox: { pending: 0, failed: 0 },
+      mail: { configured: true, from: "The Bull and Bloom <orders@thebullandbloom.com>" },
     });
 
     const start = await api("/admin/api/google/start");
@@ -54,14 +55,14 @@ describe("admin google", () => {
       `INSERT OR REPLACE INTO orders (id, created_at, status, date, size_id, fulfillment, customer_name, customer_email, bouquet_cents, stripe_session_id)
        VALUES ('ag2', 1, 'paid', '2026-09-29', 'bouquet', 'pickup', 'Ryan', 'ryan@example.com', 8500, 'cs_ag2')`).run();
     await env.DB.batch(enqueueForSessionStatements(env.DB, "cs_ag2", ORDER_PAID_KINDS, 1));
-    const { fetch, google } = testApp(NOW);
+    const { fetch, google, mailer } = testApp(NOW);
     const api = asAdmin(fetch);
     expect((await (await api("/admin/api/google/status")).json() as any).outbox).toEqual({ pending: 3, failed: 0 });
     const state = new URL((await api("/admin/api/google/start")).headers.get("location")!).searchParams.get("state")!;
     const cb = await fetch(`/admin/google/callback?code=good-code&state=${encodeURIComponent(state)}`, { redirect: "manual" });
     expect(cb.headers.get("location")).toBe("/admin/?google=connected");
     expect(await counts(env.DB)).toEqual({ pending: 0, failed: 0 });
-    expect(google.sent).toHaveLength(2);
+    expect(mailer.sent).toHaveLength(2);
     expect(google.inserted).toEqual([expect.objectContaining({ calendarId: "cal_2" })]);
   });
 
@@ -88,7 +89,7 @@ describe("admin google", () => {
   });
 
   it("clears a saved connection when calendar creation fails after the exchange", async () => {
-    const { fetch, google } = testApp(NOW);
+    const { fetch, google, mailer } = testApp(NOW);
     const api = asAdmin(fetch);
     const state = new URL((await api("/admin/api/google/start")).headers.get("location")!).searchParams.get("state")!;
     let calls = 0;
@@ -101,7 +102,7 @@ describe("admin google", () => {
   });
 
   it("returns 503 from start when the client is not configured", async () => {
-    const { fetch, google } = testApp(NOW);
+    const { fetch, google, mailer } = testApp(NOW);
     google.isConfigured = false;
     const api = asAdmin(fetch);
     expect((await api("/admin/api/google/start")).status).toBe(503);
@@ -119,7 +120,7 @@ describe("admin google", () => {
   it("syncs on demand, disconnects, and retries failed outbox rows", async () => {
     await saveConnection(env.DB, env.ADMIN_SECRET, { refreshToken: "rt", account: "a@b.c" });
     await saveState(env.DB, { account: "a@b.c", closedCalendarId: "cal_closed", ordersCalendarId: "cal_orders", connectedAt: 1 });
-    const { fetch, google } = testApp(NOW);
+    const { fetch, google, mailer } = testApp(NOW);
     const api = asAdmin(fetch);
     google.events["cal_closed"] = [{ id: "v", start: { date: "2026-09-21" }, end: { date: "2026-09-22" } }];
     expect(await (await api("/admin/api/google/sync", { method: "POST" })).json()).toEqual({ status: "ok", added: 1, removed: 0, closed: 1 });
@@ -131,9 +132,9 @@ describe("admin google", () => {
     await env.DB.batch(enqueueForSessionStatements(env.DB, "cs_ag1", ORDER_PAID_KINDS, 1));
     await env.DB.prepare("UPDATE outbox SET next_attempt_at = NULL, attempts = 24 WHERE order_id = 'ag1'").run();
     expect((await (await api("/admin/api/google/status")).json() as any).outbox).toEqual({ pending: 0, failed: 3 });
-    expect(await (await api("/admin/api/google/retry", { method: "POST" })).json()).toEqual({ retried: 3, drain: { status: "ok", delivered: 3, failed: 0 } });
+    expect(await (await api("/admin/api/google/retry", { method: "POST" })).json()).toEqual({ retried: 3, drain: { status: "ok", delivered: 3, failed: 0, waiting: 0 } });
     expect(await counts(env.DB)).toEqual({ pending: 0, failed: 0 });
-    expect(google.sent).toHaveLength(2);
+    expect(mailer.sent).toHaveLength(2);
 
     await env.DB.prepare("INSERT OR REPLACE INTO day_overrides (date, source, cap, closed) VALUES ('2026-09-22', 'admin', NULL, 1)").run();
 

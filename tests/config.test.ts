@@ -9,6 +9,15 @@ describe("config", () => {
     expect(sizeById(cfg, cfg.sizes[0].id)?.id).toBe(cfg.sizes[0].id);
     expect(sizeById(cfg, "nope")).toBeUndefined();
   });
+  it("carries the mail addresses and rejects bad ones", () => {
+    const base = loadConfig();
+    expect(base.mail).toEqual({ from: "The Bull and Bloom <orders@thebullandbloom.com>", replyTo: "thebullandbloom@gmail.com" });
+    expect(() => validateConfig({ ...base, mail: { ...base.mail, from: "orders@thebullandbloom.com" } })).not.toThrow();
+    expect(() => validateConfig({ ...base, mail: { ...base.mail, from: "nope" } })).toThrow(/mail\.from/);
+    expect(() => validateConfig({ ...base, mail: { ...base.mail, from: "Shop <nope>" } })).toThrow(/mail\.from/);
+    expect(() => validateConfig({ ...base, mail: { ...base.mail, replyTo: "The Shop <a@b.co>" } })).toThrow(/mail\.replyTo/);
+    expect(() => validateConfig({ ...base, mail: undefined as never })).toThrow(/mail\.from/);
+  });
   it("rejects bad cutoff", () => {
     const cfg = { ...loadConfig(), defaults: { cap: 1, cutoff: "25:00", openWeekdays: [1] } };
     expect(() => validateConfig(cfg)).toThrow(/cutoff/);

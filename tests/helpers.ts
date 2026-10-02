@@ -3,6 +3,8 @@ import { buildApp } from "../src/app";
 import { loadConfig, type Offer, type StoreConfig } from "../src/config";
 import type { Payments, SubscriptionCheckoutInput, WebhookEvent } from "../src/adapters/payments";
 import { FakeGoogle } from "./fakes/google";
+import { FakeMailer } from "./fakes/mailer";
+import { FakeAlerts } from "./fakes/alerts";
 import { FakeInstagram } from "./fakes/instagram";
 import { FakeUber } from "./fakes/uber";
 import { FakeAccess } from "./fakes/access";
@@ -77,23 +79,27 @@ export class RecordingPayments implements Payments {
 export function testApp(now = new Date("2026-09-08T14:00:00Z"), config: StoreConfig = loadConfig()) {
   const payments = new RecordingPayments();
   const google = new FakeGoogle();
+  const mailer = new FakeMailer();
+  const alerts = new FakeAlerts();
   const instagram = new FakeInstagram();
   const uber = new FakeUber();
   const access = new FakeAccess();
-  const app = buildApp({ payments, google, instagram, uber, access, clock: () => now, config });
+  const app = buildApp({ payments, google, mailer, alerts, instagram, uber, access, clock: () => now, config });
   const fetch = (path: string, init?: RequestInit) =>
     app.request(new Request(`https://example.com${path}`, init), undefined, env);
-  return { app, payments, google, instagram, uber, access, fetch };
+  return { app, payments, google, mailer, alerts, instagram, uber, access, fetch };
 }
 
 /** Services object for jobs and runScheduled tests, sharing testApp's fakes. */
 export function testServices(now = new Date("2026-09-08T14:00:00Z"), config: StoreConfig = loadConfig()) {
   const payments = new RecordingPayments();
   const google = new FakeGoogle();
+  const mailer = new FakeMailer();
+  const alerts = new FakeAlerts();
   const instagram = new FakeInstagram();
   const uber = new FakeUber();
   const access = new FakeAccess();
-  return { services: { payments, google, instagram, uber, access, clock: () => now, config }, payments, google, instagram, uber, access };
+  return { services: { payments, google, mailer, alerts, instagram, uber, access, clock: () => now, config }, payments, google, mailer, alerts, instagram, uber, access };
 }
 
 /** A fetch that carries a Cloudflare Access identity the FakeAccess accepts (Plan 6). */

@@ -1,12 +1,10 @@
-import { GoogleNotConnected, type CalendarEvent, type Connection, type Google, type Mail, type NewAllDayEvent } from "./google";
+import { GoogleNotConnected, type CalendarEvent, type Connection, type Google, type NewAllDayEvent } from "./google";
 import type { ConnectionSource } from "../store/google";
 import { addDays } from "../core/time";
 
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const CAL = "https://www.googleapis.com/calendar/v3";
-const GMAIL_SEND = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send";
-const FROM_NAME = "The Bull and Bloom";
 export const SCOPES = [
   "https://www.googleapis.com/auth/calendar",
   "https://www.googleapis.com/auth/gmail.send",
@@ -14,17 +12,8 @@ export const SCOPES = [
   "email",
 ];
 
-const enc = new TextEncoder();
 const dec = new TextDecoder();
 
-function b64(bytes: Uint8Array): string {
-  let s = "";
-  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-  return btoa(s);
-}
-function b64url(bytes: Uint8Array): string {
-  return b64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
 function unb64url(s: string): Uint8Array {
   const b = s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (s.length % 4)) % 4);
   const bin = atob(b);
@@ -32,28 +21,6 @@ function unb64url(s: string): Uint8Array {
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }
-function wrap76(s: string): string {
-  return s.replace(/(.{76})/g, "$1\r\n").replace(/\r\n$/, "");
-}
-function encodeHeader(s: string): string {
-  return /^[\x20-\x7e]*$/.test(s) ? s : `=?utf-8?B?${b64(enc.encode(s))}?=`;
-}
-
-/** RFC 2822 text/plain message, base64url-encoded as Gmail's `raw` field wants it. */
-export function buildRawMessage(fromName: string, fromAddress: string, mail: Mail): string {
-  const lines = [
-    `From: ${encodeHeader(fromName)} <${fromAddress}>`,
-    `To: ${mail.to}`,
-    `Subject: ${encodeHeader(mail.subject)}`,
-    "MIME-Version: 1.0",
-    "Content-Type: text/plain; charset=utf-8",
-    "Content-Transfer-Encoding: base64",
-    "",
-    wrap76(b64(enc.encode(mail.text))),
-  ];
-  return b64url(enc.encode(lines.join("\r\n")));
-}
-
 export function decodeIdTokenEmail(idToken: string): string {
   const parts = idToken.split(".");
   if (parts.length !== 3) throw new Error("google: malformed id_token");
@@ -136,11 +103,6 @@ export class GoogleApi implements Google {
     };
     await this.api("POST", `${CAL}/calendars/${encodeURIComponent(calendarId)}/events`, body, [409]);
     return event.id;
-  }
-
-  async sendMail(mail: Mail): Promise<void> {
-    const { account } = await this.accessToken();
-    await this.api("POST", GMAIL_SEND, { raw: buildRawMessage(FROM_NAME, account, mail) });
   }
 
   private async tokenRequest(params: Record<string, string>): Promise<TokenResponse> {

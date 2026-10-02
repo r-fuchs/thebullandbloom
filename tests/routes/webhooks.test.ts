@@ -60,34 +60,35 @@ describe("POST /webhooks/stripe", () => {
 });
 
 describe("POST /webhooks/stripe → outbox", () => {
-  it("enqueues three deliveries with the paid flip and delivers them when Google is connected", async () => {
+  it("enqueues three deliveries with the paid flip; mail goes out at once and the calendar row waits for Google", async () => {
     await clearConnection(env.DB);
     await env.DB.prepare("DELETE FROM outbox").run();
     await heldOrder("w5", "cs_w5");
-    const { fetch, payments, google } = testApp();
+    const { fetch, payments, google, mailer } = testApp();
     payments.nextEvent = { type: "checkout.session.completed", sessionId: "cs_w5", paymentIntent: "pi_w5", taxCents: 0, discountCents: 0 };
-    // not connected: rows wait, webhook still 200
+    // not connected: mail delivers anyway, the calendar row waits, webhook still 200
     expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "paid" });
-    expect(await counts(env.DB)).toEqual({ pending: 3, failed: 0 });
-    expect(google.sent).toHaveLength(0);
+    expect(await counts(env.DB)).toEqual({ pending: 1, failed: 0 });
+    expect(mailer.sent).toHaveLength(2);
     // connect and let a duplicate webhook through: no new rows, no delivery from the duplicate path
     await saveState(env.DB, { account: "a@b.c", closedCalendarId: "c1", ordersCalendarId: "c2", connectedAt: 1 });
     expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "ignored" });
-    expect(await counts(env.DB)).toEqual({ pending: 3, failed: 0 });
+    expect(await counts(env.DB)).toEqual({ pending: 1, failed: 0 });
+    expect(mailer.sent).toHaveLength(2);
   });
   it("delivers immediately when connected and keeps the webhook 200 when Google fails", async () => {
     await clearConnection(env.DB);
     await env.DB.prepare("DELETE FROM outbox").run();
     await saveState(env.DB, { account: "a@b.c", closedCalendarId: "c1", ordersCalendarId: "c2", connectedAt: 1 });
     await heldOrder("w6", "cs_w6");
-    const { fetch, payments, google } = testApp();
+    const { fetch, payments, google, mailer } = testApp();
     payments.nextEvent = { type: "checkout.session.completed", sessionId: "cs_w6", paymentIntent: "pi_w6", taxCents: 0, discountCents: 0 };
     google.failNext = "calendar down";
     const r = await hook(fetch);
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual({ received: true, applied: "paid" });
     expect(google.inserted).toHaveLength(0);
-    expect(google.sent).toHaveLength(2);
+    expect(mailer.sent).toHaveLength(2);
     expect(await counts(env.DB)).toEqual({ pending: 1, failed: 0 });
     const row = await env.DB.prepare("SELECT status FROM orders WHERE id = 'w6'").first<any>();
     expect(row.status).toBe("paid");

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { GoogleApi, buildRawMessage, decodeIdTokenEmail } from "../../src/adapters/google-api";
+import { GoogleApi, decodeIdTokenEmail } from "../../src/adapters/google-api";
 import { GoogleNotConnected } from "../../src/adapters/google";
 
 type Canned = { status: number; body: unknown };
@@ -64,7 +64,7 @@ describe("GoogleApi", () => {
 
   it("throws GoogleNotConnected before any network call when there is no connection", async () => {
     const { fn, calls } = fakeFetch([]);
-    await expect(new GoogleApi("i", "s", source(null), fn).sendMail({ to: "a@b.c", subject: "s", text: "t" })).rejects.toBeInstanceOf(GoogleNotConnected);
+    await expect(new GoogleApi("i", "s", source(null), fn).ensureCalendar("c", "America/New_York")).rejects.toBeInstanceOf(GoogleNotConnected);
     expect(calls).toHaveLength(0);
   });
 
@@ -136,46 +136,10 @@ describe("GoogleApi", () => {
     });
   });
 
-  it("sends mail as a base64url raw message from the connected account", async () => {
-    const { fn, calls } = fakeFetch([TOKEN, { status: 200, body: { id: "m1" } }]);
-    const g = new GoogleApi("i", "s", source(CONN), fn);
-    await g.sendMail({ to: "pat@example.com", subject: "Hi", text: "Body" });
-    expect(calls[1].url).toBe("https://gmail.googleapis.com/gmail/v1/users/me/messages/send");
-    const raw = JSON.parse(calls[1].body!).raw as string;
-    expect(raw).toBe(buildRawMessage("The Bull and Bloom", "thebullandbloom@gmail.com", { to: "pat@example.com", subject: "Hi", text: "Body" }));
-  });
-
   it("surfaces non-2xx responses as errors with status and body", async () => {
     const { fn } = fakeFetch([TOKEN, { status: 403, body: { error: { message: "Insufficient Permission" } } }]);
     const g = new GoogleApi("i", "s", source(CONN), fn);
-    await expect(g.sendMail({ to: "a@b.c", subject: "s", text: "t" })).rejects.toThrow(/403.*Insufficient Permission/);
-  });
-});
-
-describe("buildRawMessage", () => {
-  function decode(raw: string) {
-    const b64 = raw.replace(/-/g, "+").replace(/_/g, "/");
-    return decodeURIComponent(escape(atob(b64)));
-  }
-  it("emits the headers and a base64 utf-8 body", () => {
-    const msg = decode(buildRawMessage("The Bull and Bloom", "shop@example.com", { to: "pat@example.com", subject: "Your bouquet", text: "Hi Pat,\n\nThanks." }));
-    const [head, body] = msg.split("\r\n\r\n");
-    expect(head.split("\r\n")).toEqual([
-      "From: The Bull and Bloom <shop@example.com>",
-      "To: pat@example.com",
-      "Subject: Your bouquet",
-      "MIME-Version: 1.0",
-      "Content-Type: text/plain; charset=utf-8",
-      "Content-Transfer-Encoding: base64",
-    ]);
-    expect(decodeURIComponent(escape(atob(body.replace(/\r\n/g, ""))))).toBe("Hi Pat,\n\nThanks.");
-  });
-  it("encodes a non-ascii subject per RFC 2047", () => {
-    const msg = decode(buildRawMessage("N", "n@example.com", { to: "a@b.c", subject: "Bouquet · José", text: "x" }));
-    const subject = msg.split("\r\n").find((l) => l.startsWith("Subject: "))!;
-    expect(subject).toMatch(/^Subject: =\?utf-8\?B\?[A-Za-z0-9+/=]+\?=$/);
-    const inner = subject.slice("Subject: =?utf-8?B?".length, -2);
-    expect(decodeURIComponent(escape(atob(inner)))).toBe("Bouquet · José");
+    await expect(g.insertAllDayEvent("cal", { id: "e", date: "2026-09-10", summary: "s", description: "d" })).rejects.toThrow(/403.*Insufficient Permission/);
   });
 });
 

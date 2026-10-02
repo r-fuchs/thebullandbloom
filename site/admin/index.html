@@ -454,7 +454,10 @@
       else text = 'Connected as ' + s.account + '. Closed calendar last checked ' + ago(s.lastSyncAt) +
         (s.lastSyncError ? ' (last check failed: ' + s.lastSyncError + ')' : '') + '.';
       // Queue counts show in every state: while disconnected they are the messages that will go out on reconnect.
-      text += (s.outbox.pending ? ' ' + s.outbox.pending + ' message(s) waiting to send' + (s.connected ? '.' : ' once Google is connected.') : '') +
+      text += ' ' + (s.mail && s.mail.configured
+        ? 'Email goes out through Resend as ' + s.mail.from + '; Google is used for the calendars.'
+        : 'Email is not set up: RESEND_API_KEY is missing.');
+      text += (s.outbox.pending ? ' ' + s.outbox.pending + ' message(s) waiting to send.' : '') +
         (s.outbox.failed ? ' ' + s.outbox.failed + ' message(s) could not be sent.' : '');
       $('#g-summary').textContent = text;
       $('#g-connect').hidden = !(s.configured && !s.connected);
