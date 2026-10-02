@@ -68,6 +68,15 @@
   .plan-side{border-left:1px solid var(--rule);padding-left:2rem;display:flex;flex-direction:column;justify-content:center}
   .plan-price{font-family:var(--display);font-size:1.3rem;color:var(--sepia);margin:0 0 .5rem}
   .plan-price span{font-size:2.6rem;font-weight:500;color:var(--ink)}
+  /* current offers (Plan 7) */
+  .offer-cards{display:grid;gap:2rem}
+  .offer-card{display:grid;grid-template-columns:minmax(0,1fr) 1.4fr;gap:2rem;align-items:center;border:1px solid var(--ink);background:var(--paper-deep);padding:1.5rem}
+  .offer-card img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
+  .offer-card h3{font-family:var(--display);font-weight:600;font-size:1.7rem;margin:0 0 .3rem}
+  .offer-card p{margin:0 0 .6rem}
+  .offer-card .next{font-family:var(--display);font-size:1.15rem;color:var(--sepia)}
+  .offer-card .btn{margin-top:.75rem}
+  @media (max-width:40rem){.offer-card{grid-template-columns:1fr}}
   .plan-note{font-size:1.05rem;color:#5A4A3C;margin:0}
   .plan .btn{margin-top:1.25rem;align-self:flex-start}
   @media (max-width:40rem){.plan{grid-template-columns:1fr;padding:1.5rem}.plan-side{border-left:0;padding-left:0;border-top:1px solid var(--rule);padding-top:1.5rem}}
@@ -186,6 +195,7 @@
 <body>
 <nav aria-label="Sections">
   <a href="#order">Order</a>
+  <a href="#offers" id="nav-offers" hidden>Offers</a>
   <a href="#about">About</a>
   <a href="#contact">Contact</a>
 </nav>
@@ -271,6 +281,12 @@
     </div>
   </section>
 
+
+  <section id="offers" hidden>
+    <p class="eyebrow">At the studio</p>
+    <h2>Current offers</h2>
+    <div class="offer-cards" id="offer-cards"></div>
+  </section>
 
   <section id="about">
     <p class="eyebrow">The designer</p>

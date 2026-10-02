@@ -196,6 +196,36 @@
     box.hidden = false;
   }
 
+  // ---- current offers (Plan 7 §3.3): a teaser card per offer that is on the homepage and has a bookable date.
+  var SHORT_DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var SHORT_MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function shortDate(s) { var p = s.split('-').map(Number), d = new Date(Date.UTC(p[0], p[1] - 1, p[2])); return SHORT_DAY[d.getUTCDay()] + ' ' + SHORT_MON[p[1] - 1] + ' ' + p[2]; }
+  function hm12(s) {
+    var p = s.split(':').map(Number), h = p[0] % 12 === 0 ? 12 : p[0] % 12, ap = p[0] < 12 ? 'am' : 'pm';
+    return p[1] ? h + ':' + (p[1] < 10 ? '0' : '') + p[1] + ' ' + ap : h + ' ' + ap;
+  }
+  function renderOffers(data) {
+    var section = $('#offers'), cards = $('#offer-cards'), navLink = $('#nav-offers');
+    if (!section || !cards || !data || !data.offers) return;
+    cards.innerHTML = '';
+    data.offers.forEach(function (o) {
+      if (!o.showOnHome) return;
+      var next = o.sessions.filter(function (s) { return s.bookable; })[0];
+      if (!next) return;
+      var card = document.createElement('article'); card.className = 'offer-card';
+      card.innerHTML = '<img alt=""><div><h3></h3><p class="tag"></p><p class="next"></p><a class="btn"></a></div>';
+      var img = card.querySelector('img'); img.src = o.image; img.alt = o.imageAlt || '';
+      card.querySelector('h3').textContent = o.name;
+      card.querySelector('.tag').textContent = o.tagline;
+      card.querySelector('.next').textContent = 'Next: ' + shortDate(next.date) + ' · ' + hm12(next.start) + ' · ' + (next.remaining === 1 ? '1 seat left' : next.remaining + ' seats left');
+      var a = card.querySelector('a'); a.href = '/offers/' + o.slug; a.textContent = 'Book a seat';
+      cards.appendChild(card);
+    });
+    var any = cards.children.length > 0;
+    section.hidden = !any;
+    if (navLink) navLink.hidden = !any;
+  }
+
   // ---- one-time / subscription tabs
   function showTab(which) {
     state.tab = which === 'sub' ? 'sub' : 'once';
@@ -327,6 +357,7 @@
   function load() {
     var today = new Date(), to = new Date(today.getTime() + 27 * 86400000);
     fetch('/api/feed').then(function (r) { return r.json(); }).then(renderGallery).catch(function () {});
+    fetch('/api/offers').then(function (r) { return r.json(); }).then(renderOffers).catch(function () {});
     return Promise.all([
       fetch('/api/config').then(function (r) { return r.json(); }),
       fetch('/api/availability?from=' + ymd(today) + '&to=' + ymd(to)).then(function (r) { return r.json(); })

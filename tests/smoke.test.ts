@@ -52,4 +52,16 @@ describe("worker", () => {
     }
     expect((await SELF.fetch("https://example.com/offers/offer.js")).status).toBe(200);
   });
+
+  it("carries the Current offers teaser and its nav link, both hidden until a bookable offer renders (Plan 7 §3.3)", async () => {
+    const body = await (await SELF.fetch("https://example.com/")).text();
+    expect(body).toMatch(/<section id="offers" hidden>/);
+    expect(body).toMatch(/<a href="#offers" id="nav-offers" hidden>Offers<\/a>/);
+    expect(body).toContain('id="offer-cards"');
+    expect(body).toContain("Current offers");
+    expect(body).not.toContain("connect.facebook.net");
+    const js = await (await SELF.fetch("https://example.com/store.js")).text();
+    expect(js).toContain("fetch('/api/offers')");
+    expect(js).not.toContain("fbq");
+  });
 });
