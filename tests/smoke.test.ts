@@ -64,4 +64,19 @@ describe("worker", () => {
     expect(js).toContain("fetch('/api/offers')");
     expect(js).not.toContain("fbq");
   });
+
+  it("thanks page carries the booking variant and fires Purchase only through the pixel loader (Plan 7 §3.4, §3.9)", async () => {
+    const body = await (await SELF.fetch("https://example.com/thanks")).text();
+    expect(body).toContain("Your seat is saved. The details, including where to come, are in the email on its way to you.");
+    expect(body).toContain("[?&]booking=");
+    expect(body).toContain("fbq('track', 'Purchase'");
+    expect(body).toContain("currency: 'USD'");
+  });
+  it("privacy page names the pixel on the class and thank-you pages only (Plan 7 §3.9)", async () => {
+    const body = await (await SELF.fetch("https://example.com/privacy")).text();
+    expect(body).not.toContain("There are no advertising trackers on this site");
+    expect(body).toContain("Meta Pixel");
+    expect(body).toContain("facebook.com/privacy/policy");
+    expect(body).toContain("Last updated: October 2, 2026");
+  });
 });
