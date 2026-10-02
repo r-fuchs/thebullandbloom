@@ -13,7 +13,7 @@ const redirectUri = (siteUrl: string) => `${siteUrl}/admin/google/callback`;
 /** Mounted from adminRoutes() AFTER its Access middleware, so /admin/api/google/* is protected and /admin/google/callback is not (D25). */
 export function registerGoogleAdmin(r: App): void {
   r.get("/admin/api/google/status", async (c) => {
-    const { google } = c.get("services");
+    const { google, mailer, config } = c.get("services");
     const [state, conn, sync, box] = await Promise.all([
       loadState(c.env.DB), loadConnection(c.env.DB, c.env.ADMIN_SECRET), loadSync(c.env.DB), counts(c.env.DB),
     ]);
@@ -27,6 +27,7 @@ export function registerGoogleAdmin(r: App): void {
       lastSyncAt: sync.at,
       lastSyncError: sync.error,
       outbox: box,
+      mail: { configured: mailer.configured(), from: config.mail.from },
     });
   });
 
@@ -39,7 +40,7 @@ export function registerGoogleAdmin(r: App): void {
   });
 
   r.get("/admin/google/callback", async (c) => {
-    const { google, payments, clock, config } = c.get("services");
+    const { google, mailer, alerts, payments, clock, config } = c.get("services");
     const nowSec = Math.floor(clock().getTime() / 1000);
     const state = c.req.query("state");
     if (!(await verifyStateToken(state, stateSecret(c.env.ADMIN_SECRET), nowSec))) return c.text("bad or expired state", 400);
@@ -54,7 +55,7 @@ export function registerGoogleAdmin(r: App): void {
       await saveState(c.env.DB, { account: conn.account, closedCalendarId, ordersCalendarId, connectedAt: nowSec });
       // Anything queued while disconnected goes out now rather than on the next 15-minute cron
       // (found on the 2026-09-10 road test: a reconnect left three messages waiting with no way to send them).
-      await background(c, drainOutbox({ db: c.env.DB, google, payments, config, siteUrl: c.env.SITE_URL }, clock()));
+      await background(c, drainOutbox({ db: c.env.DB, google, mailer, alerts, payments, config, siteUrl: c.env.SITE_URL }, clock()));
       return c.redirect("/admin/?google=connected", 302);
     } catch (e) {
       console.error("google: connect failed", e);
@@ -75,10 +76,10 @@ export function registerGoogleAdmin(r: App): void {
   });
 
   r.post("/admin/api/google/retry", async (c) => {
-    const { google, payments, clock, config } = c.get("services");
+    const { google, mailer, alerts, payments, clock, config } = c.get("services");
     const now = clock();
     const retried = await retryFailed(c.env.DB, Math.floor(now.getTime() / 1000));
-    const drain = await drainOutbox({ db: c.env.DB, google, payments, config, siteUrl: c.env.SITE_URL }, now);
+    const drain = await drainOutbox({ db: c.env.DB, google, mailer, alerts, payments, config, siteUrl: c.env.SITE_URL }, now);
     return c.json({ retried, drain });
   });
 }

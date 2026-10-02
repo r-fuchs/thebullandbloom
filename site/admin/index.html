@@ -36,6 +36,8 @@
   .order .addr{color:var(--sepia);font-size:.9rem}
   .order .track{font-size:.9rem}
   .order .err{color:#8B3A3A;font-size:.9rem}
+  .alert{background:#8B3A3A;color:#fff;padding:.7rem 1rem;margin:0 0 .8rem;display:flex;gap:.8rem;align-items:center;flex-wrap:wrap}
+  .alert button{border-color:#fff}
   [hidden]{display:none!important}
 </style>
 </head>
@@ -46,6 +48,10 @@
   <p class="status" id="auth-status" hidden>Your sign-in has expired. <a href="/admin/">Reload to sign in with Google.</a></p>
 
   <section id="app" hidden>
+    <div class="alert" id="outbox-banner" role="alert" hidden>
+      <span id="outbox-text"></span>
+      <button id="outbox-retry">Retry waiting messages</button>
+    </div>
     <div class="row">
       <button id="prev">‹</button><strong id="month-label"></strong><button id="next">›</button>
       <span style="flex:1"></span>
@@ -158,6 +164,26 @@
   var view = new Date(); view.setDate(1);
   var selected = null, cache = {};
 
+  function refreshBanner() {
+    return api('/outbox').then(function (o) {
+      var n = o.stuck;
+      var bad = n > 0 || o.failed > 0;
+      if (bad) {
+        var count = n > 0 ? n : o.failed;
+        var mins = Math.max(1, Math.round((o.oldestAgeSec || 0) / 60));
+        $('#outbox-text').textContent = count + ' message' + (count === 1 ? ' has' : 's have') + ' not gone out (oldest ' + mins + ' minute' + (mins === 1 ? '' : 's') + ').';
+      }
+      $('#outbox-banner').hidden = !bad;
+    }).catch(function () { /* the banner is advisory; a failed fetch leaves it as it was */ });
+  }
+  $('#outbox-retry').addEventListener('click', function () {
+    var btn = $('#outbox-retry');
+    btn.disabled = true;
+    api('/outbox/retry', { method: 'POST' }).catch(function (e) {
+      if (e.message !== 'unauthorized') $('#outbox-text').textContent = e.message;
+    }).then(function () { btn.disabled = false; return refreshBanner(); });
+  });
+
   function show(authed) { $('#app').hidden = !authed; $('#auth-status').hidden = authed; }
   function ymd(y, m, d) { return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0'); }
   function money(c) { return '$' + (c / 100).toFixed(2); }
@@ -169,6 +195,7 @@
   }
 
   function loadMonth() {
+    refreshBanner();
     var y = view.getFullYear(), m = view.getMonth();
     var last = new Date(y, m + 1, 0).getDate();
     $('#month-label').textContent = view.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -191,6 +218,7 @@
   }
 
   function loadDay() {
+    refreshBanner();
     var d = cache[selected]; if (!d) return;
     $('#day-panel').hidden = false; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true; $('#delivery-panel').hidden = true; $('#classes-panel').hidden = true;
     $('#day-title').textContent = new Date(selected + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
@@ -263,6 +291,7 @@
   var DAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   function human(ymd) { return ymd ? new Date(ymd + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '—'; }
   function loadSubscribers() {
+    refreshBanner();
     $('#subs-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#ig-panel').hidden = true; $('#delivery-panel').hidden = true; $('#classes-panel').hidden = true;
     api('/subscribers').then(function (res) {
       var flags = $('#subs-flags'); flags.innerHTML = '';
@@ -293,6 +322,7 @@
     return p[1] ? h + ':' + String(p[1]).padStart(2, '0') + ' ' + ap : h + ' ' + ap;
   }
   function loadClasses() {
+    refreshBanner();
     $('#classes-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true; $('#delivery-panel').hidden = true;
     $('#classes-status').textContent = '';
     api('/offers').then(function (res) {
@@ -341,6 +371,7 @@
   $('#classes-btn').addEventListener('click', loadClasses);
 
   function loadInstagram() {
+    refreshBanner();
     $('#ig-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#delivery-panel').hidden = true; $('#classes-panel').hidden = true;
     return api('/instagram/status').then(function (s) {
       var text;
@@ -426,6 +457,7 @@
   });
 
   function loadSettings() {
+    refreshBanner();
     $('#settings-panel').hidden = false; $('#day-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true; $('#delivery-panel').hidden = true; $('#classes-panel').hidden = true;
     api('/settings').then(function (s) {
       $('#s-cap').value = s.cap; $('#s-cutoff').value = s.cutoff;
@@ -446,6 +478,7 @@
     return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : Math.round(m / 60) + ' h ago';
   }
   function loadGoogle() {
+    refreshBanner();
     $('#google-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true; $('#delivery-panel').hidden = true; $('#classes-panel').hidden = true;
     return api('/google/status').then(function (s) {
       var text;
@@ -454,7 +487,10 @@
       else text = 'Connected as ' + s.account + '. Closed calendar last checked ' + ago(s.lastSyncAt) +
         (s.lastSyncError ? ' (last check failed: ' + s.lastSyncError + ')' : '') + '.';
       // Queue counts show in every state: while disconnected they are the messages that will go out on reconnect.
-      text += (s.outbox.pending ? ' ' + s.outbox.pending + ' message(s) waiting to send' + (s.connected ? '.' : ' once Google is connected.') : '') +
+      text += ' ' + (s.mail && s.mail.configured
+        ? 'Email goes out through Resend as ' + s.mail.from + '; Google is used for the calendars.'
+        : 'Email is not set up: RESEND_API_KEY is missing.');
+      text += (s.outbox.pending ? ' ' + s.outbox.pending + ' message(s) waiting to send.' : '') +
         (s.outbox.failed ? ' ' + s.outbox.failed + ' message(s) could not be sent.' : '');
       $('#g-summary').textContent = text;
       $('#g-connect').hidden = !(s.configured && !s.connected);
@@ -487,6 +523,7 @@
   });
 
   function loadDelivery() {
+    refreshBanner();
     $('#delivery-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true; $('#classes-panel').hidden = true;
     function zoneSummary(zones) {
       if (!zones || !zones.length) return '(no zones set)';

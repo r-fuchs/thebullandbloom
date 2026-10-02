@@ -22,7 +22,7 @@ export function registerDeliveryAdmin(r: App): void {
   });
 
   r.post("/admin/api/orders/:id/dispatch", async (c) => {
-    const { uber, google, payments, config, clock } = c.get("services");
+    const { uber, google, mailer, alerts, payments, config, clock } = c.get("services");
     const order = await getOrder(c.env.DB, c.req.param("id"));
     if (!order) return c.json({ error: "not_found" }, 404);
     if (order.fulfillment !== "delivery") return c.json({ error: "not_a_delivery", message: "This is a pickup order." }, 409);
@@ -98,7 +98,7 @@ export function registerDeliveryAdmin(r: App): void {
       }, 500);
     }
 
-    await background(c, drainOutbox({ db: c.env.DB, google, payments, config, siteUrl: c.env.SITE_URL }, now));
+    await background(c, drainOutbox({ db: c.env.DB, google, mailer, alerts, payments, config, siteUrl: c.env.SITE_URL }, now));
     return c.json({ ok: true, delivery, variance: await varianceTotal(c.env.DB) });
   });
 }

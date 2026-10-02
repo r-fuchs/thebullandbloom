@@ -7,6 +7,7 @@ import { loadDefaults, saveDefaults } from "../store/settings";
 import { getOverrides, putAdminOverride, clearAdminOverride } from "../store/overrides";
 import { countUsed, listOrders, getOrder, setStatus } from "../store/orders";
 import { registerGoogleAdmin } from "./admin-google";
+import { registerOutboxAdmin } from "./admin-outbox";
 import { registerInstagramAdmin } from "./instagram";
 import { registerDeliveryAdmin } from "./admin-delivery";
 import { registerOffersAdmin } from "./admin-offers";
@@ -159,6 +160,7 @@ export function adminRoutes(): App {
   });
 
   registerGoogleAdmin(r);
+  registerOutboxAdmin(r);
   registerInstagramAdmin(r);
   registerDeliveryAdmin(r);
   registerOffersAdmin(r);

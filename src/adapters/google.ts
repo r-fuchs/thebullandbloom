@@ -1,4 +1,4 @@
-// Google Calendar + Gmail behind one interface. Core and jobs depend on this file only;
+// Google Calendar behind one interface (email moved to adapters/mailer.ts, D55). Core and jobs depend on this file only;
 // the real implementation (google-api.ts) and the test fake both satisfy it.
 
 export interface CalendarEvent {
@@ -9,7 +9,8 @@ export interface CalendarEvent {
   end: { date?: string; dateTime?: string; timeZone?: string };
 }
 export interface NewAllDayEvent { id: string; date: string; summary: string; description: string }
-export interface Mail { to: string; subject: string; text: string }
+/** Moved to adapters/mailer.ts; re-exported so existing imports keep working. */
+export type { Mail } from "./mailer";
 export interface Connection { refreshToken: string; account: string }
 
 export class GoogleNotConnected extends Error {
@@ -26,5 +27,4 @@ export interface Google {
   ensureCalendar(summary: string, timeZone: string): Promise<string>;
   /** returns the event id; an event that already exists with this id counts as success (D21) */
   insertAllDayEvent(calendarId: string, event: NewAllDayEvent): Promise<string>;
-  sendMail(mail: Mail): Promise<void>;
 }

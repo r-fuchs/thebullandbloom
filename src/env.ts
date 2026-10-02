@@ -10,6 +10,10 @@ export interface Env {
   CF_ACCESS_AUD: string;
   GOOGLE_CLIENT_ID?: string;     // optional: admin reports "not configured" when absent
   GOOGLE_CLIENT_SECRET?: string;
+  /** Resend API key (D55): optional; without it mail rows wait and admin says "not set up" */
+  RESEND_API_KEY?: string;
+  /** Email Routing send_email binding (D56): optional; without it alerts are a no-op and admin says "not set up" */
+  ALERT_MAIL?: SendEmail;
   MEDIA?: R2Bucket;               // cached Instagram images (D12); absent until R2 is enabled on the account
   INSTAGRAM_APP_ID?: string;      // optional: admin reports "not configured" when absent
   INSTAGRAM_APP_SECRET?: string;

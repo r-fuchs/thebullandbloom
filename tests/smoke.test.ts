@@ -37,6 +37,16 @@ describe("worker", () => {
     expect(body).toContain('id="quote-note"');
   });
 
+  it("serves the admin page with the stuck-outbox banner above the toolbar, hidden by default", async () => {
+    const r = await SELF.fetch("https://example.com/admin/");
+    expect(r.status).toBe(200);
+    const body = await r.text();
+    expect(body).toMatch(/<div class="alert" id="outbox-banner" role="alert" hidden>/);
+    expect(body).toContain('id="outbox-retry"');
+    expect(body).toContain("api('/outbox/retry', { method: 'POST' })");
+    expect(body.indexOf('id="outbox-banner"')).toBeLessThan(body.indexOf('id="prev"'));
+  });
+
   it("serves the class landing page at /offers/<slug> for any slug (Plan 7 §3.2)", async () => {
     for (const path of ["/offers/wreath-and-sip", "/offers/anything-at-all"]) {
       const r = await SELF.fetch(`https://example.com${path}`);

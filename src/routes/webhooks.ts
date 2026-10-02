@@ -23,7 +23,7 @@ export function mirrorStatus(status: string, paused: boolean): SubscriberStatus 
 export function webhookRoutes(): App {
   const r: App = new Hono();
   r.post("/webhooks/stripe", async (c) => {
-    const { payments, google, config, clock } = c.get("services");
+    const { payments, google, mailer, alerts, config, clock } = c.get("services");
     const sig = c.req.header("stripe-signature");
     if (!sig) {
       console.error("webhook: bad signature");
@@ -37,7 +37,7 @@ export function webhookRoutes(): App {
     }
     const now = clock();
     const nowSec = Math.floor(now.getTime() / 1000);
-    const outboxDeps = { db: c.env.DB, google, payments, config, siteUrl: c.env.SITE_URL };
+    const outboxDeps = { db: c.env.DB, google, mailer, alerts, payments, config, siteUrl: c.env.SITE_URL };
 
     if (event.type === "checkout.session.completed") {
       // One Checkout Session is either a bouquet order or a class seat (Plan 7); try orders first.

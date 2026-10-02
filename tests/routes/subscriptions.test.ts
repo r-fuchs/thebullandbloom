@@ -49,7 +49,7 @@ describe("subscriptions: signup, webhooks, admin", () => {
 
   it("subscription.started creates the subscriber, three bouquets, two emails; replay is ignored", async () => {
     await saveState(env.DB, STATE);
-    const { fetch, payments, google } = testApp(NOW);
+    const { fetch, payments, google, mailer } = testApp(NOW);
     payments.nextEvent = { type: "subscription.started", sessionId: "cs_s1", customerId: "cus_1", subscriptionId: "sub_1",
       customerEmail: "pat@example.com", metadata: { cell: "bouquet/weekly", weekday: "2", name: "Pat Smith", phone: "518-555-0100", note: "no lilies" } };
     expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "subscribed" });
@@ -59,11 +59,11 @@ describe("subscriptions: signup, webhooks, admin", () => {
     // background drain ran inline in tests: 3 events + 2 emails delivered
     expect(await counts(env.DB)).toEqual({ pending: 0, failed: 0 });
     expect(google.inserted.map((i) => i.event.summary)).toEqual(Array(3).fill("Bouquet · Pat Smith · pickup (subscription)"));
-    expect(google.sent.map((m) => m.subject)).toEqual([
+    expect(mailer.sent.map((m) => m.subject)).toEqual([
       "Your Bull and Bloom subscription starts Tue Sep 15",
       "New subscription: Bouquet every week · Pat Smith · Tuesdays",
     ]);
-    expect(google.sent[0].text).toContain("https://billing.example/cus_1");
+    expect(mailer.sent[0].text).toContain("https://billing.example/cus_1");
     expect(payments.portals).toEqual([{ customerId: "cus_1", returnUrl: `${env.SITE_URL}/` }]);
     expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "ignored" });
     expect((await env.DB.prepare("SELECT COUNT(*) AS n FROM subscribers").first<any>()).n).toBe(1);
@@ -78,7 +78,7 @@ describe("subscriptions: signup, webhooks, admin", () => {
 
   it("mirrors Stripe status: pause clears future bouquets, resume restores them, cancel keeps this week and emails", async () => {
     await saveState(env.DB, STATE);
-    const { fetch, payments, google } = testApp(NOW);
+    const { fetch, payments, google, mailer } = testApp(NOW);
     await insertSubscriber(env.DB, { id: "w1", stripeCustomerId: "cus_w", stripeSubscriptionId: "sub_w", sizeId: "posy", cadenceId: "weekly", weekday: 4,
       fulfillment: "pickup", addressJson: null, deliveryAddOnCents: 0, anchorDate: "2026-09-10", customerName: "Sam Lee", customerEmail: "sam@example.com", customerPhone: null, note: null }, 1);
     payments.nextEvent = { type: "subscription.updated", subscriptionId: "sub_w", status: "active", paused: false };
@@ -98,11 +98,11 @@ describe("subscriptions: signup, webhooks, admin", () => {
     expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "active" });
     expect(await dates("w1")).toEqual(["2026-09-10", "2026-09-17", "2026-09-24", "2026-10-01"]);
 
-    google.sent.length = 0;
+    mailer.sent.length = 0;
     payments.nextEvent = { type: "subscription.deleted", subscriptionId: "sub_w" };
     expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "cancelled" });
     expect(await dates("w1")).toEqual(["2026-09-10"]); // Sep 10 is this week (Mon 7–Sun 13); Sep 17 onward removed
-    expect(google.sent.map((m) => m.subject)).toEqual(["Your Bull and Bloom subscription has ended", "Subscription cancelled: Posy every week · Sam Lee"]);
+    expect(mailer.sent.map((m) => m.subject)).toEqual(["Your Bull and Bloom subscription has ended", "Subscription cancelled: Posy every week · Sam Lee"]);
     payments.nextEvent = { type: "subscription.deleted", subscriptionId: "sub_unknown" };
     expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "ignored" });
   });

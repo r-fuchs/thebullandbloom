@@ -4,6 +4,8 @@ import { expireHolds } from "./store/orders";
 import { expireHolds as expireBookingHolds } from "./store/bookings";
 import { syncBlackouts, type BlackoutSyncResult } from "./jobs/blackouts";
 import { drainOutbox, type DrainResult } from "./jobs/outbox";
+import { runWatchdog, type WatchdogResult } from "./jobs/watchdog";
+import { loadState } from "./store/google";
 import { materializeSubscriptions, type MaterializeResult } from "./jobs/materialize";
 import { refreshFeed, type FeedResult } from "./jobs/instagram";
 
@@ -15,6 +17,7 @@ export interface ScheduledReport {
   subscriptions: MaterializeResult | Failed;
   instagram: FeedResult | Failed;
   outbox: DrainResult | Failed;
+  watchdog: WatchdogResult | Failed;
 }
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -22,7 +25,7 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 /** Every 15 minutes (wrangler.toml). Each job is isolated so one failure never blocks the others. */
 export async function runScheduled(env: Env, services: Services, now: Date): Promise<ScheduledReport> {
   const nowSec = Math.floor(now.getTime() / 1000);
-  const { google, payments, instagram, config } = services;
+  const { google, mailer, alerts, payments, instagram, config } = services;
 
   let expiredHolds: ScheduledReport["expiredHolds"];
   try { expiredHolds = await expireHolds(env.DB, nowSec); }
@@ -47,8 +50,13 @@ export async function runScheduled(env: Env, services: Services, now: Date): Pro
   catch (e) { console.error("scheduled: refreshFeed threw", e); instagramRes = { status: "error", error: msg(e) }; }
 
   let outbox: ScheduledReport["outbox"];
-  try { outbox = await drainOutbox({ db: env.DB, google, payments, config, siteUrl: env.SITE_URL }, now); }
+  try { outbox = await drainOutbox({ db: env.DB, google, mailer, alerts, payments, config, siteUrl: env.SITE_URL }, now); }
   catch (e) { console.error("scheduled: drainOutbox threw", e); outbox = { status: "error", error: msg(e) }; }
 
-  return { expiredHolds, expiredBookingHolds, blackouts, subscriptions, instagram: instagramRes, outbox };
+  // After the drain, so a row it just delivered is not reported as stuck.
+  let watchdog: ScheduledReport["watchdog"];
+  try { watchdog = await runWatchdog({ db: env.DB, alerts, mailer, googleConnected: (await loadState(env.DB)) !== null, siteUrl: env.SITE_URL }, now); }
+  catch (e) { console.error("scheduled: runWatchdog threw", e); watchdog = { status: "error", error: msg(e) }; }
+
+  return { expiredHolds, expiredBookingHolds, blackouts, subscriptions, instagram: instagramRes, outbox, watchdog };
 }

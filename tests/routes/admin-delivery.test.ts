@@ -32,7 +32,7 @@ describe("POST /admin/api/orders/:id/dispatch", () => {
   it("gets a fresh quote for right now, creates the delivery, stores it, and queues the tracking email", async () => {
     await saveState(env.DB, { account: "a@b.c", closedCalendarId: "c1", ordersCalendarId: "c2", connectedAt: 1 });
     await order("d1");
-    const { fetch, uber, google } = testApp(new Date("2026-09-23T15:00:00Z"));
+    const { fetch, uber, google, mailer } = testApp(new Date("2026-09-23T15:00:00Z"));
     uber.quoteFee = 1450;
     const as = asAdmin(fetch);
     const r = await as("/admin/api/orders/d1/dispatch", { method: "POST" });
@@ -56,17 +56,18 @@ describe("POST /admin/api/orders/:id/dispatch", () => {
     expect(row).toEqual({ order_id: "d1", uber_delivery_id: "del_fake_2", status: "pending", quoted_cents: 1450, fee_cents: 1450 });
 
     // the tracking email went out on the same request (Google is connected)
-    expect(google.sent.map((m) => m.subject)).toContain("Your Bull and Bloom bouquet is on the way");
+    expect(mailer.sent.map((m) => m.subject)).toContain("Your Bull and Bloom bouquet is on the way");
   });
 
-  it("queues the email but still succeeds when Google is not connected", async () => {
+  it("sends the tracking email even when Google is not connected", async () => {
     await order("d2");
-    const { fetch, google } = testApp();
+    const { fetch, google, mailer } = testApp();
     const as = asAdmin(fetch);
     expect((await as("/admin/api/orders/d2/dispatch", { method: "POST" })).status).toBe(200);
-    expect(google.sent).toHaveLength(0);
+    expect(mailer.sent.map((m) => m.subject)).toEqual(["Your Bull and Bloom bouquet is on the way"]);
     const box = await env.DB.prepare("SELECT kind, done_at FROM outbox WHERE order_id = 'd2'").first<any>();
-    expect(box).toEqual({ kind: "courier_email", done_at: null });
+    expect(box?.kind).toBe("courier_email");
+    expect(box?.done_at).not.toBeNull();
   });
 
   it("refuses a pickup order, a non-paid order, and an unknown order", async () => {
