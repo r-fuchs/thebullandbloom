@@ -71,7 +71,7 @@
   /* current offers (Plan 7) */
   .offer-cards{display:grid;gap:2rem}
   .offer-card{display:grid;grid-template-columns:minmax(0,1fr) 1.4fr;gap:2rem;align-items:center;border:1px solid var(--ink);background:var(--paper-deep);padding:1.5rem}
-  .offer-card img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
+  .offer-card img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover}
   .offer-card h3{font-family:var(--display);font-weight:600;font-size:1.7rem;margin:0 0 .3rem}
   .offer-card p{margin:0 0 .6rem}
   .offer-card .tagline{font-style:italic;color:var(--sepia)}
@@ -197,8 +197,8 @@
 </head>
 <body>
 <nav aria-label="Sections">
-  <a href="#order">Order</a>
   <a href="#offers" id="nav-offers" hidden>Offers</a>
+  <a href="#order">Order</a>
   <a href="#about">About</a>
   <a href="#contact">Contact</a>
 </nav>
@@ -225,9 +225,14 @@
 </section>
 
 <main class="wrap">
+  <section id="offers" hidden>
+    <p class="eyebrow">At the studio</p>
+    <h2>Current offers</h2>
+    <div class="offer-cards" id="offer-cards"></div>
+  </section>
   <section id="order">
     <p class="eyebrow">Designer's choice</p>
-    <h2>Pick a size, pick a day</h2>
+    <h2>Order a bouquet</h2>
     <p class="intro">Every bouquet is built from whatever is best that morning. Pickup at the studio is free; delivery is priced by address when you enter it.</p>
     <div class="tabs" role="tablist" aria-label="How to order">
       <button type="button" class="tab" role="tab" id="tab-once" aria-controls="panel-once" aria-selected="true">One-time purchases</button>
@@ -285,11 +290,6 @@
   </section>
 
 
-  <section id="offers" hidden>
-    <p class="eyebrow">At the studio</p>
-    <h2>Current offers</h2>
-    <div class="offer-cards" id="offer-cards"></div>
-  </section>
 
   <section id="about">
     <p class="eyebrow">The designer</p>

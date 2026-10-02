@@ -15,8 +15,8 @@ nav a:hover{color:var(--ink)}
 .eyebrow{font-family:var(--display);letter-spacing:.3em;text-transform:uppercase;font-size:.8rem;color:var(--sepia);margin:2rem 0 .5rem}
 h1{font-family:var(--display);font-weight:500;font-size:clamp(2rem,6vw,3.2rem);line-height:1.1;margin:0 0 .35rem;letter-spacing:.02em}
 .tagline{font-size:1.2rem;font-style:italic;color:var(--sepia);margin:0 0 1.5rem}
-figure{margin:0 0 1.5rem}
-figure img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border:1px solid var(--rule)}
+figure{margin:0 0 1.5rem;max-width:28rem}
+figure img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;border:1px solid var(--rule)}
 .facts{font-family:var(--display);font-size:1.2rem;margin:0 0 1rem}
 .where{color:var(--sepia);font-style:italic}
 fieldset{border:0;padding:0;margin:2rem 0 1rem}
