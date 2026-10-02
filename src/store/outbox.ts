@@ -121,3 +121,24 @@ export function backoff(attempts: number, now: number): number | null {
   if (attempts >= MAX_ATTEMPTS) return null;
   return now + 60 * 2 ** Math.min(attempts, 6);
 }
+
+/** A row not done after this long is stuck (D57). */
+export const STUCK_AFTER_SECONDS = 900;
+
+/**
+ * Rows the watchdog cares about: not done and either given up (`next_attempt_at IS NULL`) or older
+ * than 15 minutes. `givenUp` is the subset the drain has stopped retrying.
+ */
+export async function stuckSummary(db: D1Database, now: number): Promise<{ stuck: number; givenUp: number; oldestAgeSec: number | null; kinds: string[] }> {
+  const rows = await db.prepare(
+    `SELECT kind, created_at, next_attempt_at FROM outbox
+     WHERE done_at IS NULL AND (next_attempt_at IS NULL OR created_at <= ?)`,
+  ).bind(now - STUCK_AFTER_SECONDS).all<{ kind: string; created_at: number; next_attempt_at: number | null }>();
+  const r = rows.results;
+  return {
+    stuck: r.length,
+    givenUp: r.filter((x) => x.next_attempt_at === null).length,
+    oldestAgeSec: r.length ? Math.max(0, now - Math.min(...r.map((x) => x.created_at))) : null,
+    kinds: [...new Set(r.map((x) => x.kind))].sort(),
+  };
+}

@@ -3,7 +3,7 @@ import { buildApp, type Services } from "./app";
 import { loadConfig } from "./config";
 import { StripePayments } from "./adapters/stripe";
 import { ResendMailer } from "./adapters/mailer";
-import { NoAlerts } from "./adapters/alerts";
+import { EmailRoutingAlerts, NoAlerts } from "./adapters/alerts";
 import { GoogleApi } from "./adapters/google-api";
 import { InstagramApi } from "./adapters/instagram-api";
 import { UberApi } from "./adapters/uber-api";
@@ -28,7 +28,8 @@ export function servicesFor(env: Env): Services {
     ));
     const access = new CloudflareAccess(env.CF_ACCESS_TEAM_DOMAIN, env.CF_ACCESS_AUD);
     const mailer = new ResendMailer(env.RESEND_API_KEY, config.mail.from, config.mail.replyTo);
-    services = { payments, google, mailer, alerts: new NoAlerts(), instagram, uber, access, clock: () => new Date(), config };
+    const alerts = env.ALERT_MAIL ? new EmailRoutingAlerts(env.ALERT_MAIL, config.alerts.from, config.alerts.to) : new NoAlerts();
+    services = { payments, google, mailer, alerts, instagram, uber, access, clock: () => new Date(), config };
   }
   return services;
 }

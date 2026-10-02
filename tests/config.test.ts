@@ -9,6 +9,15 @@ describe("config", () => {
     expect(sizeById(cfg, cfg.sizes[0].id)?.id).toBe(cfg.sizes[0].id);
     expect(sizeById(cfg, "nope")).toBeUndefined();
   });
+  it("carries the alert channel addresses and rejects bad ones", () => {
+    const base = loadConfig();
+    expect(base.alerts).toEqual({ from: "alerts@thebullandbloom.com", to: ["thebullandbloom@gmail.com", "ryan@fuchsassociates.com"] });
+    expect(() => validateConfig({ ...base, alerts: { ...base.alerts, from: "Alerts <a@b.co>" } })).toThrow(/alerts\.from/);
+    expect(() => validateConfig({ ...base, alerts: { ...base.alerts, to: [] } })).toThrow(/alerts\.to/);
+    expect(() => validateConfig({ ...base, alerts: { ...base.alerts, to: ["ok@b.co", "nope"] } })).toThrow(/alerts\.to/);
+    expect(() => validateConfig({ ...base, alerts: undefined as never })).toThrow(/alerts\.from/);
+  });
+
   it("carries the mail addresses and rejects bad ones", () => {
     const base = loadConfig();
     expect(base.mail).toEqual({ from: "The Bull and Bloom <orders@thebullandbloom.com>", replyTo: "thebullandbloom@gmail.com" });

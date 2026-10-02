@@ -75,7 +75,7 @@ async function deliver(deps: OutboxDeps, state: GoogleState | null, item: Outbox
   switch (item.kind) {
     case "calendar_event": await calendarEvent(deps, state!, order); return true;
     case "email_customer": await deps.mailer.send(customerEmail(order, deps.config)); return true;
-    case "email_owner": await sendOwner(deps, ownerEmail(order, deps.config, deps.siteUrl)); return true;
+    case "email_owner": await sendOwner(deps, item, ownerEmail(order, deps.config, deps.siteUrl)); return true;
     case "courier_email": {
       // The tracking link belongs to a live courier job. If the job was canceled between the
       // dispatch and this drain, there is nothing worth telling the customer to follow.
@@ -102,9 +102,9 @@ async function deliverSubscriber(deps: OutboxDeps, item: OutboxItem): Promise<bo
       await deps.mailer.send(subscriptionConfirmedEmail(sub, deps.config, portal));
       return true;
     }
-    case "sub_confirmed_owner": await sendOwner(deps, ownerSubscriptionEmail(sub, deps.config, deps.siteUrl, "started")); return true;
+    case "sub_confirmed_owner": await sendOwner(deps, item, ownerSubscriptionEmail(sub, deps.config, deps.siteUrl, "started")); return true;
     case "sub_cancelled_customer": await deps.mailer.send(subscriptionCancelledEmail(sub, deps.config)); return true;
-    case "sub_cancelled_owner": await sendOwner(deps, ownerSubscriptionEmail(sub, deps.config, deps.siteUrl, "cancelled")); return true;
+    case "sub_cancelled_owner": await sendOwner(deps, item, ownerSubscriptionEmail(sub, deps.config, deps.siteUrl, "cancelled")); return true;
     default: console.error(`outbox: unknown subscriber kind ${item.kind}`); return false;
   }
 }
@@ -125,7 +125,7 @@ async function deliverBooking(deps: OutboxDeps, item: OutboxItem): Promise<boole
     case "booking_confirmed_customer": await deps.mailer.send(bookingConfirmedEmail(booking, offer, session, deps.config)); return true;
     case "booking_confirmed_owner": {
       const taken = (await countTaken(deps.db, offer.id)).get(session.id) ?? 0;
-      await sendOwner(deps, ownerBookingEmail(booking, offer, session, deps.config, taken, deps.siteUrl));
+      await sendOwner(deps, item, ownerBookingEmail(booking, offer, session, deps.config, taken, deps.siteUrl));
       return true;
     }
     default: console.error(`outbox: unknown booking kind ${item.kind}`); return false;
@@ -135,11 +135,14 @@ async function deliverBooking(deps: OutboxDeps, item: OutboxItem): Promise<boole
 /**
  * D58: an owner email the provider rejects is also sent, shortened, on the alert channel so Anthony
  * hears about the order either way. Best-effort; the original error is rethrown so the row retries.
+ * The alert goes out on the row's first failure only (`item.attempts === 0`): a long provider outage
+ * must not re-alert on every retry (the watchdog, #3, covers a row that stays stuck).
  */
-async function sendOwner(deps: OutboxDeps, mail: Mail): Promise<void> {
+async function sendOwner(deps: OutboxDeps, item: OutboxItem, mail: Mail): Promise<void> {
   try {
     await deps.mailer.send(mail);
   } catch (e) {
+    if (item.attempts > 0) throw e;
     try {
       await deps.alerts.notify(mail.subject, mail.text.split("\n").slice(0, 8).join("\n"));
     } catch (e2) {

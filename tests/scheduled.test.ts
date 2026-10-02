@@ -29,6 +29,7 @@ describe("runScheduled", () => {
       subscriptions: { status: "ok", created: 0, skippedWeeks: 0 },
       instagram: { status: "skipped" },
       outbox: { status: "ok", delivered: 0, failed: 0, waiting: 0 },
+      watchdog: { stuck: 0, givenUp: 0, oldestAgeSec: null, alerted: false, recovered: false },
     });
     const s = await env.DB.prepare("SELECT id, status FROM orders WHERE id IN ('s1','s2') ORDER BY id").all<any>();
     expect(s.results).toEqual([{ id: "s1", status: "cancelled" }, { id: "s2", status: "held" }]);
@@ -48,5 +49,16 @@ describe("runScheduled", () => {
     expect(r.outbox).toEqual({ status: "ok", delivered: 0, failed: 0, waiting: 0 });
     const r2 = await runScheduled(env, services, new Date("2026-09-08T14:15:00Z"));
     expect(r2.blackouts).toEqual({ status: "ok", added: 1, removed: 0, closed: 1 });
+  });
+
+  it("runs the watchdog after the drain: a given-up row alerts, and the report says so", async () => {
+    await env.DB.prepare("DELETE FROM settings WHERE key = 'watchdog.state'").run();
+    await env.DB.prepare("INSERT INTO outbox (id, kind, order_id, created_at, attempts, next_attempt_at) VALUES ('wd1', 'email_owner', 'nope', 1, 24, NULL)").run();
+    const { services, alerts } = testServices();
+    const r = await runScheduled(env, services, new Date("2026-09-08T14:00:00Z"));
+    expect(r.watchdog).toMatchObject({ stuck: 1, givenUp: 1, alerted: true, recovered: false });
+    expect(alerts.sent).toHaveLength(1);
+    await env.DB.prepare("DELETE FROM outbox").run();
+    await env.DB.prepare("DELETE FROM settings WHERE key = 'watchdog.state'").run();
   });
 });

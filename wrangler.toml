@@ -31,6 +31,11 @@ migrations_dir = "migrations"
 binding = "MEDIA"
 bucket_name = "bullandbloom-media"
 
+# Owner alerts (D56): Email Routing must be enabled on the zone and both destination addresses
+# verified before deploy. No destination restriction here; the addresses live in store.config.json.
+[[send_email]]
+name = "ALERT_MAIL"
+
 [triggers]
 crons = ["*/15 * * * *"]
 

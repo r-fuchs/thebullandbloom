@@ -100,6 +100,12 @@ describe("drainOutbox", () => {
     const row = await env.DB.prepare("SELECT attempts, last_error FROM outbox WHERE order_id = 'd1d'").first<any>();
     expect(row).toEqual({ attempts: 1, last_error: "resend 503: down" });
 
+    // a retry that fails again does not alert a second time
+    m.failNext = "resend 503: still down";
+    expect(await drainOutbox(deps(g), new Date(NOW.getTime() + 200_000))).toEqual({ status: "ok", delivered: 0, failed: 1, waiting: 0 });
+    expect(al.sent).toHaveLength(1);
+    expect((await env.DB.prepare("SELECT attempts FROM outbox WHERE order_id = 'd1d'").first<any>()).attempts).toBe(2);
+
     await paidOrder("d1e", "cs_d1e");
     await env.DB.prepare("DELETE FROM outbox WHERE order_id = 'd1e' AND kind != 'email_customer'").run();
     m.failNext = "resend 503: down";
