@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Bull and Bloom</title>
+<link rel="icon" href="/assets/logo.jpg">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=EB+Garamond:ital,wght@0,400;1,400&display=swap">
+<link rel="stylesheet" href="offer.css">
+<script src="offer.js" defer></script>
+</head>
+<body>
+<nav aria-label="Sections">
+  <a href="/">The Bull and Bloom</a>
+  <a href="/#order">Order flowers</a>
+  <a href="/#contact">Contact</a>
+</nav>
+<main class="wrap">
+  <p class="eyebrow">Current offer</p>
+  <div id="loading"><p class="form-status">One moment…</p></div>
+
+  <div id="offer" hidden>
+    <h1 id="name"></h1>
+    <p class="tagline" id="tagline"></p>
+    <figure id="photo" hidden><img id="image" alt=""></figure>
+    <p id="description"></p>
+    <p class="facts" id="facts"></p>
+    <p>Refreshments will be provided.</p>
+    <p class="where">Hosted at Anthony's home studio in Albany. The address comes with your confirmation.</p>
+
+    <div id="booking">
+      <fieldset class="sessions" id="sessions"><legend>Pick a date</legend></fieldset>
+      <form class="form" id="book-form" novalidate>
+        <label>Name<input type="text" name="name" required autocomplete="name"></label>
+        <label>Email<input type="email" name="email" required autocomplete="email"></label>
+        <label>Phone <span class="opt">(optional)</span><input type="tel" name="phone" autocomplete="tel"></label>
+        <label class="full">Anything Anthony should know? <span class="opt">(optional)</span><textarea name="note" rows="3" maxlength="500"></textarea></label>
+        <div class="full">
+          <button class="btn" type="submit" id="book-btn" disabled>Reserve my seat</button>
+          <p class="form-note" id="total"></p>
+          <p class="form-status" role="status" aria-live="polite" id="status"></p>
+        </div>
+      </form>
+    </div>
+    <p id="no-dates" class="form-status" hidden>No open dates right now. Email <a href="mailto:thebullandbloom@gmail.com">thebullandbloom@gmail.com</a> and Anthony will let you know when the next one is set.</p>
+  </div>
+
+  <div id="unavailable" hidden>
+    <h1>Not currently offered</h1>
+    <p>This class isn't taking bookings right now. Email <a href="mailto:thebullandbloom@gmail.com">thebullandbloom@gmail.com</a> and Anthony will let you know when the next one is set.</p>
+    <p><a href="/">Back to the site</a></p>
+  </div>
+</main>
+<footer>© 2026 The Bull and Bloom · Floral Design · thebullandbloom.com</footer>
+</body>
+</html>

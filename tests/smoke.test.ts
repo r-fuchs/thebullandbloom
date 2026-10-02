@@ -36,4 +36,19 @@ describe("worker", () => {
     expect(body).toContain('name="zip"');
     expect(body).toContain('id="quote-note"');
   });
+
+  it("serves the class landing page at /offers/<slug> for any slug (Plan 7 §3.2)", async () => {
+    for (const path of ["/offers/wreath-and-sip", "/offers/anything-at-all"]) {
+      const r = await SELF.fetch(`https://example.com${path}`);
+      expect(r.status).toBe(200);
+      const body = await r.text();
+      expect(body).toContain('id="book-form"');
+      expect(body).toContain("Reserve my seat");
+      expect(body).toContain("Refreshments will be provided.");
+      expect(body).toContain("Hosted at Anthony's home studio in Albany. The address comes with your confirmation.");
+      expect(body).toContain('src="offer.js"');
+      expect(body).not.toContain("40 Manning");
+    }
+    expect((await SELF.fetch("https://example.com/offers/offer.js")).status).toBe(200);
+  });
 });

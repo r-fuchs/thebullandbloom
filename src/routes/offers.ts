@@ -92,5 +92,13 @@ export function offerRoutes(): App {
     return c.json({ url: stripeSession.url });
   });
 
+  // One static page serves every offer; the script reads the slug from the URL (D49). An unknown or
+  // retired slug still gets the page, which then says "Not currently offered": an ad link never dead-ends.
+  r.get("/offers/:slug", (c) => {
+    const slug = c.req.param("slug");
+    if (slug.includes(".")) return c.env.ASSETS.fetch(c.req.raw); // offer.js, offer.css in the test harness
+    return c.env.ASSETS.fetch(new URL("/offers/", c.req.url));
+  });
+
   return r;
 }

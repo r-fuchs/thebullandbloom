@@ -115,3 +115,14 @@ describe("POST /api/book", () => {
     expect((await post(fetch, good)).status).toBe(200);
   });
 });
+
+describe("GET /offers/:slug", () => {
+  it("serves the one static page whatever the slug, never a 404", async () => {
+    const { fetch } = testApp(undefined, offersConfig());
+    for (const slug of ["wreath-test", "retired-class"]) {
+      const r = await fetch(`/offers/${slug}`);
+      expect(r.status).toBe(200);
+      expect(await r.text()).toContain('id="book-form"');
+    }
+  });
+});
