@@ -9,6 +9,7 @@ import { countUsed, listOrders, getOrder, setStatus } from "../store/orders";
 import { registerGoogleAdmin } from "./admin-google";
 import { registerInstagramAdmin } from "./instagram";
 import { registerDeliveryAdmin } from "./admin-delivery";
+import { registerOffersAdmin } from "./admin-offers";
 import { deliveriesForDate } from "../store/deliveries";
 import { listSubscribers } from "../store/subscribers";
 import { dueDates } from "../core/subscriptions";
@@ -160,6 +161,7 @@ export function adminRoutes(): App {
   registerGoogleAdmin(r);
   registerInstagramAdmin(r);
   registerDeliveryAdmin(r);
+  registerOffersAdmin(r);
 
   return r;
 }

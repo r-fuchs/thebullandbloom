@@ -49,7 +49,7 @@
     <div class="row">
       <button id="prev">‹</button><strong id="month-label"></strong><button id="next">›</button>
       <span style="flex:1"></span>
-      <button id="subs-btn">Subscribers</button><button id="ig-btn">Photos</button><button id="settings-btn">Settings</button><button id="google-btn">Google</button><button id="delivery-btn">Delivery</button><button id="logout">Sign out</button><span class="status" id="who"></span>
+      <button id="subs-btn">Subscribers</button><button id="classes-btn">Classes</button><button id="ig-btn">Photos</button><button id="settings-btn">Settings</button><button id="google-btn">Google</button><button id="delivery-btn">Delivery</button><button id="logout">Sign out</button><span class="status" id="who"></span>
     </div>
     <div class="grid" id="grid"></div>
     <p class="status">Tap a day. Number is one-time orders / cap; “+n” is subscription bouquets. Pink = closed, yellow = full.</p>
@@ -73,6 +73,13 @@
       <div id="subs-flags"></div>
       <div id="subs-list"></div>
       <p class="status">Bouquets appear on the calendar three weeks ahead and count as “+n” on a day, never against the cap. Customers cancel from the link in their email (you can pause someone from the Stripe dashboard); Stripe tells the store and the calendar follows within 15 minutes.</p>
+    </div>
+
+    <div class="panel" id="classes-panel" hidden>
+      <h2 style="margin:0 0 .5rem;font-size:1.1rem;font-weight:500">Classes</h2>
+      <p class="status">Refund in Stripe first; "Cancel" here only frees the seat. Dates, seats and prices are edited in the site config.</p>
+      <div id="classes-list"></div>
+      <span class="status" id="classes-status"></span>
     </div>
 
     <div class="panel" id="ig-panel" hidden>
@@ -185,7 +192,7 @@
 
   function loadDay() {
     var d = cache[selected]; if (!d) return;
-    $('#day-panel').hidden = false; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true; $('#delivery-panel').hidden = true;
+    $('#day-panel').hidden = false; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true; $('#delivery-panel').hidden = true; $('#classes-panel').hidden = true;
     $('#day-title').textContent = new Date(selected + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
     $('#day-cap').value = d.overrideCap === null ? '' : d.overrideCap;
     $('#day-cap').placeholder = 'default';
@@ -256,7 +263,7 @@
   var DAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   function human(ymd) { return ymd ? new Date(ymd + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '—'; }
   function loadSubscribers() {
-    $('#subs-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#ig-panel').hidden = true; $('#delivery-panel').hidden = true;
+    $('#subs-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#ig-panel').hidden = true; $('#delivery-panel').hidden = true; $('#classes-panel').hidden = true;
     api('/subscribers').then(function (res) {
       var flags = $('#subs-flags'); flags.innerHTML = '';
       res.flags.forEach(function (f) {
@@ -281,8 +288,60 @@
   }
   $('#subs-btn').addEventListener('click', loadSubscribers);
 
+  function hm12(s) {
+    var p = s.split(':').map(Number), h = p[0] % 12 === 0 ? 12 : p[0] % 12, ap = p[0] < 12 ? 'am' : 'pm';
+    return p[1] ? h + ':' + String(p[1]).padStart(2, '0') + ' ' + ap : h + ' ' + ap;
+  }
+  function loadClasses() {
+    $('#classes-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true; $('#delivery-panel').hidden = true;
+    $('#classes-status').textContent = '';
+    api('/offers').then(function (res) {
+      var box = $('#classes-list'); box.innerHTML = '';
+      if (!res.offers.length) { box.innerHTML = '<p class="status">No classes in the config.</p>'; return; }
+      res.offers.forEach(function (o) {
+        var block = document.createElement('div'); block.className = 'order';
+        var head = document.createElement('div');
+        head.innerHTML = '<strong></strong> <span class="status"></span>';
+        head.querySelector('strong').textContent = o.name;
+        head.querySelector('.status').textContent = (o.enabled ? 'bookable' : 'off') + (o.showOnHome ? ', on the homepage' : '') + ' · ' + money(o.priceCents) + ' a seat · /offers/' + o.slug;
+        block.appendChild(head);
+        if (!o.sessions.length) {
+          var none = document.createElement('div'); none.className = 'status'; none.textContent = 'No upcoming dates.'; block.appendChild(none);
+          box.appendChild(block); return;
+        }
+        o.sessions.forEach(function (s) {
+          var line = document.createElement('div'); line.style.marginTop = '.5rem';
+          var taken = s.paidCount + s.heldCount;
+          line.innerHTML = '<div><b></b></div>';
+          line.querySelector('b').textContent = human(s.date) + ', ' + hm12(s.start) + ' — ' + taken + ' of ' + s.seats + ' seats' + (s.heldCount ? ' (' + s.heldCount + ' paying now)' : '');
+          s.bookings.forEach(function (b) {
+            if (b.status === 'cancelled') return;
+            var row = document.createElement('div'); row.className = 'row'; row.style.margin = '.2rem 0 .2rem 1rem';
+            row.innerHTML = '<span class="who"></span><small class="contact"></small><small class="note"></small>';
+            row.querySelector('.who').textContent = b.customerName + (b.status === 'held' ? ' (paying)' : '');
+            row.querySelector('.contact').textContent = b.customerEmail + (b.customerPhone ? ' · ' + b.customerPhone : '');
+            row.querySelector('.note').textContent = b.note ? 'Note: ' + b.note : '';
+            if (b.status === 'paid') {
+              var btn = document.createElement('button'); btn.type = 'button'; btn.textContent = 'Cancel';
+              btn.addEventListener('click', function () {
+                if (!confirm('Have you refunded ' + b.customerName + ' in Stripe? This only frees the seat.')) return;
+                api('/bookings/' + b.id + '/cancel', { method: 'POST' }).then(loadClasses)
+                  .catch(function (e) { if (e.message !== 'unauthorized') $('#classes-status').textContent = e.message; });
+              });
+              row.appendChild(btn);
+            }
+            line.appendChild(row);
+          });
+          block.appendChild(line);
+        });
+        box.appendChild(block);
+      });
+    }).catch(function (e) { if (e.message !== 'unauthorized') $('#classes-list').textContent = e.message; });
+  }
+  $('#classes-btn').addEventListener('click', loadClasses);
+
   function loadInstagram() {
-    $('#ig-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#delivery-panel').hidden = true;
+    $('#ig-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#delivery-panel').hidden = true; $('#classes-panel').hidden = true;
     return api('/instagram/status').then(function (s) {
       var text;
       if (!s.configured) text = !s.storage ? 'Photo storage is not set up yet (Ryan needs to enable R2 on Cloudflare and redeploy).' : 'Instagram is not set up yet. You can still add photos from your phone below.';
@@ -367,7 +426,7 @@
   });
 
   function loadSettings() {
-    $('#settings-panel').hidden = false; $('#day-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true; $('#delivery-panel').hidden = true;
+    $('#settings-panel').hidden = false; $('#day-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true; $('#delivery-panel').hidden = true; $('#classes-panel').hidden = true;
     api('/settings').then(function (s) {
       $('#s-cap').value = s.cap; $('#s-cutoff').value = s.cutoff;
       var box = $('#s-days'); box.innerHTML = '';
@@ -387,7 +446,7 @@
     return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : Math.round(m / 60) + ' h ago';
   }
   function loadGoogle() {
-    $('#google-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true; $('#delivery-panel').hidden = true;
+    $('#google-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true; $('#delivery-panel').hidden = true; $('#classes-panel').hidden = true;
     return api('/google/status').then(function (s) {
       var text;
       if (!s.configured) text = 'Not set up yet (Ryan needs to add the Google client keys).';
@@ -428,7 +487,7 @@
   });
 
   function loadDelivery() {
-    $('#delivery-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true;
+    $('#delivery-panel').hidden = false; $('#day-panel').hidden = true; $('#settings-panel').hidden = true; $('#google-panel').hidden = true; $('#subs-panel').hidden = true; $('#ig-panel').hidden = true; $('#classes-panel').hidden = true;
     function zoneSummary(zones) {
       if (!zones || !zones.length) return '(no zones set)';
       return zones.map(function (z) { return z.name + ' ' + money(z.feeCents) + ' (' + z.zips.length + ' ZIPs)'; }).join(' · ');
