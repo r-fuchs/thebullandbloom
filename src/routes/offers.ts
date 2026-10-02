@@ -4,6 +4,9 @@ import { offerById, offerBySlug, offersOf, type Offer } from "../config";
 import { bookingBlocker, isBookable, seatsRemaining, sessionLabel, sessionStart } from "../core/offers";
 import { ymdIn } from "../core/time";
 import { attachSession, cancelBooking, countTaken, tryInsertHeldBooking } from "../store/bookings";
+
+/** The most seats one booking may hold: friends come in twos and threes, not busloads. */
+export const MAX_PARTY = 6;
 import type { CheckoutLineItem } from "../adapters/payments";
 import { parseCustomer } from "./public";
 
@@ -44,6 +47,8 @@ export function offerRoutes(): App {
     const cust = parseCustomer(b.customer);
     if (!cust.ok) return c.json({ error: cust.error }, 400);
     if (b.note !== undefined && (typeof b.note !== "string" || b.note.length > 500)) return c.json({ error: "note must be 500 characters or fewer" }, 400);
+    const seats = b.seats === undefined ? 1 : b.seats;
+    if (!Number.isInteger(seats) || seats < 1 || seats > MAX_PARTY) return c.json({ error: `seats must be a whole number from 1 to ${MAX_PARTY}` }, 400);
     const offer = offerById(config, b.offerId);
     if (!offer) return c.json({ error: "unknown offer" }, 400);
     const session = offer.sessions.find((s) => s.id === b.sessionId);
@@ -61,19 +66,23 @@ export function offerRoutes(): App {
     const inserted = await tryInsertHeldBooking(c.env.DB, {
       id: bookingId, offerId: offer.id, sessionId: session.id,
       customerName: cust.customer.name, customerEmail: cust.customer.email, customerPhone: cust.customer.phone ?? null,
-      note: b.note?.trim() || null, priceCents: offer.priceCents,
+      note: b.note?.trim() || null, priceCents: offer.priceCents, seats,
     }, session.seats, nowSec, holdUntil);
-    if (!inserted) return c.json({ error: "sold_out" }, 409);
+    if (!inserted) {
+      // The party did not fit. Say how many seats are left so the page can offer a smaller party instead of a dead end.
+      const taken = (await countTaken(c.env.DB, offer.id)).get(session.id) ?? 0;
+      return c.json({ error: "sold_out", remaining: seatsRemaining(session.seats, taken) }, 409);
+    }
 
     const lineItems: CheckoutLineItem[] = [
-      { name: `${offer.name} — ${sessionLabel(session)}`, amountCents: offer.priceCents, quantity: 1, taxCategory: "workshop" },
+      { name: `${offer.name} — ${sessionLabel(session)}`, amountCents: offer.priceCents, quantity: seats, taxCategory: "workshop" },
     ];
     let stripeSession;
     try {
       stripeSession = await payments.createCheckout({
         orderId: bookingId, customerEmail: cust.customer.email, customerName: cust.customer.name,
         taxAddress: config.studio.address, lineItems,
-        successUrl: `${c.env.SITE_URL}/thanks?booking=${bookingId}&offer=${offer.id}`,
+        successUrl: `${c.env.SITE_URL}/thanks?booking=${bookingId}&offer=${offer.id}&seats=${seats}`,
         cancelUrl: `${c.env.SITE_URL}/offers/${offer.slug}`,
         expiresAt: stripeExpiresAt,
       });

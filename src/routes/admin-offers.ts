@@ -21,11 +21,12 @@ export function registerOffersAdmin(r: App): void {
           const rows = all.filter((b) => b.sessionId === s.id);
           return {
             id: s.id, date: s.date, start: s.start, seats: s.seats,
-            paidCount: rows.filter((b) => b.status === "paid").length,
-            heldCount: rows.filter((b) => b.status === "held").length,
+            // seat counts, not party counts: a booking of three is three of the eight
+            paidCount: rows.filter((b) => b.status === "paid").reduce((n, b) => n + b.seats, 0),
+            heldCount: rows.filter((b) => b.status === "held").reduce((n, b) => n + b.seats, 0),
             bookings: rows.map((b) => ({
               id: b.id, customerName: b.customerName, customerEmail: b.customerEmail, customerPhone: b.customerPhone,
-              note: b.note, status: b.status, createdAt: b.createdAt,
+              note: b.note, status: b.status, createdAt: b.createdAt, seats: b.seats,
             })),
           };
         });

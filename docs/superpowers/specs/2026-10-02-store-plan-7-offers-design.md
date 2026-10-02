@@ -45,6 +45,15 @@ The first offer is Wreath & Sip; nothing in the build is specific to wreaths.
   `held`, `paid` or `cancelled`. A cancelled booking no longer counts against seats.
 - **D54 Bookings close a fixed number of hours before the session starts,** set per offer
   (`bookingClosesHoursBefore`, default 24) so Anthony can buy materials.
+- **D55 A booking is a party, not a seat** (added 2026-10-02, after launch). Classes sell in
+  twos and threes, and the one-seat form made a friend repeat the whole checkout. `bookings.seats`
+  (default 1, at most 6 per booking) says how many the party holds; seats taken is `SUM(seats)`;
+  the guarded insert fits the whole party or none and `sold_out` carries `remaining` so the page
+  can offer a smaller party. `price_cents` stays per seat; Stripe gets the quantity; the emails
+  and admin count seats, not rows. Admin cancel frees the whole party (a partial refund is a
+  Stripe matter, as in D53). The landing page also gained a top call to action, what's included,
+  Anthony's portrait and a line about him, a 48-hour move-or-refund cancellation line, and an
+  Instagram link for proof: the conversion pass before paid traffic.
 
 ## 3. What changes
 

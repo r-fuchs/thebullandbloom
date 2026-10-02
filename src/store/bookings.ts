@@ -5,20 +5,24 @@ export interface Booking {
   customerName: string; customerEmail: string; customerPhone: string | null; note: string | null;
   stripeSessionId: string | null; stripePaymentIntent: string | null;
   priceCents: number; taxCents: number; discountCents: number; holdExpiresAt: number | null;
+  /** how many seats this party holds; priceCents is per seat */
+  seats: number;
 }
 export interface NewBooking {
   id: string; offerId: string; sessionId: string; customerName: string; customerEmail: string;
   customerPhone: string | null; note: string | null; priceCents: number;
+  /** seats for the party; 1 when absent */
+  seats?: number;
 }
 
 interface Row {
   id: string; created_at: number; status: BookingStatus; offer_id: string; session_id: string;
   customer_name: string; customer_email: string; customer_phone: string | null; note: string | null;
   stripe_session_id: string | null; stripe_payment_intent: string | null;
-  price_cents: number; tax_cents: number; discount_cents: number; hold_expires_at: number | null;
+  price_cents: number; tax_cents: number; discount_cents: number; hold_expires_at: number | null; seats: number;
 }
 const COLS = `id, created_at, status, offer_id, session_id, customer_name, customer_email, customer_phone, note,
-  stripe_session_id, stripe_payment_intent, price_cents, tax_cents, discount_cents, hold_expires_at`;
+  stripe_session_id, stripe_payment_intent, price_cents, tax_cents, discount_cents, hold_expires_at, seats`;
 
 function fromRow(r: Row): Booking {
   return {
@@ -26,28 +30,29 @@ function fromRow(r: Row): Booking {
     customerName: r.customer_name, customerEmail: r.customer_email, customerPhone: r.customer_phone, note: r.note,
     stripeSessionId: r.stripe_session_id, stripePaymentIntent: r.stripe_payment_intent,
     priceCents: r.price_cents, taxCents: r.tax_cents, discountCents: r.discount_cents, holdExpiresAt: r.hold_expires_at,
+    seats: r.seats,
   };
 }
 
-const TAKEN = `SELECT COUNT(*) FROM bookings WHERE offer_id = ?1 AND session_id = ?2 AND status IN ('held','paid')`;
+const TAKEN = `SELECT COALESCE(SUM(seats), 0) FROM bookings WHERE offer_id = ?1 AND session_id = ?2 AND status IN ('held','paid')`;
 
 /** Seats taken per session of one offer (held + paid). Sessions with no bookings are absent. */
 export async function countTaken(db: D1Database, offerId: string): Promise<Map<string, number>> {
   const rows = await db.prepare(
-    `SELECT session_id, COUNT(*) AS n FROM bookings WHERE offer_id = ? AND status IN ('held','paid') GROUP BY session_id`,
+    `SELECT session_id, SUM(seats) AS n FROM bookings WHERE offer_id = ? AND status IN ('held','paid') GROUP BY session_id`,
   ).bind(offerId).all<{ session_id: string; n: number }>();
   return new Map(rows.results.map((r) => [r.session_id, r.n]));
 }
 
-/** The seat guard: the row lands only while taken < seats, in one statement, so two customers cannot both get the last seat. */
+/** The seat guard: the row lands only while taken + the party's seats fit under capacity, in one statement, so two parties cannot both get the last seats. */
 export async function tryInsertHeldBooking(
   db: D1Database, b: NewBooking, seats: number, now: number, holdExpiresAt: number,
 ): Promise<boolean> {
   const res = await db.prepare(
-    `INSERT INTO bookings (id, created_at, status, offer_id, session_id, customer_name, customer_email, customer_phone, note, price_cents, hold_expires_at)
-     SELECT ?3, ?4, 'held', ?1, ?2, ?5, ?6, ?7, ?8, ?9, ?10
-     WHERE (${TAKEN}) < ?11`,
-  ).bind(b.offerId, b.sessionId, b.id, now, b.customerName, b.customerEmail, b.customerPhone, b.note, b.priceCents, holdExpiresAt, seats).run();
+    `INSERT INTO bookings (id, created_at, status, offer_id, session_id, customer_name, customer_email, customer_phone, note, price_cents, hold_expires_at, seats)
+     SELECT ?3, ?4, 'held', ?1, ?2, ?5, ?6, ?7, ?8, ?9, ?10, ?12
+     WHERE (${TAKEN}) + ?12 <= ?11`,
+  ).bind(b.offerId, b.sessionId, b.id, now, b.customerName, b.customerEmail, b.customerPhone, b.note, b.priceCents, holdExpiresAt, seats, b.seats ?? 1).run();
   return res.meta.changes === 1;
 }
 
