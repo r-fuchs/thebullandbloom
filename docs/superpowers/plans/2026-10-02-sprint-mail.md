@@ -61,7 +61,7 @@ Routing destinations.
 | lane | landed | commit | notes |
 |---|---|---|---|
 | A mailer (#1) | 2026-10-02 | b0c7625 | gate: 393 tests + tsc clean in the lane worktree; squashed from lane/mailer. Open items handed to lane B: D58 alert only on a row's first failure. Left as-is: `gmail.send` still in the Google scopes (consent-screen change, takes effect only on reconnect); admin "Retry" button still tied to the Google panel until B's banner. |
-| B alerts + watchdog (#2 #3) | | | dispatched after A landed |
+| B alerts + watchdog (#2 #3) | 2026-10-02 | 5521e2b | gate: 411 tests + tsc clean in the lane worktree after one fix round (singular alert subject); squashed from lane/alerts. Wording chosen by the lane, open for Ryan: alert body "Kinds: … / Oldest: M minutes / <cause> / <admin link>", recovery body "Every queued message has gone out." |
 
 ## Outcome
 
