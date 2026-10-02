@@ -1,6 +1,7 @@
 import type { Env } from "./env";
 import type { Services } from "./app";
 import { expireHolds } from "./store/orders";
+import { expireHolds as expireBookingHolds } from "./store/bookings";
 import { syncBlackouts, type BlackoutSyncResult } from "./jobs/blackouts";
 import { drainOutbox, type DrainResult } from "./jobs/outbox";
 import { materializeSubscriptions, type MaterializeResult } from "./jobs/materialize";
@@ -9,6 +10,7 @@ import { refreshFeed, type FeedResult } from "./jobs/instagram";
 type Failed = { status: "error"; error: string };
 export interface ScheduledReport {
   expiredHolds: number | { error: string };
+  expiredBookingHolds: number | { error: string };
   blackouts: BlackoutSyncResult | Failed;
   subscriptions: MaterializeResult | Failed;
   instagram: FeedResult | Failed;
@@ -25,6 +27,10 @@ export async function runScheduled(env: Env, services: Services, now: Date): Pro
   let expiredHolds: ScheduledReport["expiredHolds"];
   try { expiredHolds = await expireHolds(env.DB, nowSec); }
   catch (e) { console.error("scheduled: expireHolds failed", e); expiredHolds = { error: msg(e) }; }
+
+  let expiredBookingHolds: ScheduledReport["expiredBookingHolds"];
+  try { expiredBookingHolds = await expireBookingHolds(env.DB, nowSec); }
+  catch (e) { console.error("scheduled: expireBookingHolds failed", e); expiredBookingHolds = { error: msg(e) }; }
 
   let blackouts: ScheduledReport["blackouts"];
   try { blackouts = await syncBlackouts(env.DB, google, config.timezone, now); }
@@ -44,5 +50,5 @@ export async function runScheduled(env: Env, services: Services, now: Date): Pro
   try { outbox = await drainOutbox({ db: env.DB, google, payments, config, siteUrl: env.SITE_URL }, now); }
   catch (e) { console.error("scheduled: drainOutbox threw", e); outbox = { status: "error", error: msg(e) }; }
 
-  return { expiredHolds, blackouts, subscriptions, instagram: instagramRes, outbox };
+  return { expiredHolds, expiredBookingHolds, blackouts, subscriptions, instagram: instagramRes, outbox };
 }

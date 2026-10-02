@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import type { App } from "../app";
 import { markPaidBySession, cancelHeldBySession, markDoneIfPaid } from "../store/orders";
-import { enqueueForSessionStatements, enqueueForSubjectStatements, ORDER_PAID_KINDS, SUB_CANCELLED_KINDS, SUB_CONFIRMED_KINDS } from "../store/outbox";
+import * as bookings from "../store/bookings";
+import { enqueueForSessionStatements, enqueueForSubjectStatements, enqueueForBookingSessionStatements, ORDER_PAID_KINDS, BOOKING_PAID_KINDS, SUB_CANCELLED_KINDS, SUB_CONFIRMED_KINDS } from "../store/outbox";
 import { byStripeSubscription, deleteFutureMaterialized, insertSubscriber, setSubscriberStatus, type SubscriberStatus } from "../store/subscribers";
 import { drainOutbox } from "../jobs/outbox";
 import { anchorFor, materializeSubscriptions } from "../jobs/materialize";
@@ -39,16 +40,21 @@ export function webhookRoutes(): App {
     const outboxDeps = { db: c.env.DB, google, payments, config, siteUrl: c.env.SITE_URL };
 
     if (event.type === "checkout.session.completed") {
+      // One Checkout Session is either a bouquet order or a class seat (Plan 7); try orders first.
       const order = await markPaidBySession(
         c.env.DB, event.sessionId, event.paymentIntent, event.taxCents, event.discountCents,
         enqueueForSessionStatements(c.env.DB, event.sessionId, ORDER_PAID_KINDS, nowSec),
       );
-      if (!order) console.error("webhook: completed but no held order for session", event.sessionId);
+      const booking = order ? null : await bookings.markPaidBySession(
+        c.env.DB, event.sessionId, event.paymentIntent, event.taxCents, event.discountCents,
+        enqueueForBookingSessionStatements(c.env.DB, event.sessionId, BOOKING_PAID_KINDS, nowSec),
+      );
+      if (!order && !booking) console.error("webhook: completed but no held order or booking for session", event.sessionId);
       else await background(c, drainOutbox(outboxDeps, now));
-      return c.json({ received: true, applied: order ? "paid" : "ignored" });
+      return c.json({ received: true, applied: order || booking ? "paid" : "ignored" });
     }
     if (event.type === "checkout.session.expired") {
-      const did = await cancelHeldBySession(c.env.DB, event.sessionId);
+      const did = (await cancelHeldBySession(c.env.DB, event.sessionId)) || (await bookings.cancelHeldBySession(c.env.DB, event.sessionId));
       return c.json({ received: true, applied: did ? "cancelled" : "ignored" });
     }
 
