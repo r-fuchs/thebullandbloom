@@ -18,6 +18,8 @@ export interface OfferSession { id: string; date: string; start: string; seats: 
 export interface Offer {
   id: string; slug: string; enabled: boolean; showOnHome: boolean;
   name: string; tagline: string; description: string; image: string; imageAlt: string;
+  /** pixel size of `image`, for the share-preview tags; both or neither */
+  imageWidth?: number; imageHeight?: number;
   priceCents: number; durationMinutes: number;
   /** bookings close this many hours before a session starts (D54); 24 when absent */
   bookingClosesHoursBefore: number;
@@ -90,6 +92,10 @@ function validateOffers(offers: unknown): void {
       if (typeof o[k] !== "string") throw new Error(`config: offer ${o.id} ${k} must be a string`);
     }
     if (typeof o.image !== "string" || !ASSET.test(o.image)) throw new Error(`config: offer ${o.id} image must be a path under assets/`);
+    if ((o.imageWidth === undefined) !== (o.imageHeight === undefined)) throw new Error(`config: offer ${o.id} imageWidth and imageHeight go together`);
+    for (const k of ["imageWidth", "imageHeight"] as const) {
+      if (o[k] !== undefined && (!Number.isInteger(o[k]) || (o[k] as number) <= 0)) throw new Error(`config: offer ${o.id} ${k} must be a positive integer`);
+    }
     if (!Number.isInteger(o.priceCents) || o.priceCents <= 0) throw new Error(`config: offer ${o.id} priceCents must be a positive integer`);
     if (!Number.isInteger(o.durationMinutes) || o.durationMinutes < 0) throw new Error(`config: offer ${o.id} durationMinutes must be a non-negative integer`);
     if (o.bookingClosesHoursBefore === undefined) o.bookingClosesHoursBefore = 24;

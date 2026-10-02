@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { App } from "../app";
-import { offerById, offersOf } from "../config";
+import { offerById, offerBySlug, offersOf, type Offer } from "../config";
 import { bookingBlocker, isBookable, seatsRemaining, sessionLabel, sessionStart } from "../core/offers";
 import { ymdIn } from "../core/time";
 import { attachSession, cancelBooking, countTaken, tryInsertHeldBooking } from "../store/bookings";
@@ -94,10 +94,13 @@ export function offerRoutes(): App {
 
   // One static page serves every offer; the script reads the slug from the URL (D49). An unknown or
   // retired slug still gets the page, which then says "Not currently offered": an ad link never dead-ends.
-  r.get("/offers/:slug", (c) => {
+  r.get("/offers/:slug", async (c) => {
     const slug = c.req.param("slug");
     if (slug.includes(".")) return c.env.ASSETS.fetch(c.req.raw); // offer.js, offer.css in the test harness
-    return c.env.ASSETS.fetch(new URL("/offers/", c.req.url));
+    const page = await c.env.ASSETS.fetch(new URL("/offers/", c.req.url));
+    const offer = offerBySlug(c.get("services").config, slug);
+    if (!offer || !offer.enabled) return page;
+    return withShareTags(page, offer, c.env.SITE_URL);
   });
 
   // An ad link typed with a trailing slash: send it to the canonical address so the page's relative assets resolve.
@@ -105,3 +108,30 @@ export function offerRoutes(): App {
 
   return r;
 }
+
+const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/** Facebook, iMessage and the rest read the head without running offer.js, so a live offer's title,
+ *  description and photo go into the static page here. The page itself is untouched otherwise. */
+export function withShareTags(page: Response, offer: Offer, siteUrl: string): Response {
+  const base = siteUrl.replace(/\/+$/, "");
+  const title = `${offer.name} — The Bull and Bloom`;
+  const image = `${base}/${offer.image}`;
+  const tags: Array<[string, string, string]> = [
+    ["name", "description", offer.description],
+    ["property", "og:title", title],
+    ["property", "og:description", offer.tagline],
+    ["property", "og:image", image],
+    ...(offer.imageWidth && offer.imageHeight
+      ? [["property", "og:image:width", String(offer.imageWidth)], ["property", "og:image:height", String(offer.imageHeight)]] as Array<[string, string, string]>
+      : []),
+    ["property", "og:url", `${base}/offers/${offer.slug}`],
+    ["property", "og:type", "website"],
+    ["name", "twitter:card", "summary_large_image"],
+  ];
+  const metas = tags.map(([attr, k, v]) => `<meta ${attr}="${k}" content="${escapeHtml(v)}">`).join("\n");
+  return new HTMLRewriter()
+    .on("head > title", { element(el) { el.setInnerContent(title); el.after("\n" + metas, { html: true }); } })
+    .transform(page);
+}
+

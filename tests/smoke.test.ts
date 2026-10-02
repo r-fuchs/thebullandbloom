@@ -67,6 +67,33 @@ describe("worker", () => {
     expect(offerJsText).toContain("onerror");
   });
 
+  it("renders share tags for a live offer so a Facebook or iMessage preview shows the class, and leaves unknown slugs plain", async () => {
+    const live = await (await SELF.fetch("https://example.com/offers/wreath-and-sip")).text();
+    expect(live).toContain("<title>Wreath &amp; Sip — The Bull and Bloom</title>");
+    expect(live).toContain('<meta property="og:title" content="Wreath &amp; Sip — The Bull and Bloom">');
+    expect(live).toContain('<meta property="og:description" content="Fall wreathmaking class in Albany">');
+    expect(live).toContain('<meta property="og:image" content="https://thebullandbloom.com/assets/wreath.jpg">');
+    expect(live).toContain('<meta property="og:image:width" content="900">');
+    expect(live).toContain('<meta property="og:image:height" content="1200">');
+    expect(live).toContain('<meta property="og:url" content="https://thebullandbloom.com/offers/wreath-and-sip">');
+    expect(live).toContain('<meta property="og:type" content="website">');
+    expect(live).toContain('<meta name="twitter:card" content="summary_large_image">');
+    expect(live).toContain('<meta name="description" content="A 2-hour class at Anthony');
+    expect(live.match(/<title>/g)).toHaveLength(1);
+
+    const unknown = await (await SELF.fetch("https://example.com/offers/anything-at-all")).text();
+    expect(unknown).toContain("<title>The Bull and Bloom</title>");
+    expect(unknown).not.toContain("og:title");
+  });
+
+  it("shares the homepage with a photo, not the logo", async () => {
+    const body = await (await SELF.fetch("https://example.com/")).text();
+    expect(body).toContain('<meta property="og:image" content="https://thebullandbloom.com/assets/wreath.jpg">');
+    expect(body).toContain('<meta property="og:image:width" content="900">');
+    expect(body).toContain('<meta property="og:image:height" content="1200">');
+    expect(body).not.toContain('og:image" content="https://thebullandbloom.com/assets/logo.jpg"');
+  });
+
   it("carries the Current offers teaser and its nav link, both hidden until a bookable offer renders (Plan 7 §3.3)", async () => {
     const body = await (await SELF.fetch("https://example.com/")).text();
     expect(body).toMatch(/<section id="offers" hidden>/);
