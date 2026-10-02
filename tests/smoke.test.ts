@@ -52,7 +52,9 @@ describe("worker", () => {
     }
     const offerJs = await SELF.fetch("https://example.com/offers/offer.js");
     expect(offerJs.status).toBe(200);
-    expect(await offerJs.text()).toContain("'autoConfig', false");
+    const offerJsText = await offerJs.text();
+    expect(offerJsText).toContain("'autoConfig', false");
+    expect(offerJsText).toContain("onerror");
   });
 
   it("carries the Current offers teaser and its nav link, both hidden until a bookable offer renders (Plan 7 §3.3)", async () => {
@@ -65,6 +67,9 @@ describe("worker", () => {
     const js = await (await SELF.fetch("https://example.com/store.js")).text();
     expect(js).toContain("fetch('/api/offers')");
     expect(js).not.toContain("fbq");
+    expect(js).toContain("img.onerror");
+    expect(js).toContain('class="tagline"');
+    expect(js).not.toContain("querySelector('.tag')");
   });
 
   it("thanks page carries the booking variant and fires Purchase only through the pixel loader (Plan 7 §3.4, §3.9)", async () => {

@@ -213,10 +213,11 @@
       var next = o.sessions.filter(function (s) { return s.bookable; })[0];
       if (!next) return;
       var card = document.createElement('article'); card.className = 'offer-card';
-      card.innerHTML = '<img alt=""><div><h3></h3><p class="tag"></p><p class="next"></p><a class="btn"></a></div>';
-      var img = card.querySelector('img'); img.src = o.image; img.alt = o.imageAlt || '';
+      card.innerHTML = '<img alt=""><div><h3></h3><p class="tagline"></p><p class="next"></p><a class="btn"></a></div>';
+      var img = card.querySelector('img'); img.onerror = function () { img.hidden = true; };
+      img.src = o.image; img.alt = o.imageAlt || '';
       card.querySelector('h3').textContent = o.name;
-      card.querySelector('.tag').textContent = o.tagline;
+      card.querySelector('.tagline').textContent = o.tagline;
       card.querySelector('.next').textContent = 'Next: ' + shortDate(next.date) + ' · ' + hm12(next.start) + ' · ' + (next.remaining === 1 ? '1 seat left' : next.remaining + ' seats left');
       var a = card.querySelector('a'); a.href = '/offers/' + o.slug; a.textContent = 'Book a seat';
       cards.appendChild(card);

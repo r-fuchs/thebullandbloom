@@ -74,6 +74,9 @@
   .offer-card img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
   .offer-card h3{font-family:var(--display);font-weight:600;font-size:1.7rem;margin:0 0 .3rem}
   .offer-card p{margin:0 0 .6rem}
+  .offer-card .tagline{font-style:italic;color:var(--sepia)}
+  .offer-card img[hidden]{display:none}
+  .offer-card:has(img[hidden]){grid-template-columns:1fr}
   .offer-card .next{font-family:var(--display);font-size:1.15rem;color:var(--sepia)}
   .offer-card .btn{margin-top:.75rem}
   @media (max-width:40rem){.offer-card{grid-template-columns:1fr}}

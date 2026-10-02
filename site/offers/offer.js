@@ -64,7 +64,7 @@
     document.title = offer.name + ' — The Bull and Bloom';
     $('#name').textContent = offer.name;
     $('#tagline').textContent = offer.tagline;
-    if (offer.image) { $('#image').src = '/' + offer.image; $('#image').alt = offer.imageAlt || ''; $('#photo').hidden = false; }
+    if (offer.image) { $('#image').onerror = function () { $('#photo').hidden = true; }; $('#image').src = '/' + offer.image; $('#image').alt = offer.imageAlt || ''; $('#photo').hidden = false; }
     $('#description').textContent = offer.description;
     var len = duration(offer.durationMinutes);
     $('#facts').textContent = money(offer.priceCents) + ' per seat' + (len ? ' · ' + len : '');
