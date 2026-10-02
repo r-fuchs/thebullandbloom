@@ -1,11 +1,15 @@
 export type OutboxKind =
   | "calendar_event" | "email_customer" | "email_owner" | "courier_email"
-  | "sub_confirmed_customer" | "sub_confirmed_owner" | "sub_cancelled_customer" | "sub_cancelled_owner";
+  | "sub_confirmed_customer" | "sub_confirmed_owner" | "sub_cancelled_customer" | "sub_cancelled_owner"
+  | "booking_confirmed_customer" | "booking_confirmed_owner";
 export const ORDER_PAID_KINDS: readonly OutboxKind[] = ["calendar_event", "email_customer", "email_owner"];
 export const SUB_CONFIRMED_KINDS: readonly OutboxKind[] = ["sub_confirmed_customer", "sub_confirmed_owner"];
 export const SUB_CANCELLED_KINDS: readonly OutboxKind[] = ["sub_cancelled_customer", "sub_cancelled_owner"];
-export const KNOWN_KINDS: readonly string[] = [...ORDER_PAID_KINDS, "courier_email", "sub_confirmed_customer", "sub_confirmed_owner", "sub_cancelled_customer", "sub_cancelled_owner"];
+/** Plan 7: queued with the paid flip of a booking; the subject column carries the booking id. */
+export const BOOKING_PAID_KINDS: readonly OutboxKind[] = ["booking_confirmed_customer", "booking_confirmed_owner"];
+export const KNOWN_KINDS: readonly string[] = [...ORDER_PAID_KINDS, "courier_email", ...SUB_CONFIRMED_KINDS, ...SUB_CANCELLED_KINDS, ...BOOKING_PAID_KINDS];
 export const isSubscriberKind = (k: OutboxKind) => k.startsWith("sub_");
+export const isBookingKind = (k: OutboxKind) => k.startsWith("booking_");
 export const MAX_ATTEMPTS = 24;
 /** How long a claimed item's lease lasts before it becomes due again (e.g. a crashed worker mid-delivery). */
 export const CLAIM_LEASE_SECONDS = 300;
@@ -34,6 +38,16 @@ export function enqueueForSessionStatements(
   return kinds.map((kind) => db.prepare(
     `INSERT OR IGNORE INTO outbox (id, kind, order_id, created_at, attempts, next_attempt_at)
      SELECT ?1, ?2, id, ?3, 0, ?3 FROM orders WHERE stripe_session_id = ?4 AND status = 'paid'`,
+  ).bind(crypto.randomUUID(), kind, now, sessionId));
+}
+
+/** The booking twin of `enqueueForSessionStatements`: rides in the batch that marks the booking paid; no-op on a duplicate webhook. */
+export function enqueueForBookingSessionStatements(
+  db: D1Database, sessionId: string, kinds: readonly OutboxKind[], now: number,
+): D1PreparedStatement[] {
+  return kinds.map((kind) => db.prepare(
+    `INSERT OR IGNORE INTO outbox (id, kind, order_id, created_at, attempts, next_attempt_at)
+     SELECT ?1, ?2, id, ?3, 0, ?3 FROM bookings WHERE stripe_session_id = ?4 AND status = 'paid'`,
   ).bind(crypto.randomUUID(), kind, now, sessionId));
 }
 
