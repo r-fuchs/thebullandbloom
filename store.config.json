@@ -53,23 +53,36 @@
     ]
   },
   "holdMinutes": 30,
-  "marketing": { "metaPixelId": "" },
+  "marketing": {
+    "metaPixelId": ""
+  },
   "offers": [
     {
       "id": "wreath-and-sip-autumn-2026",
       "slug": "wreath-and-sip",
-      "enabled": false,
-      "showOnHome": false,
+      "enabled": true,
+      "showOnHome": true,
       "name": "Wreath & Sip",
-      "tagline": "Make an autumn wreath at the studio",
+      "tagline": "Fall wreathmaking class",
       "description": "An evening at the studio making a full autumn wreath from fresh and dried stems. Anthony walks the room through the base, the shape and the finishing touches; every seat has its own materials, and the wreath goes home with you.",
       "image": "assets/wreath.jpg",
-      "imageAlt": "An autumn wreath of dried grasses, seed heads and rust-colored foliage on a wooden door",
-      "priceCents": 8500,
+      "imageAlt": "A large dried wreath of grapevine, poppy seed heads, hydrangea, grasses and deep red amaranth, leaning against a whitewashed wall",
+      "priceCents": 10000,
       "durationMinutes": 120,
       "bookingClosesHoursBefore": 24,
       "sessions": [
-        { "id": "2026-11-07-1800", "date": "2026-11-07", "start": "18:00", "seats": 8 }
+        {
+          "id": "2026-10-17-1100",
+          "date": "2026-10-17",
+          "start": "11:00",
+          "seats": 7
+        },
+        {
+          "id": "2026-10-17-1400",
+          "date": "2026-10-17",
+          "start": "14:00",
+          "seats": 7
+        }
       ]
     }
   ],
