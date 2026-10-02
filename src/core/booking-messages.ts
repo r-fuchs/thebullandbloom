@@ -19,10 +19,11 @@ const firstNameOf = (name: string) => name.trim().split(/\s+/)[0];
  */
 export function bookingConfirmedEmail(booking: Booking, offer: Offer, session: OfferSession, cfg: StoreConfig): Mail {
   const length = humanDuration(offer.durationMinutes);
+  const party = booking.seats > 1 ? `Your ${booking.seats} seats` : "Your seat";
   const lines = [
     `Hi ${firstNameOf(booking.customerName)},`,
     "",
-    `Thank you. Your seat at ${offer.name} is booked for ${longDate(session.date)} at ${humanTime(session.start)}.${length ? ` The class runs about ${length}.` : ""}`,
+    `Thank you. ${party} at ${offer.name} ${booking.seats > 1 ? "are" : "is"} booked for ${longDate(session.date)} at ${humanTime(session.start)}.${length ? ` The class runs about ${length}.` : ""}`,
     "",
     "Where: Anthony's home studio",
     formatAddress(cfg.studio.address),
@@ -35,23 +36,24 @@ export function bookingConfirmedEmail(booking: Booking, offer: Offer, session: O
     "The Bull and Bloom",
     "thebullandbloom.com",
   ];
-  return { to: booking.customerEmail, subject: `Your seat at ${offer.name}`, text: lines.join("\n") };
+  return { to: booking.customerEmail, subject: `${party} at ${offer.name}`, text: lines.join("\n") };
 }
 
 /** "Jane Doe booked Wreath & Sip, Sat Nov 7 — 5 of 8 seats": the headcount is what Anthony needs (D52). */
 export function ownerBookingEmail(booking: Booking, offer: Offer, session: OfferSession, cfg: StoreConfig, taken: number, siteUrl: string): Mail {
   const contact = booking.customerPhone ? `${booking.customerEmail} · ${booking.customerPhone}` : booking.customerEmail;
+  const what = booking.seats > 1 ? `${booking.seats} seats at ${offer.name}` : offer.name;
   const lines = [
     `${offer.name} · ${sessionLabel(session)} · ${taken} of ${session.seats} seats taken`,
     "",
-    booking.customerName,
+    booking.seats > 1 ? `${booking.customerName} · ${booking.seats} seats` : booking.customerName,
     contact,
   ];
   if (booking.note) lines.push(`Note: ${booking.note}`);
   lines.push("", `Booking ${booking.id.slice(0, 8)} · paid online`, `${siteUrl}/admin/`);
   return {
     to: cfg.studio.ownerEmail,
-    subject: `${booking.customerName} booked ${offer.name}, ${humanDate(session.date)} · ${taken} of ${session.seats} seats`,
+    subject: `${booking.customerName} booked ${what}, ${humanDate(session.date)} · ${taken} of ${session.seats} seats`,
     text: lines.join("\n"),
   };
 }

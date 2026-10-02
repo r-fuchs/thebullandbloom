@@ -54,17 +54,55 @@ describe("worker", () => {
       const body = await r.text();
       expect(body).toContain('id="book-form"');
       expect(body).toContain("Reserve my seat");
-      expect(body).toContain("Refreshments will be provided.");
+      expect(body).toContain("Refreshments will be provided");
       expect(body).toContain("Hosted at Anthony's home studio in Albany. The address comes with your confirmation.");
       expect(body).toContain('src="offer.js"');
       expect(body).toContain('id="load-status"');
       expect(body).not.toContain("40 Manning");
+      // the conversion pass: a call to action up top, what's included, the teacher, a cancellation line, a seats picker
+      expect(body).toContain('<a class="btn btn-small" href="#booking">Pick a date</a>');
+      expect(body).toContain('<ul class="included">');
+      expect(body).toContain("no experience is needed");
+      expect(body).toContain('src="/assets/anthony.jpg"');
+      expect(body).toContain("Anthony Demonia is the floral designer behind The Bull and Bloom.");
+      expect(body).toContain('href="https://instagram.com/thebullandbloom"');
+      expect(body).toContain("at least 48 hours before and we'll move you to another date or refund you.");
+      expect(body).toContain('<select name="seats" id="seats">');
     }
     const offerJs = await SELF.fetch("https://example.com/offers/offer.js");
     expect(offerJs.status).toBe(200);
     const offerJsText = await offerJs.text();
     expect(offerJsText).toContain("'autoConfig', false");
     expect(offerJsText).toContain("onerror");
+    expect(offerJsText).toContain("seats: chosenSeats()");
+    expect(offerJsText).toContain("Only ' + left");
+  });
+
+  it("renders share tags for a live offer so a Facebook or iMessage preview shows the class, and leaves unknown slugs plain", async () => {
+    const live = await (await SELF.fetch("https://example.com/offers/wreath-and-sip")).text();
+    expect(live).toContain("<title>Wreath &amp; Sip — The Bull and Bloom</title>");
+    expect(live).toContain('<meta property="og:title" content="Wreath &amp; Sip — The Bull and Bloom">');
+    expect(live).toContain('<meta property="og:description" content="Fall wreathmaking class in Albany">');
+    expect(live).toContain('<meta property="og:image" content="https://thebullandbloom.com/assets/wreath.jpg">');
+    expect(live).toContain('<meta property="og:image:width" content="900">');
+    expect(live).toContain('<meta property="og:image:height" content="1200">');
+    expect(live).toContain('<meta property="og:url" content="https://thebullandbloom.com/offers/wreath-and-sip">');
+    expect(live).toContain('<meta property="og:type" content="website">');
+    expect(live).toContain('<meta name="twitter:card" content="summary_large_image">');
+    expect(live).toContain('<meta name="description" content="A 2-hour class at Anthony');
+    expect(live.match(/<title>/g)).toHaveLength(1);
+
+    const unknown = await (await SELF.fetch("https://example.com/offers/anything-at-all")).text();
+    expect(unknown).toContain("<title>The Bull and Bloom</title>");
+    expect(unknown).not.toContain("og:title");
+  });
+
+  it("shares the homepage with a photo, not the logo", async () => {
+    const body = await (await SELF.fetch("https://example.com/")).text();
+    expect(body).toContain('<meta property="og:image" content="https://thebullandbloom.com/assets/wreath.jpg">');
+    expect(body).toContain('<meta property="og:image:width" content="900">');
+    expect(body).toContain('<meta property="og:image:height" content="1200">');
+    expect(body).not.toContain('og:image" content="https://thebullandbloom.com/assets/logo.jpg"');
   });
 
   it("carries the Current offers teaser and its nav link, both hidden until a bookable offer renders (Plan 7 §3.3)", async () => {
@@ -84,8 +122,10 @@ describe("worker", () => {
 
   it("thanks page carries the booking variant and fires Purchase only through the pixel loader (Plan 7 §3.4, §3.9)", async () => {
     const body = await (await SELF.fetch("https://example.com/thanks")).text();
-    expect(body).toContain("Your seat is booked. The address and the details are in the email on its way to you.");
+    expect(body).toContain('"Your seat is booked.") + " The address and the details are in the email on its way to you."');
     expect(body).toContain("[?&]booking=");
+    expect(body).toContain("[?&]seats=");
+    expect(body).toContain("value: offer.priceCents * seats / 100");
     expect(body).toContain("fbq('track', 'Purchase'");
     expect(body).toContain("currency: 'USD'");
     expect(body).toContain("'autoConfig', false");

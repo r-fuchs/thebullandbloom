@@ -25,6 +25,17 @@ describe("bookings", () => {
     expect(await tryInsertHeldBooking(env.DB, fresh(), 2, NOW, NOW + 1800)).toBe(false);
     expect((await countTaken(env.DB, "wreath")).get("s1")).toBe(2);
   });
+  it("a party holds several seats; the guard fits the whole party or none, and a smaller party can still take what is left", async () => {
+    const trio = { ...fresh(), seats: 3 };
+    expect(await tryInsertHeldBooking(env.DB, trio, 8, NOW, NOW + 1800)).toBe(true);
+    expect(await tryInsertHeldBooking(env.DB, { ...fresh(), seats: 4 }, 8, NOW, NOW + 1800)).toBe(true);
+    expect(await tryInsertHeldBooking(env.DB, { ...fresh(), seats: 2 }, 8, NOW, NOW + 1800)).toBe(false); // 7 taken, 2 do not fit
+    const single = fresh();
+    expect(await tryInsertHeldBooking(env.DB, single, 8, NOW, NOW + 1800)).toBe(true); // the last single seat does
+    expect((await countTaken(env.DB, "wreath")).get("s1")).toBe(8);
+    expect((await getBooking(env.DB, trio.id))?.seats).toBe(3);
+    expect((await getBooking(env.DB, single.id))?.seats).toBe(1); // absent means one
+  });
   it("counts per session and per offer; cancelled rows do not count", async () => {
     const a = fresh("s1"), b = fresh("s2"), c = fresh("s1", "other");
     for (const x of [a, b, c]) expect(await tryInsertHeldBooking(env.DB, x, 8, NOW, NOW + 1800)).toBe(true);

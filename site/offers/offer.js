@@ -1,6 +1,7 @@
 (function () {
   var $ = function (s) { return document.querySelector(s); };
-  var form = $('#book-form'), btn = $('#book-btn'), status = $('#status'), total = $('#total'), sessionsBox = $('#sessions');
+  var form = $('#book-form'), btn = $('#book-btn'), status = $('#status'), total = $('#total'), sessionsBox = $('#sessions'), seatsSel = $('#seats');
+  var MAX_PARTY = 6; // mirrors the API's cap
   if (!form) return;
   var slug = location.pathname.split('/').filter(function (p) { return p; })[1] || '';
   var offer = null;
@@ -35,9 +36,22 @@
   }
 
   function chosenSession() { var f = new FormData(form); return f.get('sessionId'); }
+  function chosenSeats() { var n = parseInt(seatsSel.value, 10); return n > 0 ? n : 1; }
+  // The picker never offers more than the chosen date has left, so "sold out" only happens in a race.
+  function refreshSeats() {
+    var id = chosenSession(), s = offer && offer.sessions.filter(function (x) { return x.id === id; })[0];
+    var max = s ? Math.min(MAX_PARTY, s.remaining) : 1, keep = chosenSeats();
+    seatsSel.innerHTML = '';
+    for (var i = 1; i <= Math.max(1, max); i++) {
+      var o = document.createElement('option'); o.value = String(i); o.textContent = i === 1 ? '1 seat' : i + ' seats';
+      seatsSel.appendChild(o);
+    }
+    seatsSel.value = String(Math.min(keep, Math.max(1, max)));
+  }
   function refreshTotal() {
     var ok = !!(offer && chosenSession());
-    total.textContent = ok ? money(offer.priceCents) + ' for one seat · tax added at checkout' : '';
+    var n = chosenSeats();
+    total.textContent = ok ? money(offer.priceCents * n) + (n === 1 ? ' for one seat' : ' for ' + n + ' seats') + ' · tax added at checkout' : '';
     btn.disabled = !ok;
   }
 
@@ -57,6 +71,7 @@
     });
     $('#booking').hidden = open.length === 0;
     $('#no-dates').hidden = open.length > 0;
+    refreshSeats();
     refreshTotal();
   }
 
@@ -68,6 +83,7 @@
     $('#description').textContent = offer.description;
     var len = duration(offer.durationMinutes);
     $('#facts').textContent = money(offer.priceCents) + ' per seat' + (len ? ' · ' + len : '');
+    $('#cta-price').textContent = money(offer.priceCents) + ' a seat' + (len ? ' · ' + len : '');
     renderSessions();
     $('#loading').hidden = true; $('#unavailable').hidden = true; $('#offer').hidden = false;
   }
@@ -83,7 +99,8 @@
     });
   }
 
-  sessionsBox.addEventListener('change', refreshTotal);
+  sessionsBox.addEventListener('change', function () { refreshSeats(); refreshTotal(); });
+  seatsSel.addEventListener('change', refreshTotal);
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
@@ -94,7 +111,7 @@
     fetch('/api/book', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        offerId: offer.id, sessionId: chosenSession(),
+        offerId: offer.id, sessionId: chosenSession(), seats: chosenSeats(),
         customer: { name: f.get('name'), email: f.get('email'), phone: f.get('phone') || undefined },
         note: f.get('note') || undefined
       })
@@ -103,7 +120,11 @@
         if (r.ok) { window.location.href = r.body.url; return; }
         btn.disabled = false;
         var err = r.body && r.body.error;
-        if (err === 'sold_out') { status.textContent = 'That date just filled up. Pick another.'; load(); }
+        if (err === 'sold_out') {
+          var left = r.body.remaining;
+          status.textContent = left > 0 ? 'Only ' + left + (left === 1 ? ' seat is' : ' seats are') + ' left on that date. Pick fewer seats or another date.' : 'That date just filled up. Pick another.';
+          load();
+        }
         else if (err === 'closed') { status.textContent = 'Bookings for that date have closed. Pick another.'; load(); }
         else if (err === 'disabled') { showUnavailable(); }
         else if (r.status === 503) { status.textContent = 'Payments are down, try again in a minute.'; }

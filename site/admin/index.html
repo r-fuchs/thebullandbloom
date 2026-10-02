@@ -348,13 +348,13 @@
             if (b.status === 'cancelled') return;
             var row = document.createElement('div'); row.className = 'row'; row.style.margin = '.2rem 0 .2rem 1rem';
             row.innerHTML = '<span class="who"></span><small class="contact"></small><small class="note"></small>';
-            row.querySelector('.who').textContent = b.customerName + (b.status === 'held' ? ' (paying)' : '');
+            row.querySelector('.who').textContent = b.customerName + (b.seats > 1 ? ' · ' + b.seats + ' seats' : '') + (b.status === 'held' ? ' (paying)' : '');
             row.querySelector('.contact').textContent = b.customerEmail + (b.customerPhone ? ' · ' + b.customerPhone : '');
             row.querySelector('.note').textContent = b.note ? 'Note: ' + b.note : '';
             if (b.status === 'paid') {
               var btn = document.createElement('button'); btn.type = 'button'; btn.textContent = 'Cancel';
               btn.addEventListener('click', function () {
-                if (!confirm('Have you refunded ' + b.customerName + ' in Stripe? This only frees the seat.')) return;
+                if (!confirm('Have you refunded ' + b.customerName + ' in Stripe? This only frees the ' + (b.seats > 1 ? b.seats + ' seats.' : 'seat.'))) return;
                 api('/bookings/' + b.id + '/cancel', { method: 'POST' }).then(loadClasses)
                   .catch(function (e) { if (e.message !== 'unauthorized') $('#classes-status').textContent = e.message; });
               });

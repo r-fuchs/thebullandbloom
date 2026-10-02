@@ -9,7 +9,7 @@ const session = WREATH.sessions.find((s) => s.id === "sat")!; // Sat Sep 12, 6 p
 const booking: Booking = {
   id: "b1", createdAt: 1, status: "paid", offerId: WREATH.id, sessionId: "sat",
   customerName: "Jane Doe", customerEmail: "jane@example.com", customerPhone: "518-555-0100", note: "first wreath",
-  stripeSessionId: "cs_1", stripePaymentIntent: "pi_1", priceCents: 8500, taxCents: 680, discountCents: 0, holdExpiresAt: null,
+  stripeSessionId: "cs_1", stripePaymentIntent: "pi_1", priceCents: 8500, taxCents: 680, discountCents: 0, holdExpiresAt: null, seats: 1,
 };
 
 describe("booking messages (D50: home studio named, refreshments promised, nothing more specific)", () => {
@@ -36,6 +36,15 @@ describe("booking messages (D50: home studio named, refreshments promised, nothi
     const m = bookingConfirmedEmail(booking, { ...WREATH, durationMinutes: 0 }, session, cfg);
     expect(m.text).toContain("at 6 pm.\n");
     expect(m.text).not.toContain("The class runs");
+  });
+  it("a party of three reads as seats, plural, in both emails", () => {
+    const trio = { ...booking, seats: 3 };
+    const m = bookingConfirmedEmail(trio, WREATH, session, cfg);
+    expect(m.subject).toBe("Your 3 seats at Wreath & Sip");
+    expect(m.text).toContain("Thank you. Your 3 seats at Wreath & Sip are booked for Saturday, September 12 at 6 pm.");
+    const o = ownerBookingEmail(trio, WREATH, session, cfg, 7, "https://x.test");
+    expect(o.subject).toBe("Jane Doe booked 3 seats at Wreath & Sip, Sat Sep 12 · 7 of 2 seats");
+    expect(o.text).toContain("Jane Doe · 3 seats\n");
   });
   it("owner email names who booked, the date and the headcount, with contact and note", () => {
     const m = ownerBookingEmail(booking, WREATH, session, cfg, 5, "https://x.test");

@@ -2,10 +2,10 @@ import { env } from "cloudflare:test";
 import { describe, it, expect, beforeEach } from "vitest";
 import { testApp, asAdmin, offersConfig, WREATH, OFF_OFFER } from "../helpers";
 
-const INSERT = `INSERT INTO bookings (id, created_at, status, offer_id, session_id, customer_name, customer_email, customer_phone, note, price_cents)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 8500)`;
-async function booking(id: string, status: string, sessionId: string, name: string, at = 1, offerId = WREATH.id) {
-  await env.DB.prepare(INSERT).bind(id, at, status, offerId, sessionId, name, `${name.toLowerCase()}@example.com`, null, null).run();
+const INSERT = `INSERT INTO bookings (id, created_at, status, offer_id, session_id, customer_name, customer_email, customer_phone, note, price_cents, seats)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 8500, ?)`;
+async function booking(id: string, status: string, sessionId: string, name: string, at = 1, offerId = WREATH.id, seats = 1) {
+  await env.DB.prepare(INSERT).bind(id, at, status, offerId, sessionId, name, `${name.toLowerCase()}@example.com`, null, null, seats).run();
 }
 
 describe("admin offers (Plan 7)", () => {
@@ -19,7 +19,7 @@ describe("admin offers (Plan 7)", () => {
 
   it("lists every offer with recent-and-future sessions, counts, and the bookings", async () => {
     await booking("a1", "paid", "sat", "Jane", 1);
-    await booking("a2", "held", "sat", "Bob", 2);
+    await booking("a2", "held", "sat", "Bob", 2, WREATH.id, 2); // a pair: counts as two held seats
     await booking("a3", "cancelled", "sat", "Cat", 3);
     await booking("a4", "paid", "past", "Dan", 4);
     const { fetch } = testApp(undefined, offersConfig());
@@ -29,7 +29,8 @@ describe("admin offers (Plan 7)", () => {
     // "past" is 2026-09-01, inside the 30-day lookback from the 2026-09-08 test clock, so it still shows
     expect(w.sessions.map((s: any) => s.id)).toEqual(["past", "today", "sat"]);
     const sat = w.sessions[2];
-    expect(sat).toMatchObject({ date: "2026-09-12", start: "18:00", seats: 2, paidCount: 1, heldCount: 1 });
+    expect(sat).toMatchObject({ date: "2026-09-12", start: "18:00", seats: 2, paidCount: 1, heldCount: 2 });
+    expect(sat.bookings.map((b: any) => b.seats)).toEqual([1, 2, 1]);
     expect(sat.bookings.map((b: any) => [b.id, b.status, b.customerName])).toEqual([["a1", "paid", "Jane"], ["a2", "held", "Bob"], ["a3", "cancelled", "Cat"]]);
     expect(sat.bookings[0]).toMatchObject({ customerEmail: "jane@example.com", customerPhone: null, note: null, createdAt: 1 });
     expect(w.sessions[0].bookings.map((b: any) => b.id)).toEqual(["a4"]);

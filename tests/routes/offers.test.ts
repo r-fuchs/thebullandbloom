@@ -62,11 +62,36 @@ describe("POST /api/book", () => {
     expect(c.taxAddress).toEqual(loadConfig().studio.address);
     expect(c.customerEmail).toBe("jane@example.com");
     expect(c.expiresAt).toBe(NOW_SEC + 30 * 60 + 60);
-    expect(c.successUrl).toBe(`https://thebullandbloom.com/thanks?booking=${c.orderId}&offer=${WREATH.id}`);
+    expect(c.successUrl).toBe(`https://thebullandbloom.com/thanks?booking=${c.orderId}&offer=${WREATH.id}&seats=1`);
     expect(c.cancelUrl).toBe("https://thebullandbloom.com/offers/wreath-test");
-    const row = await env.DB.prepare("SELECT status, offer_id, session_id, customer_name, customer_phone, note, price_cents, stripe_session_id, hold_expires_at FROM bookings WHERE id = ?").bind(c.orderId).first<any>();
-    expect(row).toMatchObject({ status: "held", offer_id: WREATH.id, session_id: "sat", customer_name: "Jane Doe", customer_phone: "518-555-0100", note: "first wreath", price_cents: 8500, hold_expires_at: c.expiresAt + 120 });
+    const row = await env.DB.prepare("SELECT status, offer_id, session_id, customer_name, customer_phone, note, price_cents, stripe_session_id, hold_expires_at, seats FROM bookings WHERE id = ?").bind(c.orderId).first<any>();
+    expect(row).toMatchObject({ status: "held", offer_id: WREATH.id, session_id: "sat", customer_name: "Jane Doe", customer_phone: "518-555-0100", note: "first wreath", price_cents: 8500, hold_expires_at: c.expiresAt + 120, seats: 1 });
     expect(row.stripe_session_id).toMatch(/^cs_/);
+  });
+  it("books a party of two as one booking: quantity 2 on the Stripe line, two seats taken, seats in the success url", async () => {
+    const { fetch, payments } = testApp(undefined, offersConfig());
+    const r = await post(fetch, { ...good, seats: 2 });
+    expect(r.status).toBe(200);
+    const c = payments.created[0];
+    expect(c.lineItems[0]).toMatchObject({ amountCents: 8500, quantity: 2 });
+    expect(c.successUrl).toContain("&seats=2");
+    const row = await env.DB.prepare("SELECT seats, price_cents FROM bookings WHERE id = ?").bind(c.orderId).first<any>();
+    expect(row).toEqual({ seats: 2, price_cents: 8500 });
+    const { offers } = await (await fetch("/api/offers")).json() as any;
+    expect(offers[0].sessions.find((s: any) => s.id === "sat")).toMatchObject({ remaining: 0, bookable: false });
+  });
+  it("a party larger than the seats left is sold_out and told how many remain; a smaller party then fits", async () => {
+    await held("h5", "sat");
+    const { fetch, payments } = testApp(undefined, offersConfig());
+    const r = await post(fetch, { ...good, seats: 2 });
+    expect(r.status).toBe(409);
+    expect(await r.json()).toEqual({ error: "sold_out", remaining: 1 });
+    expect(payments.created).toHaveLength(0);
+    expect((await post(fetch, { ...good, seats: 1 })).status).toBe(200);
+  });
+  it("rejects a party size that is not a whole number from 1 to 6", async () => {
+    const { fetch } = testApp(undefined, offersConfig());
+    for (const seats of [0, 7, 1.5, "2", -1]) expect((await post(fetch, { ...good, seats })).status).toBe(400);
   });
   it("sells the last seat once under two concurrent posts and says sold_out to the other", async () => {
     await held("h4", "sat");
@@ -74,7 +99,7 @@ describe("POST /api/book", () => {
     const [a, b] = await Promise.all([post(fetch, good), post(fetch, good)]);
     expect([a.status, b.status].sort()).toEqual([200, 409]);
     const lost = a.status === 409 ? a : b;
-    expect(await lost.json()).toEqual({ error: "sold_out" });
+    expect(await lost.json()).toEqual({ error: "sold_out", remaining: 0 });
     expect(payments.created).toHaveLength(1);
     const n = await env.DB.prepare("SELECT COUNT(*) AS n FROM bookings WHERE session_id = 'sat' AND status = 'held'").first<any>();
     expect(n.n).toBe(2);

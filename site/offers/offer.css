@@ -18,6 +18,15 @@ h1{font-family:var(--display);font-weight:500;font-size:clamp(2rem,6vw,3.2rem);l
 figure{margin:0 0 1.5rem;max-width:28rem}
 figure img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;border:1px solid var(--rule)}
 .facts{font-family:var(--display);font-size:1.2rem;margin:0 0 1rem}
+.cta-line{display:flex;flex-wrap:wrap;align-items:center;gap:.75rem 1.25rem;margin:0 0 1.5rem;font-family:var(--display);font-size:1.15rem}
+.btn-small{margin-top:0;padding:.6rem 1.3rem;font-size:.8rem}
+.included{margin:0 0 1.25rem;padding-left:1.2rem}
+.included li{margin:.2rem 0}
+.host{display:grid;grid-template-columns:6rem 1fr;gap:1.25rem;align-items:start;margin:1.5rem 0 0;padding:1.25rem 0 0;border-top:1px solid var(--rule)}
+.host img{width:100%;height:auto;aspect-ratio:4/5;object-fit:cover;border:1px solid var(--rule)}
+.host p{margin:0}
+.policy{font-size:.95rem;color:var(--sepia);margin:1rem 0 0}
+.seats-row select{font:inherit;font-family:var(--body);font-size:1.05rem;font-weight:400;color:var(--ink);background:#FBF7F0;border:0;border-bottom:1px solid var(--rule);padding:.55rem .25rem;max-width:8rem}
 .where{color:var(--sepia);font-style:italic}
 fieldset{border:0;padding:0;margin:2rem 0 1rem}
 legend{font-family:var(--display);font-size:1.1rem;font-weight:600;padding:0;margin-bottom:.5rem}

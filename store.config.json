@@ -65,7 +65,7 @@
   },
   "holdMinutes": 30,
   "marketing": {
-    "metaPixelId": ""
+    "metaPixelId": "1044822661711971"
   },
   "offers": [
     {
@@ -78,6 +78,8 @@
       "description": "A 2-hour class at Anthony's studio in Albany. You build a full fall wreath on a grapevine base from fresh and dried stems, with Anthony showing you each step as you go. Everything is included, and you take your wreath home.",
       "image": "assets/wreath.jpg",
       "imageAlt": "A large dried wreath of grapevine, poppy seed heads, hydrangea, grasses and deep red amaranth, leaning against a whitewashed wall",
+      "imageWidth": 900,
+      "imageHeight": 1200,
       "priceCents": 10000,
       "durationMinutes": 120,
       "bookingClosesHoursBefore": 24,
