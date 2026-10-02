@@ -247,12 +247,15 @@ describe("POST /webhooks/stripe → bookings (Plan 7)", () => {
   });
   it("still marks an order paid first when both tables could match", async () => {
     await heldOrder("ow1", "cs_shared");
-    await heldBooking("bw2", "cs_other");
+    await heldBooking("bw2", "cs_shared");
     const { fetch, payments } = testApp();
     payments.nextEvent = { type: "checkout.session.completed", sessionId: "cs_shared", paymentIntent: "pi_s", taxCents: 0, discountCents: 0 };
     expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "paid" });
     expect((await env.DB.prepare("SELECT status FROM bookings WHERE id = 'bw2'").first<any>()).status).toBe("held");
     expect((await env.DB.prepare("SELECT status FROM orders WHERE id = 'ow1'").first<any>()).status).toBe("paid");
+    // A replay must not fall through and claim the booking that shares the session id.
+    expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "ignored" });
+    expect((await env.DB.prepare("SELECT status FROM bookings WHERE id = 'bw2'").first<any>()).status).toBe("held");
   });
   it("cancels a held booking on expiry", async () => {
     await heldBooking("bw3", "cs_bw3");

@@ -45,7 +45,9 @@ export function webhookRoutes(): App {
         c.env.DB, event.sessionId, event.paymentIntent, event.taxCents, event.discountCents,
         enqueueForSessionStatements(c.env.DB, event.sessionId, ORDER_PAID_KINDS, nowSec),
       );
-      const booking = order ? null : await bookings.markPaidBySession(
+      // A session id that already has an order row belongs to that order; a replay must not fall through to a booking.
+      const isOrderSession = order ? true : !!(await c.env.DB.prepare("SELECT 1 AS x FROM orders WHERE stripe_session_id = ?").bind(event.sessionId).first());
+      const booking = isOrderSession ? null : await bookings.markPaidBySession(
         c.env.DB, event.sessionId, event.paymentIntent, event.taxCents, event.discountCents,
         enqueueForBookingSessionStatements(c.env.DB, event.sessionId, BOOKING_PAID_KINDS, nowSec),
       );

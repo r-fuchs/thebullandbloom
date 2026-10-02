@@ -125,4 +125,10 @@ describe("GET /offers/:slug", () => {
       expect(await r.text()).toContain('id="book-form"');
     }
   });
+  it("redirects a trailing-slash address to the canonical one", async () => {
+    const { fetch } = testApp(undefined, offersConfig());
+    const r = await fetch("/offers/wreath-test/");
+    expect(r.status).toBe(301);
+    expect(r.headers.get("location")).toBe("/offers/wreath-test");
+  });
 });

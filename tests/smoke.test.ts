@@ -50,7 +50,9 @@ describe("worker", () => {
       expect(body).toContain('id="load-status"');
       expect(body).not.toContain("40 Manning");
     }
-    expect((await SELF.fetch("https://example.com/offers/offer.js")).status).toBe(200);
+    const offerJs = await SELF.fetch("https://example.com/offers/offer.js");
+    expect(offerJs.status).toBe(200);
+    expect(await offerJs.text()).toContain("'autoConfig', false");
   });
 
   it("carries the Current offers teaser and its nav link, both hidden until a bookable offer renders (Plan 7 §3.3)", async () => {
@@ -71,6 +73,7 @@ describe("worker", () => {
     expect(body).toContain("[?&]booking=");
     expect(body).toContain("fbq('track', 'Purchase'");
     expect(body).toContain("currency: 'USD'");
+    expect(body).toContain("'autoConfig', false");
   });
   it("privacy page names the pixel on the class and thank-you pages only (Plan 7 §3.9)", async () => {
     const body = await (await SELF.fetch("https://example.com/privacy")).text();
@@ -78,5 +81,6 @@ describe("worker", () => {
     expect(body).toContain("Meta Pixel");
     expect(body).toContain("facebook.com/privacy/policy");
     expect(body).toContain("Last updated: October 2, 2026");
+    expect(body).not.toContain("share your information with anyone");
   });
 });

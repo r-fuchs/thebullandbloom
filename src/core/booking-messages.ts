@@ -27,7 +27,7 @@ export function bookingConfirmedEmail(booking: Booking, offer: Offer, session: O
     "Where: Anthony's home studio",
     formatAddress(cfg.studio.address),
     "",
-    "Everything you need to make your wreath is provided, and it goes home with you.",
+    "Everything you need is provided, and what you make goes home with you.",
     "Refreshments will be provided.",
     "",
     "Can't make it? Email or call Anthony as soon as you know.",

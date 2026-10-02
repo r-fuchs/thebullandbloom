@@ -100,5 +100,8 @@ export function offerRoutes(): App {
     return c.env.ASSETS.fetch(new URL("/offers/", c.req.url));
   });
 
+  // An ad link typed with a trailing slash: send it to the canonical address so the page's relative assets resolve.
+  r.get("/offers/:slug/", (c) => c.redirect(`/offers/${c.req.param("slug")}`, 301));
+
   return r;
 }

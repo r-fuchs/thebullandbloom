@@ -25,7 +25,7 @@ describe("booking messages (D50: home studio named, refreshments promised, nothi
     expect(m.text).toContain("Your seat is saved for Wreath & Sip on Saturday, September 12 at 6 pm. Plan on about 2 hours.");
     expect(m.text).toContain("Where: Anthony's home studio");
     expect(m.text).toContain(`${cfg.studio.address.street}, ${cfg.studio.address.city}, ${cfg.studio.address.state} ${cfg.studio.address.zip}`);
-    expect(m.text).toContain("Everything you need to make your wreath is provided, and it goes home with you.");
+    expect(m.text).toContain("Everything you need is provided, and what you make goes home with you.");
     expect(m.text).toContain("Refreshments will be provided.");
     expect(m.text).toContain("Can't make it? Email or call Anthony as soon as you know.");
     expect(m.text).toContain(`${prettyPhone(cfg.studio.phone)}`);
