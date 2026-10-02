@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { loadConfig, sizeById, subscriptionCell, validateConfig } from "../src/config";
+import { loadConfig, offerById, offerBySlug, offersOf, sizeById, subscriptionCell, validateConfig } from "../src/config";
 
 describe("config", () => {
   it("loads the repo config", () => {
@@ -99,5 +99,64 @@ describe("config", () => {
   it("accepts an empty zone list (no fallback offered)", () => {
     const base = loadConfig();
     expect(validateConfig({ ...base, delivery: { ...base.delivery, zones: [] } }).delivery.zones).toEqual([]);
+  });
+  it("loads offers and marketing from the repo config", () => {
+    const cfg = loadConfig();
+    expect(Array.isArray(cfg.offers)).toBe(true);
+    expect(cfg.offers!.length).toBeGreaterThan(0);
+    const o = cfg.offers![0];
+    expect(o.slug).toMatch(/^[a-z0-9-]+$/);
+    expect(o.sessions.length).toBeGreaterThan(0);
+    expect(offerBySlug(cfg, o.slug)?.id).toBe(o.id);
+    expect(offerById(cfg, o.id)?.slug).toBe(o.slug);
+    expect(offerById(cfg, "nope")).toBeUndefined();
+    expect(typeof cfg.marketing?.metaPixelId).toBe("string");
+  });
+  it("accepts a config with no offers and no marketing key", () => {
+    const { offers: _o, marketing: _m, ...rest } = loadConfig();
+    const cfg = validateConfig(rest as any);
+    expect(offersOf(cfg)).toEqual([]);
+    expect(cfg.marketing).toBeUndefined();
+  });
+  it("fills bookingClosesHoursBefore with 24 when absent", () => {
+    const base = loadConfig();
+    const { bookingClosesHoursBefore: _b, ...offer } = base.offers![0];
+    const cfg = validateConfig({ ...base, offers: [offer as any] });
+    expect(cfg.offers![0].bookingClosesHoursBefore).toBe(24);
+  });
+  it("rejects a bad offer", () => {
+    const base = loadConfig();
+    const good = base.offers![0];
+    const withOffer = (over: Record<string, unknown>) => ({ ...base, offers: [{ ...good, ...over }] });
+    expect(() => validateConfig(withOffer({ slug: "Wreath & Sip" }))).toThrow(/slug/);
+    expect(() => validateConfig(withOffer({ id: "Wreath Sip" }))).toThrow(/offer id/);
+    expect(() => validateConfig({ ...base, offers: [good, good] })).toThrow(/duplicate offer/);
+    expect(() => validateConfig({ ...base, offers: [good, { ...good, id: "other" }] })).toThrow(/duplicate offer slug/);
+    expect(() => validateConfig(withOffer({ priceCents: 0 }))).toThrow(/priceCents/);
+    expect(() => validateConfig(withOffer({ durationMinutes: -1 }))).toThrow(/durationMinutes/);
+    expect(() => validateConfig(withOffer({ bookingClosesHoursBefore: 1.5 }))).toThrow(/bookingClosesHoursBefore/);
+    expect(() => validateConfig(withOffer({ image: "/etc/passwd" }))).toThrow(/image/);
+    expect(() => validateConfig(withOffer({ name: "" }))).toThrow(/name/);
+    expect(() => validateConfig(withOffer({ enabled: "yes" }))).toThrow(/enabled/);
+    expect(() => validateConfig({ ...base, offers: "nope" as any })).toThrow(/offers must be an array/);
+  });
+  it("rejects a bad session", () => {
+    const base = loadConfig();
+    const good = base.offers![0];
+    const s = good.sessions[0];
+    const withSessions = (sessions: unknown[]) => ({ ...base, offers: [{ ...good, sessions: sessions as any }] });
+    expect(() => validateConfig(withSessions([s, s]))).toThrow(/duplicate session id/);
+    expect(() => validateConfig(withSessions([{ ...s, date: "2026-13-01" }]))).toThrow(/date/);
+    expect(() => validateConfig(withSessions([{ ...s, start: "6pm" }]))).toThrow(/start/);
+    expect(() => validateConfig(withSessions([{ ...s, seats: 0 }]))).toThrow(/seats/);
+    expect(() => validateConfig(withSessions([{ ...s, id: "" }]))).toThrow(/session id/);
+    expect(() => validateConfig(withSessions("nope" as any))).toThrow(/sessions must be an array/);
+  });
+  it("rejects a non-numeric pixel id and accepts an empty one", () => {
+    const base = loadConfig();
+    expect(validateConfig({ ...base, marketing: { metaPixelId: "" } }).marketing?.metaPixelId).toBe("");
+    expect(validateConfig({ ...base, marketing: { metaPixelId: "1234567890" } }).marketing?.metaPixelId).toBe("1234567890");
+    expect(() => validateConfig({ ...base, marketing: { metaPixelId: "abc" } })).toThrow(/metaPixelId/);
+    expect(() => validateConfig({ ...base, marketing: {} as any })).toThrow(/metaPixelId/);
   });
 });

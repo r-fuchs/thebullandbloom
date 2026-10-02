@@ -53,6 +53,26 @@
     ]
   },
   "holdMinutes": 30,
+  "marketing": { "metaPixelId": "" },
+  "offers": [
+    {
+      "id": "wreath-and-sip-autumn-2026",
+      "slug": "wreath-and-sip",
+      "enabled": false,
+      "showOnHome": false,
+      "name": "Wreath & Sip",
+      "tagline": "Make an autumn wreath at the studio",
+      "description": "An evening at the studio making a full autumn wreath from fresh and dried stems. Anthony walks the room through the base, the shape and the finishing touches; every seat has its own materials, and the wreath goes home with you.",
+      "image": "assets/wreath.jpg",
+      "imageAlt": "An autumn wreath of dried grasses, seed heads and rust-colored foliage on a wooden door",
+      "priceCents": 8500,
+      "durationMinutes": 120,
+      "bookingClosesHoursBefore": 24,
+      "sessions": [
+        { "id": "2026-11-07-1800", "date": "2026-11-07", "start": "18:00", "seats": 8 }
+      ]
+    }
+  ],
   "subscriptions": {
     "cadences": [
       {

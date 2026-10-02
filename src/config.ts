@@ -7,6 +7,24 @@ export interface Subscriptions { cadences: Cadence[]; cells: SubscriptionCell[];
 /** Structured address, the shape the Uber adapter and the storefront both use. */
 export interface PostalAddress { street: string; unit: string; city: string; state: string; zip: string }
 export interface DeliveryZone { name: string; feeCents: number; zips: string[] }
+
+/** One sitting of a class (Plan 7). `date` is YYYY-MM-DD and `start` is HH:MM in the studio timezone. */
+export interface OfferSession { id: string; date: string; start: string; seats: number }
+/**
+ * A bookable class or event sold by the seat (Plan 7, D47). `enabled` makes it bookable at all;
+ * `showOnHome` puts the teaser card on the homepage (D49). The fields map one-to-one onto a Stripe
+ * Product plus Price, so a later source swap (spec §7) keeps this shape.
+ */
+export interface Offer {
+  id: string; slug: string; enabled: boolean; showOnHome: boolean;
+  name: string; tagline: string; description: string; image: string; imageAlt: string;
+  priceCents: number; durationMinutes: number;
+  /** bookings close this many hours before a session starts (D54); 24 when absent */
+  bookingClosesHoursBefore: number;
+  sessions: OfferSession[];
+}
+/** Meta Pixel id for the class pages and the thank-you page only (D51); empty = no pixel. */
+export interface Marketing { metaPixelId: string }
 export interface StoreConfig {
   timezone: string;
   studio: {
@@ -30,11 +48,66 @@ export interface StoreConfig {
    */
   delivery: { mode?: "uber" | "flat"; zones: DeliveryZone[] };
   holdMinutes: number;
+  /** Plan 7. Absent = no offers. */
+  offers?: Offer[];
+  /** Plan 7. Absent = no pixel. */
+  marketing?: Marketing;
 }
 
 const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const ZIP = /^\d{5}$/;
 const E164 = /^\+[1-9]\d{7,14}$/;
+const SLUG = /^[a-z0-9-]+$/;
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
+const ASSET = /^assets\/[A-Za-z0-9._-]+$/;
+
+function ymdValid(s: unknown): boolean {
+  if (typeof s !== "string" || !YMD.test(s)) return false;
+  const [y, m, d] = s.split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d));
+  return t.toISOString().slice(0, 10) === s;
+}
+
+function validateOffers(offers: unknown): void {
+  if (offers === undefined) return;
+  if (!Array.isArray(offers)) throw new Error("config: offers must be an array");
+  const ids = new Set<string>(), slugs = new Set<string>();
+  for (const o of offers as Offer[]) {
+    if (typeof o?.id !== "string" || !SLUG.test(o.id)) throw new Error("config: every offer id must match [a-z0-9-]+");
+    if (ids.has(o.id)) throw new Error(`config: duplicate offer id ${o.id}`);
+    ids.add(o.id);
+    if (typeof o.slug !== "string" || !SLUG.test(o.slug)) throw new Error(`config: offer ${o.id} slug must match [a-z0-9-]+`);
+    if (slugs.has(o.slug)) throw new Error(`config: duplicate offer slug ${o.slug}`);
+    slugs.add(o.slug);
+    if (typeof o.enabled !== "boolean") throw new Error(`config: offer ${o.id} enabled must be true or false`);
+    if (typeof o.showOnHome !== "boolean") throw new Error(`config: offer ${o.id} showOnHome must be true or false`);
+    if (typeof o.name !== "string" || o.name.trim() === "") throw new Error(`config: offer ${o.id} name required`);
+    for (const k of ["tagline", "description", "imageAlt"] as const) {
+      if (typeof o[k] !== "string") throw new Error(`config: offer ${o.id} ${k} must be a string`);
+    }
+    if (typeof o.image !== "string" || !ASSET.test(o.image)) throw new Error(`config: offer ${o.id} image must be a path under assets/`);
+    if (!Number.isInteger(o.priceCents) || o.priceCents <= 0) throw new Error(`config: offer ${o.id} priceCents must be a positive integer`);
+    if (!Number.isInteger(o.durationMinutes) || o.durationMinutes < 0) throw new Error(`config: offer ${o.id} durationMinutes must be a non-negative integer`);
+    if (o.bookingClosesHoursBefore === undefined) o.bookingClosesHoursBefore = 24;
+    if (!Number.isInteger(o.bookingClosesHoursBefore) || o.bookingClosesHoursBefore < 0) throw new Error(`config: offer ${o.id} bookingClosesHoursBefore must be a non-negative integer`);
+    if (!Array.isArray(o.sessions)) throw new Error(`config: offer ${o.id} sessions must be an array`);
+    const sids = new Set<string>();
+    for (const s of o.sessions) {
+      if (typeof s?.id !== "string" || s.id.trim() === "") throw new Error(`config: offer ${o.id} has a session with no session id`);
+      if (sids.has(s.id)) throw new Error(`config: offer ${o.id} duplicate session id ${s.id}`);
+      sids.add(s.id);
+      if (!ymdValid(s.date)) throw new Error(`config: offer ${o.id} session ${s.id} date must be YYYY-MM-DD`);
+      if (!HM.test(s.start ?? "")) throw new Error(`config: offer ${o.id} session ${s.id} start must be HH:MM`);
+      if (!Number.isInteger(s.seats) || s.seats <= 0) throw new Error(`config: offer ${o.id} session ${s.id} seats must be a positive integer`);
+    }
+  }
+}
+
+function validateMarketing(m: unknown): void {
+  if (m === undefined) return;
+  const id = (m as Marketing)?.metaPixelId;
+  if (typeof id !== "string" || (id !== "" && !/^\d+$/.test(id))) throw new Error("config: marketing.metaPixelId must be a string of digits, or empty");
+}
 
 export function validateConfig(cfg: StoreConfig): StoreConfig {
   if (!cfg.timezone) throw new Error("config: timezone required");
@@ -88,6 +161,8 @@ export function validateConfig(cfg: StoreConfig): StoreConfig {
     cells.add(key);
     if (!Number.isInteger(cell.priceCents) || cell.priceCents <= 0) throw new Error(`config: subscription cell ${key} priceCents must be a positive integer`);
   }
+  validateOffers(cfg.offers);
+  validateMarketing(cfg.marketing);
   return cfg;
 }
 
@@ -101,4 +176,16 @@ export function loadConfig(): StoreConfig {
 
 export function sizeById(cfg: StoreConfig, id: string): Size | undefined {
   return cfg.sizes.find((s) => s.id === id);
+}
+
+export function offersOf(cfg: StoreConfig): Offer[] {
+  return cfg.offers ?? [];
+}
+
+export function offerById(cfg: StoreConfig, id: string): Offer | undefined {
+  return offersOf(cfg).find((o) => o.id === id);
+}
+
+export function offerBySlug(cfg: StoreConfig, slug: string): Offer | undefined {
+  return offersOf(cfg).find((o) => o.slug === slug);
 }
