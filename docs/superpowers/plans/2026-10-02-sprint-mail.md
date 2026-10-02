@@ -63,6 +63,15 @@ Routing destinations.
 | A mailer (#1) | 2026-10-02 | b0c7625 | gate: 393 tests + tsc clean in the lane worktree; squashed from lane/mailer. Open items handed to lane B: D58 alert only on a row's first failure. Left as-is: `gmail.send` still in the Google scopes (consent-screen change, takes effect only on reconnect); admin "Retry" button still tied to the Google panel until B's banner. |
 | B alerts + watchdog (#2 #3) | 2026-10-02 | 5521e2b | gate: 411 tests + tsc clean in the lane worktree after one fix round (singular alert subject); squashed from lane/alerts. Wording chosen by the lane, open for Ryan: alert body "Kinds: … / Oldest: M minutes / <cause> / <admin link>", recovery body "Every queued message has gone out." |
 
-## Outcome
+## Outcome (2026-10-02 evening)
 
-(filled at close)
+Merged as PR #5 → main 25a9767; Deploy run 37065583473 green (typecheck, 411 tests, deploy). Opened and closed
+the same afternoon the failure was found. Rollout done the same evening: Resend domain thebullandbloom.com
+verified (DKIM TXT + two DNS-only CNAMEs added by hand; Resend's inbound MX deliberately not added),
+`RESEND_API_KEY` set from the clipboard without passing through chat, Email Routing enabled on the zone with its
+MX/DKIM/SPF records and both destinations verified (ryan@fuchsassociates.com instantly, thebullandbloom@gmail.com
+by Anthony's click). Production after deploy: health ok, outbox empty, no watchdog state yet.
+
+Not yet proven live: an actual send through Resend and an alert through Email Routing. The first real order or
+booking proves the former; the watchdog's hourly alert proves the latter only when something sticks. Follow-up
+filed: #4 (dedicated key for the Google token). Lane worktrees and branches removed at close.
