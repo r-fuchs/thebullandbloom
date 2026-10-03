@@ -225,11 +225,15 @@ The scheduled job that expires order holds also calls `bookings.expireHolds`.
 from the last 30 days onward: seats, paid count, held count, and the bookings (id, name,
 email, phone, note, status, created time). `POST /admin/api/bookings/:id/cancel` sets a
 held or paid booking to `cancelled` (D53) and returns 404 otherwise.
+`POST /admin/api/offers/:offerId/sessions/:sessionId/bookings` records a party that paid at
+the studio (name required; email, phone, seats and note optional) as a `paid` row at the offer's
+seat price, under the same seat guard as `/api/book` (409 `sold_out` with `remaining`). The
+cutoff and the `enabled` switch do not apply; no email is queued.
 
 `site/admin/index.html` gains a "Classes" panel under Subscribers: one block per offer,
 a line per session ("Sat Nov 7, 6 pm — 5 of 8 seats"), the names and emails under it,
 and a "Cancel" button per booking with a confirm step that reminds Anthony to refund in
-Stripe first. Offers with no upcoming sessions collapse to a single line.
+Stripe first. Offers with no upcoming sessions collapse to a single line. Each date also has an "Add a booking" form for in-person sales.
 
 ### 3.9 Pixel and privacy
 

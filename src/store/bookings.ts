@@ -48,11 +48,25 @@ export async function countTaken(db: D1Database, offerId: string): Promise<Map<s
 export async function tryInsertHeldBooking(
   db: D1Database, b: NewBooking, seats: number, now: number, holdExpiresAt: number,
 ): Promise<boolean> {
+  return tryInsert(db, b, seats, now, "held", holdExpiresAt);
+}
+
+/**
+ * A party that paid at the studio (tap-to-pay, cash): admin records it straight to `paid`, under the
+ * same guard, so the seats come off the public count at once. No Stripe session, no hold to expire.
+ */
+export async function tryInsertPaidBooking(db: D1Database, b: NewBooking, seats: number, now: number): Promise<boolean> {
+  return tryInsert(db, b, seats, now, "paid", null);
+}
+
+async function tryInsert(
+  db: D1Database, b: NewBooking, seats: number, now: number, status: "held" | "paid", holdExpiresAt: number | null,
+): Promise<boolean> {
   const res = await db.prepare(
     `INSERT INTO bookings (id, created_at, status, offer_id, session_id, customer_name, customer_email, customer_phone, note, price_cents, hold_expires_at, seats)
-     SELECT ?3, ?4, 'held', ?1, ?2, ?5, ?6, ?7, ?8, ?9, ?10, ?12
+     SELECT ?3, ?4, ?13, ?1, ?2, ?5, ?6, ?7, ?8, ?9, ?10, ?12
      WHERE (${TAKEN}) + ?12 <= ?11`,
-  ).bind(b.offerId, b.sessionId, b.id, now, b.customerName, b.customerEmail, b.customerPhone, b.note, b.priceCents, holdExpiresAt, seats, b.seats ?? 1).run();
+  ).bind(b.offerId, b.sessionId, b.id, now, b.customerName, b.customerEmail, b.customerPhone, b.note, b.priceCents, holdExpiresAt, seats, b.seats ?? 1, status).run();
   return res.meta.changes === 1;
 }
 

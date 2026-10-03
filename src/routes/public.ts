@@ -15,7 +15,7 @@ import { addressKey, deliveryWindow, zoneFor, normalizePhone, parseAddress, pick
 import { signQuote, verifyQuote } from "../core/quote-token";
 
 const MAX_DAYS = 62;
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** How long a signed quote is honoured. Uber's own quotes live about 15 minutes. */
 const QUOTE_TTL_SECONDS = 15 * 60;
 /** A config fallback fee does not expire in any real sense; half an hour keeps a stale tab honest. */
