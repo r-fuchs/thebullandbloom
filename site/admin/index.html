@@ -83,7 +83,7 @@
 
     <div class="panel" id="classes-panel" hidden>
       <h2 style="margin:0 0 .5rem;font-size:1.1rem;font-weight:500">Classes</h2>
-      <p class="status">Refund in Stripe first. Cancel here only frees the seat. Dates, seats and prices are set in the site config.</p>
+      <p class="status">Refund in Stripe first. Cancel here only frees the seat. Dates, seats and prices are set in the site config. Someone paid at the studio? “Add a booking” under the date takes the seats off the site; it sends no email.</p>
       <div id="classes-list"></div>
       <span class="status" id="classes-status"></span>
     </div>
@@ -362,11 +362,42 @@
             }
             line.appendChild(row);
           });
+          line.appendChild(addBookingForm(o, s, s.seats - taken));
           block.appendChild(line);
         });
         box.appendChild(block);
       });
     }).catch(function (e) { if (e.message !== 'unauthorized') $('#classes-list').textContent = e.message; });
+  }
+  // A party that paid in person: a one-line form per date, folded behind a button until it is needed.
+  function addBookingForm(o, s, remaining) {
+    var wrap = document.createElement('div'); wrap.style.margin = '.2rem 0 .2rem 1rem';
+    var open = document.createElement('button'); open.type = 'button'; open.textContent = 'Add a booking';
+    open.disabled = remaining < 1; if (remaining < 1) open.title = 'This date is full';
+    var form = document.createElement('form'); form.className = 'row'; form.hidden = true; form.autocomplete = 'off';
+    form.innerHTML = '<input name="name" placeholder="Name" required maxlength="120" style="flex:1;min-width:8rem">' +
+      '<input name="email" type="email" placeholder="Email (optional)" maxlength="200" style="flex:1;min-width:8rem">' +
+      '<input name="phone" placeholder="Phone (optional)" maxlength="40" style="width:9rem">' +
+      '<label>Seats <input name="seats" type="number" min="1" value="1" style="width:4rem"></label>' +
+      '<input name="note" placeholder="Note" maxlength="500" value="Paid in person" style="flex:1;min-width:8rem">' +
+      '<button type="submit">Save</button><button type="button" class="close">Close</button>';
+    form.querySelector('[name=seats]').max = remaining;
+    open.addEventListener('click', function () { form.hidden = false; open.hidden = true; form.querySelector('[name=name]').focus(); });
+    form.querySelector('.close').addEventListener('click', function () { form.hidden = true; open.hidden = false; });
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var f = form.elements;
+      var body = { name: f.name.value, email: f.email.value, phone: f.phone.value, seats: Number(f.seats.value), note: f.note.value };
+      $('#classes-status').textContent = '';
+      api('/offers/' + encodeURIComponent(o.id) + '/sessions/' + encodeURIComponent(s.id) + '/bookings', { method: 'POST', body: JSON.stringify(body) })
+        .then(loadClasses)
+        .catch(function (e) {
+          if (e.message === 'unauthorized') return;
+          $('#classes-status').textContent = e.message === 'sold_out' ? 'Not enough seats left on that date.' : e.message;
+        });
+    });
+    wrap.appendChild(open); wrap.appendChild(form);
+    return wrap;
   }
   $('#classes-btn').addEventListener('click', loadClasses);
 

@@ -15,6 +15,7 @@ describe("admin offers (Plan 7)", () => {
     const { fetch } = testApp(undefined, offersConfig());
     expect((await fetch("/admin/api/offers")).status).toBe(401);
     expect((await fetch("/admin/api/bookings/x/cancel", { method: "POST" })).status).toBe(401);
+    expect((await fetch(`/admin/api/offers/${WREATH.id}/sessions/sat/bookings`, { method: "POST", body: "{}" })).status).toBe(401);
   });
 
   it("lists every offer with recent-and-future sessions, counts, and the bookings", async () => {
@@ -57,5 +58,65 @@ describe("admin offers (Plan 7)", () => {
     expect(await (await as("/admin/api/bookings/c2/cancel", { method: "POST" })).json()).toEqual({ ok: true });
     ({ offers } = await (await fetch("/api/offers")).json() as any);
     expect(offers[0].sessions.find((s: any) => s.id === "sat")).toMatchObject({ remaining: 2, bookable: true });
+  });
+
+  describe("adding a party that paid in person", () => {
+    const add = (fetch: any, sessionId: string, body: unknown, offerId = WREATH.id) =>
+      asAdmin(fetch)(`/admin/api/offers/${offerId}/sessions/${sessionId}/bookings`, { method: "POST", body: JSON.stringify(body) });
+
+    it("records a paid party at once, with the offer's seat price, so the site stops selling those seats", async () => {
+      const { fetch } = testApp(undefined, offersConfig());
+      const res = await add(fetch, "sat", { name: " Pat Lee ", email: "pat@example.com", phone: "518-555-0100", seats: 2, note: "Paid in person" });
+      expect(res.status).toBe(200);
+      const { id } = await res.json() as any;
+      const row = await env.DB.prepare("SELECT * FROM bookings WHERE id = ?").bind(id).first<any>();
+      expect(row).toMatchObject({
+        status: "paid", offer_id: WREATH.id, session_id: "sat", customer_name: "Pat Lee", customer_email: "pat@example.com",
+        customer_phone: "518-555-0100", note: "Paid in person", price_cents: 8500, seats: 2, hold_expires_at: null, stripe_session_id: null,
+      });
+      expect(row.created_at).toBe(Math.floor(new Date("2026-09-08T14:00:00Z").getTime() / 1000));
+      const { offers } = await (await fetch("/api/offers")).json() as any;
+      expect(offers[0].sessions.find((s: any) => s.id === "sat")).toMatchObject({ remaining: 0, bookable: false });
+      const admin = await (await asAdmin(fetch)("/admin/api/offers")).json() as any;
+      expect(admin.offers[0].sessions[2]).toMatchObject({ paidCount: 2, heldCount: 0 });
+    });
+
+    it("needs only a name: a walk-in without an email is still a seat", async () => {
+      const { fetch } = testApp(undefined, offersConfig());
+      expect((await add(fetch, "sat", { name: "Walk In" })).status).toBe(200);
+      const row = await env.DB.prepare("SELECT customer_email, customer_phone, note, seats FROM bookings").first<any>();
+      expect(row).toEqual({ customer_email: "", customer_phone: null, note: null, seats: 1 });
+    });
+
+    it("ignores the booking cutoff and the offer switch: admin is standing next to the customer", async () => {
+      const { fetch } = testApp(undefined, offersConfig());
+      expect((await add(fetch, "today", { name: "Late" })).status).toBe(200); // inside the 24-hour cutoff
+      expect((await add(fetch, "sat", { name: "Off" }, OFF_OFFER.id)).status).toBe(200); // offer switched off
+    });
+
+    it("is guarded by the seat count like any booking: sold_out says how many are left", async () => {
+      await booking("p1", "paid", "sat", "Jane");
+      const { fetch } = testApp(undefined, offersConfig());
+      const res = await add(fetch, "sat", { name: "Pair", seats: 2 });
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({ error: "sold_out", remaining: 1 });
+      expect((await add(fetch, "sat", { name: "Single", seats: 1 })).status).toBe(200);
+      expect((await add(fetch, "sat", { name: "Nobody", seats: 1 })).status).toBe(409);
+    });
+
+    it("rejects an unknown offer or session, and a bad body", async () => {
+      const { fetch } = testApp(undefined, offersConfig());
+      expect((await add(fetch, "sat", { name: "X" }, "nope")).status).toBe(404);
+      expect((await add(fetch, "nope", { name: "X" })).status).toBe(404);
+      expect((await add(fetch, "sat", { name: "" })).status).toBe(400);
+      expect((await add(fetch, "sat", { email: "x@example.com" })).status).toBe(400);
+      expect((await add(fetch, "sat", { name: "X", email: "not-an-email" })).status).toBe(400);
+      expect((await add(fetch, "sat", { name: "X", seats: 0 })).status).toBe(400);
+      expect((await add(fetch, "sat", { name: "X", seats: 3 })).status).toBe(400); // "sat" has two seats in all
+      expect((await add(fetch, "sat", { name: "X", seats: 1.5 })).status).toBe(400);
+      expect((await add(fetch, "sat", { name: "X", note: "n".repeat(501) })).status).toBe(400);
+      expect((await asAdmin(fetch)(`/admin/api/offers/${WREATH.id}/sessions/sat/bookings`, { method: "POST", body: "{" })).status).toBe(400);
+      expect((await env.DB.prepare("SELECT COUNT(*) AS n FROM bookings").first<any>()).n).toBe(0);
+    });
   });
 });
