@@ -50,7 +50,8 @@ export function ownerBookingEmail(booking: Booking, offer: Offer, session: Offer
     contact,
   ];
   if (booking.note) lines.push(`Note: ${booking.note}`);
-  lines.push("", `Booking ${booking.id.slice(0, 8)} · paid online`, `${siteUrl}/admin/`);
+  // No Stripe session means admin recorded the party at the studio.
+  lines.push("", `Booking ${booking.id.slice(0, 8)} · ${booking.stripeSessionId ? "paid online" : "paid in person"}`, `${siteUrl}/admin/`);
   return {
     to: cfg.studio.ownerEmail,
     subject: `${booking.customerName} booked ${what}, ${humanDate(session.date)} · ${taken} of ${session.seats} seats`,

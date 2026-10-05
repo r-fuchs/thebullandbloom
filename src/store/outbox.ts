@@ -51,6 +51,16 @@ export function enqueueForBookingSessionStatements(
   ).bind(crypto.randomUUID(), kind, now, sessionId));
 }
 
+/** For a booking admin wrote straight to paid (no Stripe session): guarded on the row, so a batch with a guarded insert that did not land queues nothing. */
+export function enqueueForBookingStatements(
+  db: D1Database, bookingId: string, kinds: readonly OutboxKind[], now: number,
+): D1PreparedStatement[] {
+  return kinds.map((kind) => db.prepare(
+    `INSERT OR IGNORE INTO outbox (id, kind, order_id, created_at, attempts, next_attempt_at)
+     SELECT ?1, ?2, id, ?3, 0, ?3 FROM bookings WHERE id = ?4 AND status = 'paid'`,
+  ).bind(crypto.randomUUID(), kind, now, bookingId));
+}
+
 /** Unconditional rows for a subject that already exists (a materialized order's event, a subscriber's emails). */
 export function enqueueForSubjectStatements(
   db: D1Database, subjectId: string, kinds: readonly OutboxKind[], now: number,

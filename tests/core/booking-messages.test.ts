@@ -58,4 +58,9 @@ describe("booking messages (D50: home studio named, refreshments promised, nothi
     expect(quiet.text).not.toContain("Note:");
     expect(quiet.text).toContain("jane@example.com\n");
   });
+  it("owner email says whether the party paid online or at the studio", () => {
+    expect(ownerBookingEmail(booking, WREATH, session, cfg, 1, "https://x.test").text).toContain("Booking b1 · paid online");
+    const inPerson = { ...booking, stripeSessionId: null, stripePaymentIntent: null };
+    expect(ownerBookingEmail(inPerson, WREATH, session, cfg, 1, "https://x.test").text).toContain("Booking b1 · paid in person");
+  });
 });
