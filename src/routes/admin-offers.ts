@@ -2,7 +2,10 @@ import type { App } from "../app";
 import { offerById, offersOf } from "../config";
 import { seatsRemaining, sessionStart } from "../core/offers";
 import { addDays, ymdIn } from "../core/time";
+import { drainOutbox } from "../jobs/outbox";
 import { cancelBooking, countTaken, listForOffer, tryInsertPaidBooking } from "../store/bookings";
+import { BOOKING_PAID_KINDS, enqueueForBookingStatements } from "../store/outbox";
+import { background } from "./background";
 import { EMAIL } from "./public";
 
 const LOOKBACK_DAYS = 30;
@@ -38,9 +41,10 @@ export function registerOffersAdmin(r: App): void {
 
   // A party that paid at the studio: Anthony records it here so the seats leave the public count.
   // The cutoff and the offer switch do not apply (he is standing next to them); the seat guard does.
-  // Email is optional, since a walk-in may not give one, and nothing is sent either way.
+  // The same two emails as a Stripe booking go out through the outbox: the customer's confirmation
+  // (when they gave an email; a walk-in may not) and Anthony's headcount.
   r.post("/admin/api/offers/:offerId/sessions/:sessionId/bookings", async (c) => {
-    const { config, clock } = c.get("services");
+    const { config, clock, google, mailer, alerts, payments } = c.get("services");
     const offer = offerById(config, c.req.param("offerId"));
     if (!offer) return c.json({ error: "unknown offer" }, 404);
     const session = offer.sessions.find((s) => s.id === c.req.param("sessionId"));
@@ -59,16 +63,20 @@ export function registerOffersAdmin(r: App): void {
     if (!Number.isInteger(seats) || seats < 1 || seats > session.seats) return c.json({ error: `seats must be a whole number from 1 to ${session.seats}` }, 400);
     if (b.note != null && (typeof b.note !== "string" || b.note.length > 500)) return c.json({ error: "note must be 500 characters or fewer" }, 400);
 
-    const nowSec = Math.floor(clock().getTime() / 1000);
+    const now = clock();
+    const nowSec = Math.floor(now.getTime() / 1000);
     const id = crypto.randomUUID();
+    const kinds = email ? BOOKING_PAID_KINDS : BOOKING_PAID_KINDS.filter((k) => k !== "booking_confirmed_customer");
     const inserted = await tryInsertPaidBooking(c.env.DB, {
       id, offerId: offer.id, sessionId: session.id, customerName: name, customerEmail: email, customerPhone: phone || null,
       note: (typeof b.note === "string" && b.note.trim()) || null, priceCents: offer.priceCents, seats,
-    }, session.seats, nowSec);
+    }, session.seats, nowSec, enqueueForBookingStatements(c.env.DB, id, kinds, nowSec));
     if (!inserted) {
       const taken = (await countTaken(c.env.DB, offer.id)).get(session.id) ?? 0;
       return c.json({ error: "sold_out", remaining: seatsRemaining(session.seats, taken) }, 409);
     }
+    // Send now rather than on the next 15-minute cron: the customer is often still at the counter.
+    await background(c, drainOutbox({ db: c.env.DB, google, mailer, alerts, payments, config, siteUrl: c.env.SITE_URL }, now));
     return c.json({ ok: true, id });
   });
 

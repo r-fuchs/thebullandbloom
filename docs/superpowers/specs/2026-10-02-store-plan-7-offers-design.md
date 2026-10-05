@@ -228,7 +228,9 @@ held or paid booking to `cancelled` (D53) and returns 404 otherwise.
 `POST /admin/api/offers/:offerId/sessions/:sessionId/bookings` records a party that paid at
 the studio (name required; email, phone, seats and note optional) as a `paid` row at the offer's
 seat price, under the same seat guard as `/api/book` (409 `sold_out` with `remaining`). The
-cutoff and the `enabled` switch do not apply; no email is queued.
+cutoff and the `enabled` switch do not apply. The same outbox rows as a Stripe booking are queued in the
+insert's batch (`booking_confirmed_customer` only when an email was given) and drained at once; the
+owner email says "paid in person" for a booking with no Stripe session.
 
 `site/admin/index.html` gains a "Classes" panel under Subscribers: one block per offer,
 a line per session ("Sat Nov 7, 6 pm — 5 of 8 seats"), the names and emails under it,

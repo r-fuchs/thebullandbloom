@@ -1,6 +1,7 @@
 import { env } from "cloudflare:test";
 import { describe, it, expect, beforeEach } from "vitest";
 import { testApp, asAdmin, offersConfig, WREATH, OFF_OFFER } from "../helpers";
+import { loadConfig } from "../../src/config";
 
 const INSERT = `INSERT INTO bookings (id, created_at, status, offer_id, session_id, customer_name, customer_email, customer_phone, note, price_cents, seats)
   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 8500, ?)`;
@@ -9,7 +10,10 @@ async function booking(id: string, status: string, sessionId: string, name: stri
 }
 
 describe("admin offers (Plan 7)", () => {
-  beforeEach(async () => { await env.DB.prepare("DELETE FROM bookings").run(); });
+  beforeEach(async () => {
+    await env.DB.prepare("DELETE FROM bookings").run();
+    await env.DB.prepare("DELETE FROM outbox").run();
+  });
 
   it("requires an Access identity", async () => {
     const { fetch } = testApp(undefined, offersConfig());
@@ -65,7 +69,7 @@ describe("admin offers (Plan 7)", () => {
       asAdmin(fetch)(`/admin/api/offers/${offerId}/sessions/${sessionId}/bookings`, { method: "POST", body: JSON.stringify(body) });
 
     it("records a paid party at once, with the offer's seat price, so the site stops selling those seats", async () => {
-      const { fetch } = testApp(undefined, offersConfig());
+      const { fetch, mailer } = testApp(undefined, offersConfig());
       const res = await add(fetch, "sat", { name: " Pat Lee ", email: "pat@example.com", phone: "518-555-0100", seats: 2, note: "Paid in person" });
       expect(res.status).toBe(200);
       const { id } = await res.json() as any;
@@ -79,13 +83,22 @@ describe("admin offers (Plan 7)", () => {
       expect(offers[0].sessions.find((s: any) => s.id === "sat")).toMatchObject({ remaining: 0, bookable: false });
       const admin = await (await asAdmin(fetch)("/admin/api/offers")).json() as any;
       expect(admin.offers[0].sessions[2]).toMatchObject({ paidCount: 2, heldCount: 0 });
+      // The same two emails as a Stripe booking, queued with the row and sent before the response (no ExecutionContext in tests).
+      const kinds = await env.DB.prepare("SELECT kind, done_at FROM outbox WHERE order_id = ? ORDER BY kind").bind(id).all<any>();
+      expect(kinds.results.map((k) => [k.kind, k.done_at !== null])).toEqual([["booking_confirmed_customer", true], ["booking_confirmed_owner", true]]);
+      expect(mailer.sent.map((m) => m.to)).toEqual(["pat@example.com", loadConfig().studio.ownerEmail]);
+      expect(mailer.sent[0].subject).toBe("Your 2 seats at Wreath & Sip");
+      expect(mailer.sent[1].text).toContain("paid in person");
     });
 
-    it("needs only a name: a walk-in without an email is still a seat", async () => {
-      const { fetch } = testApp(undefined, offersConfig());
+    it("needs only a name: a walk-in without an email is still a seat, and only Anthony gets mail", async () => {
+      const { fetch, mailer } = testApp(undefined, offersConfig());
       expect((await add(fetch, "sat", { name: "Walk In" })).status).toBe(200);
       const row = await env.DB.prepare("SELECT customer_email, customer_phone, note, seats FROM bookings").first<any>();
       expect(row).toEqual({ customer_email: "", customer_phone: null, note: null, seats: 1 });
+      const kinds = await env.DB.prepare("SELECT kind FROM outbox").all<any>();
+      expect(kinds.results.map((k) => k.kind)).toEqual(["booking_confirmed_owner"]);
+      expect(mailer.sent.map((m) => m.to)).toEqual([loadConfig().studio.ownerEmail]);
     });
 
     it("ignores the booking cutoff and the offer switch: admin is standing next to the customer", async () => {
@@ -96,10 +109,13 @@ describe("admin offers (Plan 7)", () => {
 
     it("is guarded by the seat count like any booking: sold_out says how many are left", async () => {
       await booking("p1", "paid", "sat", "Jane");
-      const { fetch } = testApp(undefined, offersConfig());
-      const res = await add(fetch, "sat", { name: "Pair", seats: 2 });
+      const { fetch, mailer } = testApp(undefined, offersConfig());
+      const res = await add(fetch, "sat", { name: "Pair", email: "pair@example.com", seats: 2 });
       expect(res.status).toBe(409);
       expect(await res.json()).toEqual({ error: "sold_out", remaining: 1 });
+      // The outbox rows ride in the insert's batch, guarded on the row: a party that did not fit emails nobody.
+      expect((await env.DB.prepare("SELECT COUNT(*) AS n FROM outbox").first<any>()).n).toBe(0);
+      expect(mailer.sent).toEqual([]);
       expect((await add(fetch, "sat", { name: "Single", seats: 1 })).status).toBe(200);
       expect((await add(fetch, "sat", { name: "Nobody", seats: 1 })).status).toBe(409);
     });
