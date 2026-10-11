@@ -23,4 +23,6 @@ export interface Env {
   UBER_WEBHOOK_SECRET?: string;
   /** "1" on the sandbox deployment: Create Delivery then carries Uber's Robocourier test block */
   UBER_ROBOCOURIER?: string;
+  /** Meta system-user token with ads_read on the ad account; optional: without it the daily ads email carries bookings only */
+  META_ACCESS_TOKEN?: string;
 }

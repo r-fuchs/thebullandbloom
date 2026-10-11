@@ -8,6 +8,7 @@ import { FakeAlerts } from "./fakes/alerts";
 import { FakeInstagram } from "./fakes/instagram";
 import { FakeUber } from "./fakes/uber";
 import { FakeAccess } from "./fakes/access";
+import { FakeMetaAds } from "./fakes/meta-ads";
 
 // Module-scoped (not per-instance) so session ids stay unique across every
 // RecordingPayments created within a test file, matching the D1 test DB,
@@ -84,14 +85,21 @@ export function testApp(now = new Date("2026-09-08T14:00:00Z"), config: StoreCon
   const instagram = new FakeInstagram();
   const uber = new FakeUber();
   const access = new FakeAccess();
-  const app = buildApp({ payments, google, mailer, alerts, instagram, uber, access, clock: () => now, config });
+  const metaAds = new FakeMetaAds();
+  const app = buildApp({ payments, google, mailer, alerts, instagram, uber, metaAds, access, clock: () => now, config });
   const fetch = (path: string, init?: RequestInit) =>
     app.request(new Request(`https://example.com${path}`, init), undefined, env);
   return { app, payments, google, mailer, alerts, instagram, uber, access, fetch };
 }
 
+/** The repo config minus the daily ads email, which is Ryan's to configure and would otherwise send on every scheduled run in tests. */
+export function testConfig(): StoreConfig {
+  const cfg = loadConfig();
+  return cfg.marketing ? { ...cfg, marketing: { ...cfg.marketing, adsReport: undefined } } : cfg;
+}
+
 /** Services object for jobs and runScheduled tests, sharing testApp's fakes. */
-export function testServices(now = new Date("2026-09-08T14:00:00Z"), config: StoreConfig = loadConfig()) {
+export function testServices(now = new Date("2026-09-08T14:00:00Z"), config: StoreConfig = testConfig()) {
   const payments = new RecordingPayments();
   const google = new FakeGoogle();
   const mailer = new FakeMailer();
@@ -99,7 +107,8 @@ export function testServices(now = new Date("2026-09-08T14:00:00Z"), config: Sto
   const instagram = new FakeInstagram();
   const uber = new FakeUber();
   const access = new FakeAccess();
-  return { services: { payments, google, mailer, alerts, instagram, uber, access, clock: () => now, config }, payments, google, mailer, alerts, instagram, uber, access };
+  const metaAds = new FakeMetaAds();
+  return { services: { payments, google, mailer, alerts, instagram, uber, metaAds, access, clock: () => now, config }, payments, google, mailer, alerts, instagram, uber, metaAds, access };
 }
 
 /** A fetch that carries a Cloudflare Access identity the FakeAccess accepts (Plan 6). */

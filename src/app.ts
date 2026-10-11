@@ -6,6 +6,7 @@ import type { Mailer } from "./adapters/mailer";
 import type { Alerts } from "./adapters/alerts";
 import type { Instagram } from "./adapters/instagram";
 import type { Uber } from "./adapters/uber";
+import type { MetaAds } from "./adapters/meta-ads";
 import type { Access, AdminIdentity } from "./adapters/access";
 import type { StoreConfig } from "./config";
 import { publicRoutes } from "./routes/public";
@@ -14,7 +15,7 @@ import { webhookRoutes } from "./routes/webhooks";
 import { adminRoutes } from "./routes/admin";
 import { instagramPublic } from "./routes/instagram";
 
-export interface Services { payments: Payments; google: Google; mailer: Mailer; alerts: Alerts; instagram: Instagram; uber: Uber; access: Access; clock: () => Date; config: StoreConfig }
+export interface Services { payments: Payments; google: Google; mailer: Mailer; alerts: Alerts; instagram: Instagram; uber: Uber; metaAds: MetaAds; access: Access; clock: () => Date; config: StoreConfig }
 export type AppEnv = { Bindings: Env; Variables: { services: Services; admin: AdminIdentity } };
 export type App = Hono<AppEnv>;
 

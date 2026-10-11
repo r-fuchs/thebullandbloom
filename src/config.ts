@@ -25,8 +25,13 @@ export interface Offer {
   bookingClosesHoursBefore: number;
   sessions: OfferSession[];
 }
+/**
+ * The daily ads email (jobs/ads-report.ts): who gets it, when (HH:MM store time), which ad account,
+ * and an optional case-insensitive substring that picks the campaigns to report on.
+ */
+export interface AdsReportConfig { recipients: string[]; sendAt: string; adAccountId: string; campaignMatch?: string; lookbackDays?: number }
 /** Meta Pixel id for the class pages and the thank-you page only (D51); empty = no pixel. */
-export interface Marketing { metaPixelId: string }
+export interface Marketing { metaPixelId: string; adsReport?: AdsReportConfig }
 export interface StoreConfig {
   timezone: string;
   /** D55/D60: sender and reply-to for every email the store sends */
@@ -117,6 +122,13 @@ function validateMarketing(m: unknown): void {
   if (m === undefined) return;
   const id = (m as Marketing)?.metaPixelId;
   if (typeof id !== "string" || (id !== "" && !/^\d+$/.test(id))) throw new Error("config: marketing.metaPixelId must be a string of digits, or empty");
+  const r = (m as Marketing).adsReport;
+  if (r === undefined) return;
+  if (!Array.isArray(r.recipients) || r.recipients.length === 0 || !r.recipients.every((e) => typeof e === "string" && EMAIL.test(e))) throw new Error("config: marketing.adsReport.recipients must be a non-empty array of email addresses");
+  if (!HM.test(r.sendAt ?? "")) throw new Error("config: marketing.adsReport.sendAt must be HH:MM");
+  if (typeof r.adAccountId !== "string" || !/^\d+$/.test(r.adAccountId)) throw new Error("config: marketing.adsReport.adAccountId must be a string of digits");
+  if (r.campaignMatch !== undefined && typeof r.campaignMatch !== "string") throw new Error("config: marketing.adsReport.campaignMatch must be a string");
+  if (r.lookbackDays !== undefined && (!Number.isInteger(r.lookbackDays) || r.lookbackDays <= 0)) throw new Error("config: marketing.adsReport.lookbackDays must be a positive integer");
 }
 
 const EMAIL = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;

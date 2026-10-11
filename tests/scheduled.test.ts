@@ -30,6 +30,7 @@ describe("runScheduled", () => {
       instagram: { status: "skipped" },
       outbox: { status: "ok", delivered: 0, failed: 0, waiting: 0 },
       watchdog: { stuck: 0, givenUp: 0, oldestAgeSec: null, alerted: false, recovered: false },
+      adsReport: { status: "skipped" },
     });
     const s = await env.DB.prepare("SELECT id, status FROM orders WHERE id IN ('s1','s2') ORDER BY id").all<any>();
     expect(s.results).toEqual([{ id: "s1", status: "cancelled" }, { id: "s2", status: "held" }]);
