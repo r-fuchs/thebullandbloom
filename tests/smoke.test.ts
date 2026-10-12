@@ -47,6 +47,18 @@ describe("worker", () => {
     expect(body.indexOf('id="outbox-banner"')).toBeLessThan(body.indexOf('id="prev"'));
   });
 
+  it("serves the admin Settings panel with a Prices table that reads and saves /admin/api/prices", async () => {
+    const body = await (await SELF.fetch("https://example.com/admin/")).text();
+    const panel = body.slice(body.indexOf('id="settings-panel"'), body.indexOf('id="google-panel"'));
+    expect(panel).toContain("Prices");
+    expect(panel).toContain('id="p-table"');
+    expect(panel).toContain('id="p-save"');
+    expect(panel).toContain('id="p-status"');
+    expect(panel).toContain("keep the price they signed up at");
+    expect(body).toContain("api('/prices')");
+    expect(body).toContain("api('/prices', { method: 'PUT'");
+  });
+
   it("serves the class landing page at /offers/<slug> for any slug (Plan 7 §3.2)", async () => {
     for (const path of ["/offers/wreath-and-sip", "/offers/anything-at-all"]) {
       const r = await SELF.fetch(`https://example.com${path}`);
