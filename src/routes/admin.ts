@@ -11,6 +11,7 @@ import { registerOutboxAdmin } from "./admin-outbox";
 import { registerInstagramAdmin } from "./instagram";
 import { registerDeliveryAdmin } from "./admin-delivery";
 import { registerOffersAdmin } from "./admin-offers";
+import { registerPricesAdmin } from "./admin-prices";
 import { deliveriesForDate } from "../store/deliveries";
 import { listSubscribers } from "../store/subscribers";
 import { dueDates } from "../core/subscriptions";
@@ -164,6 +165,7 @@ export function adminRoutes(): App {
   registerInstagramAdmin(r);
   registerDeliveryAdmin(r);
   registerOffersAdmin(r);
+  registerPricesAdmin(r);
 
   return r;
 }

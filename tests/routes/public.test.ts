@@ -1,3 +1,4 @@
+import { savePrices } from "../../src/store/prices";
 import { describe, it, expect } from "vitest";
 import { env } from "cloudflare:test";
 import { testApp, seedAdminOverride, peekNextSessionId } from "../helpers";
@@ -338,5 +339,28 @@ describe("POST /api/checkout — presentation", () => {
     expect(r.status).toBe(200);
     const c = payments.created[payments.created.length - 1];
     expect(c.lineItems.map((li) => li.name)).toEqual(["Bouquet — delivery Wed Sep 23", "Vase", "Delivery — Wed Sep 23"]);
+  });
+});
+
+describe("prices saved from the admin", () => {
+  it("reach /api/config and the checkout line items", async () => {
+    await savePrices(env.DB, { sizes: { bouquet: { priceCents: 9500, vaseFeeCents: 2200 } }, cells: {} });
+    try {
+      const { fetch, payments } = testApp();
+      const cfg = await (await fetch("/api/config")).json() as any;
+      expect(cfg.sizes.find((s: any) => s.id === "bouquet")).toMatchObject({ priceCents: 9500, vaseFeeCents: 2200 });
+      expect(cfg.sizes.find((s: any) => s.id === "posy").priceCents).toBe(loadConfig().sizes[0].priceCents);
+      const r = await post(fetch, { ...good, date: "2026-09-30", presentation: "vase" });
+      expect(r.status).toBe(200);
+      const c = payments.created[payments.created.length - 1];
+      expect(c.lineItems).toEqual([
+        { name: "Bouquet — pickup Wed Sep 30", amountCents: 9500, quantity: 1, taxCategory: "flowers" },
+        { name: "Vase", amountCents: 2200, quantity: 1, taxCategory: "vase" },
+      ]);
+      const row = await env.DB.prepare("SELECT bouquet_cents, vase_cents FROM orders WHERE id = ?").bind(c.orderId).first<any>();
+      expect(row).toEqual({ bouquet_cents: 9500, vase_cents: 2200 });
+    } finally {
+      await savePrices(env.DB, { sizes: {}, cells: {} });
+    }
   });
 });

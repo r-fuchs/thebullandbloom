@@ -9,6 +9,7 @@ import { loadState } from "./store/google";
 import { materializeSubscriptions, type MaterializeResult } from "./jobs/materialize";
 import { refreshFeed, type FeedResult } from "./jobs/instagram";
 import { runAdsReport, type AdsReportResult } from "./jobs/ads-report";
+import { pricedConfig } from "./store/prices";
 
 type Failed = { status: "error"; error: string };
 export interface ScheduledReport {
@@ -27,7 +28,8 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 /** Every 15 minutes (wrangler.toml). Each job is isolated so one failure never blocks the others. */
 export async function runScheduled(env: Env, services: Services, now: Date): Promise<ScheduledReport> {
   const nowSec = Math.floor(now.getTime() / 1000);
-  const { google, mailer, alerts, payments, instagram, metaAds, config } = services;
+  const { google, mailer, alerts, payments, instagram, metaAds } = services;
+  const config = await pricedConfig(env.DB, services.config); // emails retried here quote the admin's prices too
 
   let expiredHolds: ScheduledReport["expiredHolds"];
   try { expiredHolds = await expireHolds(env.DB, nowSec); }

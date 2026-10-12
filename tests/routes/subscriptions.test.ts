@@ -1,6 +1,8 @@
 import { env } from "cloudflare:test";
 import { describe, it, expect, beforeEach } from "vitest";
-import { testApp, asAdmin } from "../helpers";
+import { testApp, asAdmin, testServices } from "../helpers";
+import { savePrices } from "../../src/store/prices";
+import { runScheduled } from "../../src/scheduled";
 import { saveState, clearConnection } from "../../src/store/google";
 import { counts } from "../../src/store/outbox";
 import { byStripeSubscription, getSubscriber, insertSubscriber } from "../../src/store/subscribers";
@@ -125,5 +127,46 @@ describe("subscriptions: signup, webhooks, admin", () => {
     expect(body.subscribers).toHaveLength(1);
     expect(body.subscribers[0]).toMatchObject({ id: "a1", status: "active", cadenceName: "Twice a month", weekday: 5, nextDate: "2026-09-18" });
     expect(body.flags).toEqual([]);
+  });
+});
+
+describe("subscriptions: prices saved from the admin", () => {
+  beforeEach(async () => {
+    await env.DB.prepare("DELETE FROM orders WHERE subscriber_id IS NOT NULL").run();
+    await env.DB.prepare("DELETE FROM subscribers").run();
+    await env.DB.prepare("DELETE FROM outbox").run();
+    await env.DB.prepare("DELETE FROM settings").run();
+    await clearConnection(env.DB);
+    await savePrices(env.DB, { sizes: {}, cells: { "bouquet/weekly": 31000 } });
+  });
+
+  it("charge the saved monthly price at signup", async () => {
+    const { fetch, payments } = testApp(NOW);
+    const cfg: any = await (await fetch("/api/config")).json();
+    expect(cfg.subscriptions.cells.find((c: any) => c.sizeId === "bouquet" && c.cadenceId === "weekly").priceCents).toBe(31000);
+    expect((await post(fetch, good)).status).toBe(200);
+    expect(payments.createdSubscriptions[0]).toMatchObject({ productName: "Bouquet · every week", amountCents: 31000 });
+  });
+
+  it("show the saved price in the confirmation email", async () => {
+    await saveState(env.DB, STATE);
+    const { fetch, payments, mailer } = testApp(NOW);
+    payments.nextEvent = { type: "subscription.started", sessionId: "cs_p1", customerId: "cus_p", subscriptionId: "sub_p",
+      customerEmail: "pat@example.com", metadata: { cell: "bouquet/weekly", weekday: "2", name: "Pat Smith" } };
+    expect(await (await hook(fetch)).json()).toEqual({ received: true, applied: "subscribed" });
+    expect(mailer.sent[0].text).toContain("$310.00");
+    expect(mailer.sent[0].text).not.toContain("$290.00");
+  });
+
+  it("show the saved price when the cron retries the email later", async () => {
+    await saveState(env.DB, STATE);
+    const { fetch, payments, mailer } = testApp(NOW);
+    mailer.failNext = "resend down";
+    payments.nextEvent = { type: "subscription.started", sessionId: "cs_p2", customerId: "cus_q", subscriptionId: "sub_q",
+      customerEmail: "pat@example.com", metadata: { cell: "bouquet/weekly", weekday: "2", name: "Pat Smith" } };
+    await hook(fetch);
+    const { services, mailer: later } = testServices(NOW);
+    await runScheduled(env, services, new Date(NOW.getTime() + 200_000));
+    expect(later.sent.map((m) => m.text).join("\n")).toContain("$310.00");
   });
 });

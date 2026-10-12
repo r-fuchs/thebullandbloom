@@ -14,14 +14,21 @@ import { offerRoutes } from "./routes/offers";
 import { webhookRoutes } from "./routes/webhooks";
 import { adminRoutes } from "./routes/admin";
 import { instagramPublic } from "./routes/instagram";
+import { pricedConfig } from "./store/prices";
 
 export interface Services { payments: Payments; google: Google; mailer: Mailer; alerts: Alerts; instagram: Instagram; uber: Uber; metaAds: MetaAds; access: Access; clock: () => Date; config: StoreConfig }
-export type AppEnv = { Bindings: Env; Variables: { services: Services; admin: AdminIdentity } };
+/** `baseConfig` is store.config.json as shipped; `services.config` has the admin's saved prices laid over it. */
+export type AppEnv = { Bindings: Env; Variables: { services: Services; baseConfig: StoreConfig; admin: AdminIdentity } };
 export type App = Hono<AppEnv>;
 
 export function buildApp(services: Services): App {
   const app: App = new Hono();
-  app.use("*", async (c, next) => { c.set("services", services); await next(); });
+  // Prices Anthony sets in the admin lay over store.config.json per request, so every route charges and shows the same number.
+  app.use("*", async (c, next) => {
+    c.set("baseConfig", services.config);
+    c.set("services", { ...services, config: await pricedConfig(c.env.DB, services.config) });
+    await next();
+  });
   app.get("/api/health", (c) => c.json({ ok: true }));
   app.route("/", publicRoutes());
   app.route("/", offerRoutes());
