@@ -25,7 +25,7 @@ describe("worker", () => {
     expect(r.status).toBe(200);
     const body = await r.text();
     expect(body).toContain("Privacy");
-    expect(body).toContain("thebullandbloom@gmail.com");
+    expect(body).toContain("anthony@thebullandbloom.com");
     expect(body).toContain("stripe.com/privacy");
   });
   it("serves the order form with a pickup/delivery choice and address fields", async () => {

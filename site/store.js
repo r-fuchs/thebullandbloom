@@ -394,7 +394,7 @@
       fetch('/api/config').then(function (r) { return r.json(); }),
       fetch('/api/availability?from=' + ymd(today) + '&to=' + ymd(to)).then(function (r) { return r.json(); })
     ]).then(function (res) { renderSizes(res[0]); renderDays(res[1]); renderSubscription(res[0]); })
-      .catch(function () { status.textContent = 'The store is briefly unavailable. Email thebullandbloom@gmail.com to order.'; });
+      .catch(function () { status.textContent = 'The store is briefly unavailable. Email anthony@thebullandbloom.com to order.'; });
   }
 
   form.addEventListener('submit', function (e) {

@@ -95,7 +95,7 @@
       loadPixel(data.marketing && data.marketing.metaPixelId);
       render();
     }).catch(function () {
-      $('#load-status').textContent = 'The page is briefly unavailable. Email thebullandbloom@gmail.com to book.';
+      $('#load-status').textContent = 'The page is briefly unavailable. Email anthony@thebullandbloom.com to book.';
     });
   }
 
