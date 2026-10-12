@@ -28,7 +28,8 @@
   function vaseCents() { var sz = sizeOf(state.sizeId); return sz && sz.vaseFeeCents ? sz.vaseFeeCents : 0; }
   function renderVaseLabel() { var el = $('#vase-label'); if (el) el.textContent = 'Arranged in a vase — +' + money(vaseCents()); }
 
-  var state = { sizeId: null, tab: 'once' };
+  // `custom` is the fourth card (#12): not a size, it sends the customer to the inquiry form.
+  var state = { sizeId: null, tab: 'once', custom: false };
   var cfgCache = null;
   function priceFor(sizeId) {
     if (!cfgCache) return null;
@@ -38,18 +39,37 @@
     return cell ? { cents: cell.priceCents, per: ' / month' } : null;
   }
   function renderCardPrices() {
-    menu.querySelectorAll('li').forEach(function (li) {
+    menu.querySelectorAll('li:not(.custom)').forEach(function (li) {
       var p = priceFor(li.getAttribute('data-size'));
       var el = li.querySelector('.price');
       if (p) { el.innerHTML = ''; el.appendChild(document.createTextNode(money(p.cents))); if (p.per) { var per = document.createElement('span'); per.className = 'per'; per.textContent = p.per; el.appendChild(per); } }
       else el.textContent = 'Not offered';
-      li.classList.toggle('chosen', li.getAttribute('data-size') === state.sizeId);
+      li.classList.toggle('chosen', !state.custom && li.getAttribute('data-size') === state.sizeId);
     });
+    var customCard = menu.querySelector('li.custom');
+    if (customCard) customCard.classList.toggle('chosen', state.custom);
     var once = $('#once-size'), sub = $('#sub-size-input');
     if (once) once.value = state.sizeId || ''; if (sub) sub.value = state.sizeId || '';
     if (subForm) renderSubPrice();
   }
-  function chooseSize(id) { state.sizeId = id; renderCardPrices(); renderVaseLabel(); refreshTotal(); }
+  function chooseSize(id) { state.custom = false; state.sizeId = id; showPanels(); renderCardPrices(); renderVaseLabel(); refreshTotal(); }
+  /** The fourth card: mark it, swap the order forms for a pointer, and take the customer to the inquiry form. */
+  function chooseCustom() {
+    state.custom = true; showPanels(); renderCardPrices();
+    var inquire = $('#inquire'); if (!inquire) return;
+    inquire.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    var first = inquire.querySelector('input[name="name"]');
+    if (first) setTimeout(function () { first.focus({ preventScroll: true }); }, 450);
+  }
+  function showPanels() {
+    var once = state.tab !== 'sub';
+    $('#panel-once').hidden = state.custom || !once; $('#panel-sub').hidden = state.custom || once;
+    var pc = $('#panel-custom'); if (pc) pc.hidden = !state.custom;
+  }
+  function onPick(li, fn) {
+    li.addEventListener('click', fn);
+    li.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } });
+  }
   function renderSizes(cfg) {
     cfgCache = cfg;
     menu.innerHTML = '';
@@ -58,12 +78,22 @@
       var li = document.createElement('li');
       li.setAttribute('data-size', s.id); li.setAttribute('role', 'button'); li.tabIndex = 0;
       li.innerHTML = '<span class="tick" aria-hidden="true"></span><h3></h3><p></p><p class="price"></p>';
+      if (s.image) {
+        var img = document.createElement('img');
+        img.className = 'art'; img.src = s.image; img.alt = s.imageAlt || ''; img.width = 460; img.height = 460; img.loading = 'lazy';
+        li.insertBefore(img, li.querySelector('h3'));
+      }
       li.querySelector('h3').textContent = s.name;
       li.querySelector('p').textContent = s.description;
-      li.addEventListener('click', function () { chooseSize(s.id); });
-      li.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); chooseSize(s.id); } });
+      onPick(li, function () { chooseSize(s.id); });
       menu.appendChild(li);
     });
+    var tpl = $('#custom-card');
+    if (tpl && 'content' in tpl) {
+      var custom = tpl.content.firstElementChild.cloneNode(true);
+      onPick(custom, chooseCustom);
+      menu.appendChild(custom);
+    }
     renderCardPrices();
     deliveryOffered = !!(cfg.delivery && cfg.delivery.offered);
     fulfil.hidden = !deliveryOffered;
@@ -230,11 +260,12 @@
   // ---- one-time / subscription tabs
   function showTab(which) {
     state.tab = which === 'sub' ? 'sub' : 'once';
+    state.custom = false; // picking a tab is picking a bouquet again
     var cad = $('#sub-cadence'); if (cad) cad.hidden = state.tab !== 'sub';
     if (cfgCache) renderCardPrices();
     var once = which !== 'sub';
     $('#tab-once').setAttribute('aria-selected', String(once)); $('#tab-sub').setAttribute('aria-selected', String(!once));
-    $('#panel-once').hidden = !once; $('#panel-sub').hidden = once;
+    showPanels();
   }
   if ($('#tab-once')) {
     $('#tab-once').addEventListener('click', function () { showTab('once'); });

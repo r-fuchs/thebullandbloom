@@ -1,6 +1,7 @@
 import raw from "../store.config.json";
 
-export interface Size { id: string; name: string; description: string; priceCents: number; vaseFeeCents: number }
+/** A bouquet size. `image`/`imageAlt` (both or neither) is the drawing on its card, a path under `site/assets/`. */
+export interface Size { id: string; name: string; description: string; priceCents: number; vaseFeeCents: number; image?: string; imageAlt?: string }
 export interface Cadence { id: string; name: string; perMonth: number }
 export interface SubscriptionCell { sizeId: string; cadenceId: string; priceCents: number }
 export interface Subscriptions { cadences: Cadence[]; cells: SubscriptionCell[]; note?: string }
@@ -174,6 +175,9 @@ export function validateConfig(cfg: StoreConfig): StoreConfig {
     ids.add(s.id);
     if (!Number.isInteger(s.priceCents) || s.priceCents <= 0) throw new Error(`config: size ${s.id} priceCents must be a positive integer`);
     if (!Number.isInteger(s.vaseFeeCents) || s.vaseFeeCents < 0) throw new Error(`config: size ${s.id} vaseFeeCents must be a non-negative integer`);
+    if ((s.image === undefined) !== (s.imageAlt === undefined)) throw new Error(`config: size ${s.id} image and imageAlt go together`);
+    if (s.image !== undefined && (typeof s.image !== "string" || !ASSET.test(s.image))) throw new Error(`config: size ${s.id} image must be a path under assets/`);
+    if (s.imageAlt !== undefined && (typeof s.imageAlt !== "string" || s.imageAlt.trim() === "")) throw new Error(`config: size ${s.id} imageAlt must describe the drawing`);
   }
   const cadences = new Set<string>();
   for (const c of cfg.subscriptions?.cadences ?? []) {

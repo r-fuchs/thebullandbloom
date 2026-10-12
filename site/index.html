@@ -165,6 +165,13 @@
   .menu .price{font-family:var(--display);font-size:1.7rem;font-weight:500;color:var(--ink);margin-top:.35rem;flex:0}
   .menu li{border-radius:14px}
   .menu li.chosen{border-color:var(--sage-deep)}
+  /* the drawing (#12): a circle above the words, the card text centred under it */
+  .menu{grid-template-columns:repeat(auto-fit,minmax(11.5rem,1fr))}
+  .menu li{text-align:center;align-items:center;padding-top:1.4rem}
+  .menu .art{width:min(100%,11rem);height:auto;aspect-ratio:1;flex:0 0 auto;border-radius:50%;object-fit:cover;display:block;margin:0 auto .5rem;background:var(--paper)}
+  .menu li.custom .price{font-size:1.05rem;font-family:var(--body);font-style:italic;color:var(--sepia);font-weight:400}
+  .menu li.custom.chosen .price{color:var(--ink)}
+  #panel-custom p{max-width:36rem;margin:0}
   /* calendar day picker */
   .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;max-width:26rem}
   .cal .h{text-align:center;font-family:var(--display);letter-spacing:.12em;font-size:.72rem;color:var(--sepia);padding-bottom:.2rem}
@@ -246,6 +253,18 @@
     <fieldset class="full sizes" id="sub-cadence" hidden><legend>How often</legend></fieldset>
     <p class="eyebrow" style="margin-top:.5rem">Size</p>
     <ul class="services menu" id="menu" aria-live="polite"></ul>
+    <template id="custom-card">
+      <li class="custom" data-size="custom" role="button" tabindex="0">
+        <span class="tick" aria-hidden="true"></span>
+        <img class="art" src="assets/size-custom.jpg" alt="A full arrangement of peonies, ranunculus and hydrangea in a footed urn" width="460" height="460" loading="lazy">
+        <h3>Special events and custom pieces</h3>
+        <p>Thoughtfully designed for your occasion.</p>
+        <p class="price">Tell us about it</p>
+      </li>
+    </template>
+    <div id="panel-custom" hidden>
+      <p class="intro">A dinner table, an entryway, a wedding, a gift that needs a vase. <a href="#inquire" id="custom-go">Tell us about it below</a> and Anthony will get back to you within a day or two.</p>
+    </div>
     <div id="panel-once" role="tabpanel" aria-labelledby="tab-once">
       <form class="form" id="order-form" novalidate>
       <input type="hidden" name="sizeId" id="once-size">
