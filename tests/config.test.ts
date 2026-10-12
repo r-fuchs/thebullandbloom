@@ -42,6 +42,19 @@ describe("config", () => {
     expect(() => validateConfig({ ...base, sizes: [{ ...base.sizes[0], vaseFeeCents: -5 }] })).toThrow(/vaseFeeCents/);
     expect(() => validateConfig({ ...base, sizes: [{ ...base.sizes[0], vaseFeeCents: 1.5 }] })).toThrow(/vaseFeeCents/);
   });
+  it("carries an optional drawing per size and rejects a bad one", () => {
+    const base = loadConfig();
+    for (const s of base.sizes) {
+      expect(s.image).toMatch(/^assets\/size-[a-z]+\.jpg$/);
+      expect(typeof s.imageAlt).toBe("string");
+      expect(s.imageAlt!.trim()).not.toBe("");
+    }
+    const bare = base.sizes.map(({ image, imageAlt, ...rest }) => rest);
+    expect(() => validateConfig({ ...base, sizes: bare })).not.toThrow();
+    expect(() => validateConfig({ ...base, sizes: [{ ...base.sizes[0], image: "/etc/passwd" }] })).toThrow(/image/);
+    expect(() => validateConfig({ ...base, sizes: [{ ...base.sizes[0], imageAlt: undefined }] })).toThrow(/imageAlt/);
+    expect(() => validateConfig({ ...base, sizes: [{ ...base.sizes[0], image: undefined }] })).toThrow(/image/);
+  });
   it("rejects a bad owner email and identical calendar names", () => {
     const base = loadConfig();
     expect(() => validateConfig({ ...base, studio: { ...base.studio, ownerEmail: "nope" } })).toThrow(/ownerEmail/);

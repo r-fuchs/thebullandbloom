@@ -12,6 +12,8 @@ describe("GET /api/config", () => {
     expect(body.timezone).toBe("America/New_York");
     expect(body.sizes[0]).toHaveProperty("priceCents");
     expect(body.sizes[0]).toHaveProperty("vaseFeeCents");
+    expect(body.sizes[0].image).toMatch(/^assets\//);
+    expect(typeof body.sizes[0].imageAlt).toBe("string");
     expect(JSON.stringify(body)).not.toContain("pickupAddress");
     expect(body.delivery).toEqual({ offered: true });
   });

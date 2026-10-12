@@ -35,21 +35,27 @@
       "name": "Posy",
       "description": "A small hand-tied bunch.",
       "priceCents": 5500,
-      "vaseFeeCents": 1500
+      "vaseFeeCents": 1500,
+      "image": "assets/size-posy.jpg",
+      "imageAlt": "A small hand-tied posy of ranunculus, anemone and sprigs, tied with ribbon, lying on a table"
     },
     {
       "id": "bouquet",
       "name": "Bouquet",
       "description": "The classic 10–12 stem bouquet.",
       "priceCents": 8500,
-      "vaseFeeCents": 2000
+      "vaseFeeCents": 2000,
+      "image": "assets/size-bouquet.jpg",
+      "imageAlt": "A hand-tied bouquet of tulips, ranunculus and anemones wrapped at the stems with ribbon"
     },
     {
       "id": "statement",
       "name": "Statement",
       "description": "A generous, showpiece bouquet.",
       "priceCents": 13500,
-      "vaseFeeCents": 2500
+      "vaseFeeCents": 2500,
+      "image": "assets/size-statement.jpg",
+      "imageAlt": "A generous arrangement of ranunculus, stock, delphinium and blossom in a white jug"
     }
   ],
   "defaults": {
