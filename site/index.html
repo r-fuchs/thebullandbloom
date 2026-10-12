@@ -351,11 +351,11 @@
     <p class="eyebrow">Get in touch</p>
     <h2>Let's make something</h2>
     <dl>
-      <dt>Email</dt><dd><a href="mailto:thebullandbloom@gmail.com">thebullandbloom@gmail.com</a></dd>
+      <dt>Email</dt><dd><a href="mailto:anthony@thebullandbloom.com">anthony@thebullandbloom.com</a></dd>
       <dt>Phone</dt><dd><a href="tel:+15183340517">(518) 334-0517</a></dd>
       <dt>Instagram</dt><dd><a href="https://instagram.com/thebullandbloom">@thebullandbloom</a></dd>
     </dl>
-    <div><a class="btn" href="mailto:thebullandbloom@gmail.com?subject=Floral%20inquiry">Get in touch</a></div>
+    <div><a class="btn" href="mailto:anthony@thebullandbloom.com?subject=Floral%20inquiry">Get in touch</a></div>
   </div>
 </section>
 
@@ -370,15 +370,15 @@
     var d=new FormData(f);
     if(!configured){
       var body='Name: '+d.get('name')+'\nEmail: '+d.get('email')+'\nPhone: '+(d.get('phone')||'')+'\nTown/ZIP: '+d.get('location')+'\n\n'+(d.get('message')||'');
-      window.location.href='mailto:thebullandbloom@gmail.com?subject='+encodeURIComponent(d.get('_subject'))+'&body='+encodeURIComponent(body);
+      window.location.href='mailto:anthony@thebullandbloom.com?subject='+encodeURIComponent(d.get('_subject'))+'&body='+encodeURIComponent(body);
       status.textContent='Opening your email app with the details filled in.';
       return;
     }
     status.textContent='Sending…';
     fetch(f.action,{method:'POST',body:d,headers:{'Accept':'application/json'}}).then(function(r){
       if(r.ok){f.reset();status.textContent='Sent. Anthony will be in touch soon.';}
-      else{status.textContent='Something went wrong. Email thebullandbloom@gmail.com instead.';}
-    }).catch(function(){status.textContent='Something went wrong. Email thebullandbloom@gmail.com instead.';});
+      else{status.textContent='Something went wrong. Email anthony@thebullandbloom.com instead.';}
+    }).catch(function(){status.textContent='Something went wrong. Email anthony@thebullandbloom.com instead.';});
   });
 })();
 </script>

@@ -20,7 +20,7 @@ describe("config", () => {
 
   it("carries the mail addresses and rejects bad ones", () => {
     const base = loadConfig();
-    expect(base.mail).toEqual({ from: "The Bull and Bloom <orders@thebullandbloom.com>", replyTo: "thebullandbloom@gmail.com" });
+    expect(base.mail).toEqual({ from: "The Bull and Bloom <orders@thebullandbloom.com>", replyTo: "anthony@thebullandbloom.com" });
     expect(() => validateConfig({ ...base, mail: { ...base.mail, from: "orders@thebullandbloom.com" } })).not.toThrow();
     expect(() => validateConfig({ ...base, mail: { ...base.mail, from: "nope" } })).toThrow(/mail\.from/);
     expect(() => validateConfig({ ...base, mail: { ...base.mail, from: "Shop <nope>" } })).toThrow(/mail\.from/);
