@@ -38,6 +38,23 @@
   .order .err{color:#8B3A3A;font-size:.9rem}
   .alert{background:#8B3A3A;color:#fff;padding:.7rem 1rem;margin:0 0 .8rem;display:flex;gap:.8rem;align-items:center;flex-wrap:wrap}
   .alert button{border-color:#fff}
+  .prices{margin-top:1.4rem;padding-top:1rem;border-top:1px solid var(--rule)}
+  .ptable{display:grid;grid-template-columns:7rem repeat(4,1fr);gap:.5rem .6rem;align-items:center;font-variant-numeric:tabular-nums}
+  .ptable .h{font-size:.8rem;color:var(--sepia);line-height:1.2}
+  .ptable .n{font-weight:500}
+  .ptable .n small{display:block;font-weight:400;color:var(--sepia);font-size:.8rem}
+  .money{display:flex;align-items:center;gap:.2rem;min-width:0}
+  .money span{color:var(--sepia)}
+  .money input{width:100%;min-width:0;max-width:5.2rem;text-align:right}
+  .money input.changed{border-color:var(--ink);background:#FBF5E6}
+  .hint{margin:.8rem 0 0;font-size:.85rem;color:var(--sepia)}
+  .hint b{color:var(--ink);font-weight:500}
+  @media (max-width:560px){
+    .ptable{grid-template-columns:1fr 1fr;row-gap:.4rem}
+    .ptable .h{display:none}
+    .ptable .n{grid-column:1 / -1;margin-top:.6rem}
+    .money::before{content:attr(data-l);font-size:.8rem;color:var(--sepia);flex:1 0 4.2rem;line-height:1.2}
+  }
   [hidden]{display:none!important}
 </style>
 </head>
@@ -116,6 +133,13 @@
       <div class="row"><label>Same-day cutoff <input type="time" id="s-cutoff"></label></div>
       <div class="row" id="s-days"></div>
       <div class="row"><button id="s-save">Save</button><span class="status" id="s-status"></span></div>
+
+      <div class="prices">
+        <h2 style="margin:0 0 .5rem;font-size:1.1rem;font-weight:500">Prices</h2>
+        <div class="ptable" id="p-table"></div>
+        <p class="hint">Whole dollars. Subscription prices are per month. A change applies to new orders and new subscribers right away; <b>people already subscribed keep the price they signed up at</b>. Clear a box and save to go back to the built-in price.</p>
+        <div class="row"><button id="p-save">Save prices</button><span class="status" id="p-status"></span></div>
+      </div>
     </div>
 
     <div class="panel" id="google-panel" hidden>
@@ -501,6 +525,50 @@
         box.appendChild(l);
       });
     });
+    loadPrices();
+  }
+
+  // Prices: one row per size, a box each for the one-time price, the vase add-on and every subscription cadence.
+  // Boxes show the price in force; an empty box means "use the built-in price" when saved.
+  var priceSheet = null;
+  function priceBox(id, label, cents, defaultCents) {
+    var d = document.createElement('div');
+    d.className = 'money'; d.setAttribute('data-l', label);
+    d.innerHTML = '<span>$</span><input type="number" min="0" step="1" inputmode="numeric">';
+    var i = d.querySelector('input');
+    i.id = id; i.value = cents / 100; i.setAttribute('data-default', defaultCents);
+    i.title = 'Built-in price $' + (defaultCents / 100);
+    i.addEventListener('input', function () { i.classList.toggle('changed', i.value !== String(cents / 100)); $('#p-status').textContent = ''; });
+    return d;
+  }
+  function loadPrices() {
+    $('#p-status').textContent = '';
+    api('/prices').then(function (sheet) {
+      priceSheet = sheet;
+      var t = $('#p-table'); t.innerHTML = '';
+      var heads = ['', 'One-time<br>bouquet', 'Vase<br>add-on'].concat(sheet.cadences.map(function (c) { return 'Subscription<br>' + c.name.toLowerCase(); }));
+      heads.forEach(function (h) { var d = document.createElement('div'); d.className = 'h'; d.innerHTML = h; t.appendChild(d); });
+      sheet.sizes.forEach(function (s) {
+        var n = document.createElement('div'); n.className = 'n';
+        n.textContent = s.name; var sm = document.createElement('small'); sm.textContent = s.description; n.appendChild(sm);
+        t.appendChild(n);
+        t.appendChild(priceBox('p-' + s.id + '-once', 'One-time', s.priceCents, s.defaults.priceCents));
+        t.appendChild(priceBox('p-' + s.id + '-vase', 'Vase', s.vaseFeeCents, s.defaults.vaseFeeCents));
+        sheet.cadences.forEach(function (c) {
+          var cell = sheet.cells.filter(function (x) { return x.sizeId === s.id && x.cadenceId === c.id; })[0];
+          var box = priceBox('p-' + s.id + '-' + c.id, c.name, cell ? cell.priceCents : 0, cell ? cell.defaults.priceCents : 0);
+          if (!cell) box.querySelector('input').disabled = true;
+          t.appendChild(box);
+        });
+      });
+    }).catch(function (e) { if (e.message !== 'unauthorized') $('#p-status').textContent = e.message; });
+  }
+  // Reads one box: null when blank (back to built-in), a cents integer, or NaN when it is not a whole dollar amount.
+  function boxCents(id) {
+    var i = $('#' + id);
+    if (!i || i.disabled || i.value.trim() === '') return null;
+    var n = Number(i.value);
+    return Number.isInteger(n) && n >= 0 ? n * 100 : NaN;
   }
 
   function ago(sec) {
@@ -611,6 +679,28 @@
     api('/settings', { method: 'PUT', body: JSON.stringify({ cap: cap, cutoff: $('#s-cutoff').value, openWeekdays: days }) })
       .then(function () { $('#s-status').textContent = 'Saved.'; loadMonth(); })
       .catch(function (e) { $('#s-status').textContent = e.message; });
+  });
+  $('#p-save').addEventListener('click', function () {
+    if (!priceSheet) return;
+    var body = { sizes: {}, cells: {} }, bad = null;
+    priceSheet.sizes.forEach(function (s) {
+      var once = boxCents('p-' + s.id + '-once'), vase = boxCents('p-' + s.id + '-vase');
+      if (isNaN(once) || isNaN(vase) || once === 0) bad = bad || s.name;
+      var o = {};
+      if (once !== null) o.priceCents = once;
+      if (vase !== null) o.vaseFeeCents = vase;
+      if (once !== null || vase !== null) body.sizes[s.id] = o;
+      priceSheet.cadences.forEach(function (c) {
+        var cents = boxCents('p-' + s.id + '-' + c.id);
+        if (isNaN(cents) || cents === 0) bad = bad || s.name;
+        if (cents !== null) body.cells[s.id + '/' + c.id] = cents;
+      });
+    });
+    if (bad) { $('#p-status').textContent = 'Enter whole dollars for ' + bad + ', or leave a box empty to use the built-in price.'; return; }
+    $('#p-status').textContent = 'Saving…';
+    api('/prices', { method: 'PUT', body: JSON.stringify(body) })
+      .then(function () { loadPrices(); $('#p-status').textContent = 'Saved. The website shows the new prices now.'; })
+      .catch(function (e) { if (e.message !== 'unauthorized') $('#p-status').textContent = e.message; });
   });
 
   var hashDate = /^#(\d{4})-(\d{2})-(\d{2})$/.exec(location.hash);
