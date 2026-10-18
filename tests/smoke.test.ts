@@ -81,12 +81,12 @@ describe("worker", () => {
     expect(offerJsText).not.toContain("#unavailable");
   });
 
-  it("shares the homepage with a photo, not the logo", async () => {
+  it("shares the homepage with the logo (the wreath photo left with the class, Oct 18 2026)", async () => {
     const body = await (await SELF.fetch("https://example.com/")).text();
-    expect(body).toContain('<meta property="og:image" content="https://thebullandbloom.com/assets/wreath.jpg">');
+    expect(body).toContain('<meta property="og:image" content="https://thebullandbloom.com/assets/logo.jpg">');
     expect(body).toContain('<meta property="og:image:width" content="900">');
-    expect(body).toContain('<meta property="og:image:height" content="1200">');
-    expect(body).not.toContain('og:image" content="https://thebullandbloom.com/assets/logo.jpg"');
+    expect(body).toContain('<meta property="og:image:height" content="900">');
+    expect(body).not.toContain('og:image" content="https://thebullandbloom.com/assets/wreath.jpg"');
   });
 
   it("carries the Current offers teaser and its nav link, both hidden until a bookable offer renders (Plan 7 §3.3)", async () => {
