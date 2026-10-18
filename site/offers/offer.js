@@ -30,10 +30,9 @@
     window.fbq('track', 'PageView');
   }
 
-  function showUnavailable() {
-    $('#loading').hidden = true; $('#offer').hidden = true; $('#unavailable').hidden = false;
-    document.title = 'Not currently offered — The Bull and Bloom';
-  }
+  // A retired or unknown class goes home, matching the Worker's redirect for the same address. This covers
+  // the bare /offers/ page, which the static layer serves before the Worker sees it.
+  function showUnavailable() { location.replace('/'); }
 
   function chosenSession() { var f = new FormData(form); return f.get('sessionId'); }
   function chosenSeats() { var n = parseInt(seatsSel.value, 10); return n > 0 ? n : 1; }
@@ -85,7 +84,7 @@
     $('#facts').textContent = money(offer.priceCents) + ' per seat' + (len ? ' · ' + len : '');
     $('#cta-price').textContent = money(offer.priceCents) + ' a seat' + (len ? ' · ' + len : '');
     renderSessions();
-    $('#loading').hidden = true; $('#unavailable').hidden = true; $('#offer').hidden = false;
+    $('#loading').hidden = true; $('#offer').hidden = false;
   }
 
   function load() {

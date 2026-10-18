@@ -166,12 +166,46 @@ describe("POST /api/book/:id/release", () => {
 });
 
 describe("GET /offers/:slug", () => {
-  it("serves the one static page whatever the slug, never a 404", async () => {
+  it("serves the class page for a live offer, with share tags so a Facebook or iMessage preview shows the class", async () => {
+    const { fetch } = testApp(undefined, offersConfig([{ ...WREATH, imageWidth: 900, imageHeight: 1200 }, OFF_OFFER]));
+    const r = await fetch("/offers/wreath-test");
+    expect(r.status).toBe(200);
+    const body = await r.text();
+    expect(body).toContain('id="book-form"');
+    expect(body).toContain("Reserve my seat");
+    expect(body).toContain("Refreshments will be provided");
+    expect(body).toContain("Hosted at Anthony's home studio in Albany. The address comes with your confirmation.");
+    expect(body).toContain('src="offer.js"');
+    expect(body).toContain('id="load-status"');
+    expect(body).not.toContain("40 Manning");
+    // the conversion pass: a call to action up top, what's included, the teacher, a cancellation line, a seats picker
+    expect(body).toContain('<a class="btn btn-small" href="#booking">Pick a date</a>');
+    expect(body).toContain('<ul class="included">');
+    expect(body).toContain("no experience is needed");
+    expect(body).toContain('src="/assets/anthony.jpg"');
+    expect(body).toContain("Anthony Demonia is the floral designer behind The Bull and Bloom.");
+    expect(body).toContain('href="https://instagram.com/thebullandbloom"');
+    expect(body).toContain("at least 48 hours before and we'll move you to another date or refund you.");
+    expect(body).toContain('<select name="seats" id="seats">');
+    // share tags
+    expect(body).toContain("<title>Wreath &amp; Sip — The Bull and Bloom</title>");
+    expect(body).toContain('<meta property="og:title" content="Wreath &amp; Sip — The Bull and Bloom">');
+    expect(body).toContain('<meta property="og:description" content="Make an autumn wreath at the studio">');
+    expect(body).toContain('<meta property="og:image" content="https://thebullandbloom.com/assets/wreath.jpg">');
+    expect(body).toContain('<meta property="og:image:width" content="900">');
+    expect(body).toContain('<meta property="og:image:height" content="1200">');
+    expect(body).toContain('<meta property="og:url" content="https://thebullandbloom.com/offers/wreath-test">');
+    expect(body).toContain('<meta property="og:type" content="website">');
+    expect(body).toContain('<meta name="twitter:card" content="summary_large_image">');
+    expect(body).toContain('<meta name="description" content="An evening at the studio.">');
+    expect(body.match(/<title>/g)).toHaveLength(1);
+  });
+  it("sends a retired or unknown slug to the homepage with a temporary redirect, so an old ad link never dead-ends", async () => {
     const { fetch } = testApp(undefined, offersConfig());
-    for (const slug of ["wreath-test", "retired-class"]) {
+    for (const slug of ["off-test", "retired-class"]) {
       const r = await fetch(`/offers/${slug}`);
-      expect(r.status).toBe(200);
-      expect(await r.text()).toContain('id="book-form"');
+      expect(r.status).toBe(302);
+      expect(r.headers.get("location")).toBe("/");
     }
   });
   it("redirects a trailing-slash address to the canonical one", async () => {

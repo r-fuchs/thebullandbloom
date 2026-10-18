@@ -59,28 +59,15 @@ describe("worker", () => {
     expect(body).toContain("api('/prices', { method: 'PUT'");
   });
 
-  it("serves the class landing page at /offers/<slug> for any slug (Plan 7 §3.2)", async () => {
+  it("sends /offers/<slug> to the homepage while no class is on (the wreath class ended Oct 17 2026)", async () => {
     for (const path of ["/offers/wreath-and-sip", "/offers/anything-at-all"]) {
-      const r = await SELF.fetch(`https://example.com${path}`);
-      expect(r.status).toBe(200);
-      const body = await r.text();
-      expect(body).toContain('id="book-form"');
-      expect(body).toContain("Reserve my seat");
-      expect(body).toContain("Refreshments will be provided");
-      expect(body).toContain("Hosted at Anthony's home studio in Albany. The address comes with your confirmation.");
-      expect(body).toContain('src="offer.js"');
-      expect(body).toContain('id="load-status"');
-      expect(body).not.toContain("40 Manning");
-      // the conversion pass: a call to action up top, what's included, the teacher, a cancellation line, a seats picker
-      expect(body).toContain('<a class="btn btn-small" href="#booking">Pick a date</a>');
-      expect(body).toContain('<ul class="included">');
-      expect(body).toContain("no experience is needed");
-      expect(body).toContain('src="/assets/anthony.jpg"');
-      expect(body).toContain("Anthony Demonia is the floral designer behind The Bull and Bloom.");
-      expect(body).toContain('href="https://instagram.com/thebullandbloom"');
-      expect(body).toContain("at least 48 hours before and we'll move you to another date or refund you.");
-      expect(body).toContain('<select name="seats" id="seats">');
+      const r = await SELF.fetch(`https://example.com${path}`, { redirect: "manual" });
+      expect(r.status).toBe(302);
+      expect(r.headers.get("location")).toBe("/");
     }
+  });
+
+  it("keeps the class page script ready for the next class", async () => {
     const offerJs = await SELF.fetch("https://example.com/offers/offer.js");
     expect(offerJs.status).toBe(200);
     const offerJsText = await offerJs.text();
@@ -90,33 +77,16 @@ describe("worker", () => {
     expect(offerJsText).toContain("/release'");
     expect(offerJsText).toContain("[?&]cancelled=");
     expect(offerJsText).toContain("Only ' + left");
+    expect(offerJsText).toContain("location.replace('/')");
+    expect(offerJsText).not.toContain("#unavailable");
   });
 
-  it("renders share tags for a live offer so a Facebook or iMessage preview shows the class, and leaves unknown slugs plain", async () => {
-    const live = await (await SELF.fetch("https://example.com/offers/wreath-and-sip")).text();
-    expect(live).toContain("<title>Wreath &amp; Sip — The Bull and Bloom</title>");
-    expect(live).toContain('<meta property="og:title" content="Wreath &amp; Sip — The Bull and Bloom">');
-    expect(live).toContain('<meta property="og:description" content="Fall wreathmaking class in Albany">');
-    expect(live).toContain('<meta property="og:image" content="https://thebullandbloom.com/assets/wreath.jpg">');
-    expect(live).toContain('<meta property="og:image:width" content="900">');
-    expect(live).toContain('<meta property="og:image:height" content="1200">');
-    expect(live).toContain('<meta property="og:url" content="https://thebullandbloom.com/offers/wreath-and-sip">');
-    expect(live).toContain('<meta property="og:type" content="website">');
-    expect(live).toContain('<meta name="twitter:card" content="summary_large_image">');
-    expect(live).toContain('<meta name="description" content="A 2-hour class at Anthony');
-    expect(live.match(/<title>/g)).toHaveLength(1);
-
-    const unknown = await (await SELF.fetch("https://example.com/offers/anything-at-all")).text();
-    expect(unknown).toContain("<title>The Bull and Bloom</title>");
-    expect(unknown).not.toContain("og:title");
-  });
-
-  it("shares the homepage with a photo, not the logo", async () => {
+  it("shares the homepage with the logo (the wreath photo left with the class, Oct 18 2026)", async () => {
     const body = await (await SELF.fetch("https://example.com/")).text();
-    expect(body).toContain('<meta property="og:image" content="https://thebullandbloom.com/assets/wreath.jpg">');
+    expect(body).toContain('<meta property="og:image" content="https://thebullandbloom.com/assets/logo.jpg">');
     expect(body).toContain('<meta property="og:image:width" content="900">');
-    expect(body).toContain('<meta property="og:image:height" content="1200">');
-    expect(body).not.toContain('og:image" content="https://thebullandbloom.com/assets/logo.jpg"');
+    expect(body).toContain('<meta property="og:image:height" content="900">');
+    expect(body).not.toContain('og:image" content="https://thebullandbloom.com/assets/wreath.jpg"');
   });
 
   it("carries the Current offers teaser and its nav link, both hidden until a bookable offer renders (Plan 7 §3.3)", async () => {

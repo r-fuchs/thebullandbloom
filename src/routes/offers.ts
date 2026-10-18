@@ -109,14 +109,16 @@ export function offerRoutes(): App {
     return did ? c.json({ ok: true }) : c.json({ error: "not held" }, 404);
   });
 
-  // One static page serves every offer; the script reads the slug from the URL (D49). An unknown or
-  // retired slug still gets the page, which then says "Not currently offered": an ad link never dead-ends.
+  // One static page serves every live offer; the script reads the slug from the URL (D49). An unknown
+  // or retired slug goes to the homepage instead (Oct 18 2026, after the wreath class ended), so an old ad
+  // or Facebook link never dead-ends. Temporary, not 301: a later class may reuse the address, and a
+  // permanent redirect would sit in browsers for good.
   r.get("/offers/:slug", async (c) => {
     const slug = c.req.param("slug");
     if (slug.includes(".")) return c.env.ASSETS.fetch(c.req.raw); // offer.js, offer.css in the test harness
-    const page = await c.env.ASSETS.fetch(new URL("/offers/", c.req.url));
     const offer = offerBySlug(c.get("services").config, slug);
-    if (!offer || !offer.enabled) return page;
+    if (!offer || !offer.enabled) return c.redirect("/", 302);
+    const page = await c.env.ASSETS.fetch(new URL("/offers/", c.req.url));
     return withShareTags(page, offer, c.env.SITE_URL);
   });
 
