@@ -86,8 +86,8 @@
     {
       "id": "wreath-and-sip-autumn-2026",
       "slug": "wreath-and-sip",
-      "enabled": true,
-      "showOnHome": true,
+      "enabled": false,
+      "showOnHome": false,
       "name": "Wreath & Sip",
       "tagline": "Fall wreathmaking class in Albany",
       "description": "A 2-hour class at Anthony's studio in Albany. You build a full fall wreath on a grapevine base from fresh and dried stems, with Anthony showing you each step as you go. Everything is included, and you take your wreath home.",
