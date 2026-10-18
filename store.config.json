@@ -71,16 +71,7 @@
   },
   "holdMinutes": 30,
   "marketing": {
-    "metaPixelId": "4510926689161646",
-    "adsReport": {
-      "recipients": [
-        "ryan@fuchsassociates.com",
-        "thebullandbloom@gmail.com"
-      ],
-      "sendAt": "07:30",
-      "adAccountId": "1120923584233745",
-      "campaignMatch": "Wreath"
-    }
+    "metaPixelId": "4510926689161646"
   },
   "offers": [
     {
