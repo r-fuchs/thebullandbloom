@@ -170,6 +170,14 @@ describe("config", () => {
     expect(() => validateConfig(withOffer({ name: "" }))).toThrow(/name/);
     expect(() => validateConfig(withOffer({ enabled: "yes" }))).toThrow(/enabled/);
     expect(() => validateConfig({ ...base, offers: "nope" as any })).toThrow(/offers must be an array/);
+    const venue = { name: "Quinnie's", address: { street: "834 Route 66", unit: "", city: "Hudson", state: "NY", zip: "12534" } };
+    expect(() => validateConfig(withOffer({ venue }))).not.toThrow();
+    expect(() => validateConfig(withOffer({ venue: { ...venue, name: " " } }))).toThrow(/venue\.name/);
+    expect(() => validateConfig(withOffer({ venue: { ...venue, address: { ...venue.address, zip: "1253" } } }))).toThrow(/venue\.address\.zip/);
+    expect(() => validateConfig(withOffer({ venue: { name: "Quinnie's" } }))).toThrow(/venue\.address\.street/);
+    expect(() => validateConfig(withOffer({ included: ["A wreath base", "Refreshments"] }))).not.toThrow();
+    expect(() => validateConfig(withOffer({ included: "everything" }))).toThrow(/included/);
+    expect(() => validateConfig(withOffer({ included: ["ok", ""] }))).toThrow(/included/);
   });
   it("rejects a bad session", () => {
     const base = loadConfig();

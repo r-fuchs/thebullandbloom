@@ -103,6 +103,46 @@
           "seats": 8
         }
       ]
+    },
+    {
+      "id": "holiday-wreath-hudson-2026",
+      "slug": "holiday-wreath",
+      "enabled": true,
+      "showOnHome": true,
+      "name": "Holiday Wreathmaking",
+      "tagline": "A holiday wreathmaking class at Quinnie's in Hudson",
+      "description": "A 2-hour class at Quinnie's in Hudson, the Sunday after Thanksgiving weekend. You build a full holiday wreath from fresh evergreens and seasonal stems, with Anthony showing you each step as you go. Everything is included, and you take your wreath home.",
+      "image": "assets/wreath.jpg",
+      "imageAlt": "A large dried wreath of grapevine, poppy seed heads, hydrangea, grasses and deep red amaranth, leaning against a whitewashed wall",
+      "imageWidth": 900,
+      "imageHeight": 1200,
+      "priceCents": 10000,
+      "durationMinutes": 120,
+      "bookingClosesHoursBefore": 24,
+      "venue": {
+        "name": "Quinnie's",
+        "address": {
+          "street": "834 Route 66",
+          "unit": "",
+          "city": "Hudson",
+          "state": "NY",
+          "zip": "12534"
+        }
+      },
+      "included": [
+        "Everything you need: a wreath base and an armful of fresh evergreens and seasonal stems",
+        "Anthony showing you each step, so no experience is needed",
+        "Refreshments will be provided",
+        "Your finished wreath to take home"
+      ],
+      "sessions": [
+        {
+          "id": "2026-12-06-1400",
+          "date": "2026-12-06",
+          "start": "14:00",
+          "seats": 15
+        }
+      ]
     }
   ],
   "subscriptions": {

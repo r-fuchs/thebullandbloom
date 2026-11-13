@@ -24,8 +24,18 @@ export interface Offer {
   priceCents: number; durationMinutes: number;
   /** bookings close this many hours before a session starts (D54); 24 when absent */
   bookingClosesHoursBefore: number;
+  /**
+   * Where the class meets when it is not at the home studio (Nov 2026, the Hudson class). The name
+   * and address go on the page, in the confirmation email and to Stripe as the tax address. Absent =
+   * Anthony's home studio, whose street address reaches the customer only in the email (D50).
+   */
+  venue?: OfferVenue;
+  /** The "what's included" list on the page; absent = the page's own wreath list */
+  included?: string[];
   sessions: OfferSession[];
 }
+/** A host venue for a class: a public place, so its address may appear on the page. */
+export interface OfferVenue { name: string; address: PostalAddress }
 /**
  * The daily ads email (jobs/ads-report.ts): who gets it, when (HH:MM store time), which ad account,
  * and an optional case-insensitive substring that picks the campaigns to report on.
@@ -106,6 +116,13 @@ function validateOffers(offers: unknown): void {
     if (!Number.isInteger(o.durationMinutes) || o.durationMinutes < 0) throw new Error(`config: offer ${o.id} durationMinutes must be a non-negative integer`);
     if (o.bookingClosesHoursBefore === undefined) o.bookingClosesHoursBefore = 24;
     if (!Number.isInteger(o.bookingClosesHoursBefore) || o.bookingClosesHoursBefore < 0) throw new Error(`config: offer ${o.id} bookingClosesHoursBefore must be a non-negative integer`);
+    if (o.venue !== undefined) {
+      if (typeof o.venue?.name !== "string" || o.venue.name.trim() === "") throw new Error(`config: offer ${o.id} venue.name required`);
+      validateAddress(o.venue.address, `offer ${o.id} venue.address`);
+    }
+    if (o.included !== undefined && (!Array.isArray(o.included) || !o.included.every((x) => typeof x === "string" && x.trim() !== ""))) {
+      throw new Error(`config: offer ${o.id} included must be a list of non-empty strings`);
+    }
     if (!Array.isArray(o.sessions)) throw new Error(`config: offer ${o.id} sessions must be an array`);
     const sids = new Set<string>();
     for (const s of o.sessions) {
@@ -117,6 +134,14 @@ function validateOffers(offers: unknown): void {
       if (!Number.isInteger(s.seats) || s.seats <= 0) throw new Error(`config: offer ${o.id} session ${s.id} seats must be a positive integer`);
     }
   }
+}
+
+function validateAddress(a: PostalAddress | undefined, what: string): void {
+  if (!a || typeof a.street !== "string" || a.street.trim() === "") throw new Error(`config: ${what}.street required`);
+  if (typeof a.unit !== "string") throw new Error(`config: ${what}.unit must be a string (empty when there is none)`);
+  if (typeof a.city !== "string" || a.city.trim() === "") throw new Error(`config: ${what}.city required`);
+  if (!/^[A-Z]{2}$/.test(a.state ?? "")) throw new Error(`config: ${what}.state must be a two-letter code`);
+  if (!ZIP.test(a.zip ?? "")) throw new Error(`config: ${what}.zip must be five digits`);
 }
 
 function validateMarketing(m: unknown): void {
@@ -148,12 +173,7 @@ export function validateConfig(cfg: StoreConfig): StoreConfig {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cfg.studio?.ownerEmail ?? "")) throw new Error("config: studio.ownerEmail must be an email address");
   if (!HM.test(cfg.studio?.readyTime ?? "")) throw new Error("config: studio.readyTime must be HH:MM");
   if (!E164.test(cfg.studio?.phone ?? "")) throw new Error("config: studio.phone must be E.164, e.g. +15183340517");
-  const a = cfg.studio?.address;
-  if (!a || typeof a.street !== "string" || a.street.trim() === "") throw new Error("config: studio.address.street required");
-  if (typeof a.unit !== "string") throw new Error("config: studio.address.unit must be a string (empty when there is none)");
-  if (typeof a.city !== "string" || a.city.trim() === "") throw new Error("config: studio.address.city required");
-  if (!/^[A-Z]{2}$/.test(a.state ?? "")) throw new Error("config: studio.address.state must be a two-letter code");
-  if (!ZIP.test(a.zip ?? "")) throw new Error("config: studio.address.zip must be five digits");
+  validateAddress(cfg.studio?.address, "studio.address");
   const d = cfg.delivery;
   if (!d || !Array.isArray(d.zones)) throw new Error("config: delivery.zones must be an array");
   const seenZips = new Set<string>();

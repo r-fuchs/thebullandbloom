@@ -32,7 +32,7 @@ export function offerRoutes(): App {
       offers.push({
         id: o.id, slug: o.slug, name: o.name, tagline: o.tagline, description: o.description, image: o.image, imageAlt: o.imageAlt,
         priceCents: o.priceCents, durationMinutes: o.durationMinutes, bookingClosesHoursBefore: o.bookingClosesHoursBefore,
-        showOnHome: o.showOnHome, sessions,
+        showOnHome: o.showOnHome, venue: o.venue ?? null, included: o.included ?? null, sessions,
       });
     }
     return c.json({ offers, marketing: { metaPixelId: config.marketing?.metaPixelId ?? "" } });
@@ -81,7 +81,7 @@ export function offerRoutes(): App {
     try {
       stripeSession = await payments.createCheckout({
         orderId: bookingId, customerEmail: cust.customer.email, customerName: cust.customer.name,
-        taxAddress: config.studio.address, lineItems,
+        taxAddress: offer.venue?.address ?? config.studio.address, lineItems, // tax follows where the class meets
         successUrl: `${c.env.SITE_URL}/thanks?booking=${bookingId}&offer=${offer.id}&seats=${seats}`,
         cancelUrl: `${c.env.SITE_URL}/offers/${offer.slug}?cancelled=${bookingId}`,
         expiresAt: stripeExpiresAt,

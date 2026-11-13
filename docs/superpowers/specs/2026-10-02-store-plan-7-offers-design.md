@@ -36,6 +36,11 @@ The first offer is Wreath & Sip; nothing in the build is specific to wreaths.
   or asks anyone to bring anything, on the page, in the email or in an ad. The page says
   "Hosted at Anthony's home studio in Albany. The address comes with your
   confirmation."; the street address appears only in the confirmation email.
+  *Amended Nov 13 2026 for the Hudson class:* an offer may name a host `venue` (name and
+  address). A venue is a public place, so the page says "Hosted at <venue>, <street>,
+  <city>, <state>." and the confirmation email gives that address in the studio's place;
+  Stripe taxes the seat at the venue. An offer without a venue keeps the studio copy above.
+  An optional `included` list replaces the page's default bullets, which name a grapevine base.
 - **D51 Meta Pixel on the landing page and the thanks page only,** loaded only when
   `marketing.metaPixelId` is set. The homepage and the order flow stay tracker-free. The
   privacy page's "no advertising trackers" sentence is replaced (§3.9).
