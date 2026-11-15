@@ -111,7 +111,7 @@
       "showOnHome": true,
       "name": "Winter Wreath Making",
       "tagline": "A winter wreath making class at Quinnie's in Hudson",
-      "description": "A 2-hour class at Quinnie's in Hudson on Sunday, December 6. You build a full winter wreath from fresh evergreens, juniper berries and pine cones, finished with a velvet ribbon, with Anthony showing you each step as you go. All materials are provided, and you take your wreath home.",
+      "description": "A 2-hour class at Quinnie's in Hudson on Saturday, December 5. You build a full winter wreath from fresh evergreens, juniper berries and pine cones, finished with a velvet ribbon, with Anthony showing you each step as you go. All materials are provided, and you take your wreath home.",
       "image": "assets/winter-wreath.jpg",
       "imageAlt": "A fresh evergreen wreath of cedar, fir and juniper with blue berries, two large pine cones and a red velvet bow, hanging on a dark grey door beneath a brass knocker",
       "imageWidth": 900,
@@ -137,9 +137,9 @@
       ],
       "sessions": [
         {
-          "id": "2026-12-06-1330",
-          "date": "2026-12-06",
-          "start": "13:30",
+          "id": "2026-12-05-1600",
+          "date": "2026-12-05",
+          "start": "16:00",
           "seats": 15
         }
       ]
