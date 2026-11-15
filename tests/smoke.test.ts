@@ -67,7 +67,7 @@ describe("worker", () => {
     }
   });
 
-  it("serves the winter wreath class at /offers/winter-wreath with its share tags (Sun Dec 6 2026 at Quinnie's, Hudson)", async () => {
+  it("serves the winter wreath class at /offers/winter-wreath with its share tags (Sat Dec 5 2026 at Quinnie's, Hudson)", async () => {
     const r = await SELF.fetch("https://example.com/offers/winter-wreath");
     expect(r.status).toBe(200);
     const body = await r.text();
@@ -78,7 +78,7 @@ describe("worker", () => {
     const { offers } = await (await SELF.fetch("https://example.com/api/offers")).json() as any;
     const o = offers.find((x: any) => x.slug === "winter-wreath");
     expect(o).toMatchObject({ showOnHome: true, venue: { name: "Quinnie's", address: { city: "Hudson", state: "NY" } } });
-    expect(o.sessions).toEqual([expect.objectContaining({ date: "2026-12-06", start: "13:30", seats: 15 })]);
+    expect(o.sessions).toEqual([expect.objectContaining({ date: "2026-12-05", start: "16:00", seats: 15 })]);
     expect(o.priceCents).toBe(12500);
     expect(o.included.some((t: string) => /no experience/.test(t))).toBe(true);
   });
