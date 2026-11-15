@@ -26,13 +26,20 @@ describe("GET /api/offers", () => {
     expect(body.marketing).toEqual({ metaPixelId: "123" });
     expect(body.offers.map((o: any) => o.id)).toEqual([WREATH.id]);
     const o = body.offers[0];
-    expect(o).toMatchObject({ slug: "wreath-test", name: "Wreath & Sip", priceCents: 8500, durationMinutes: 120, showOnHome: true, image: "assets/wreath.jpg" });
+    expect(o).toMatchObject({ slug: "wreath-test", name: "Wreath & Sip", priceCents: 8500, durationMinutes: 120, showOnHome: true, image: "assets/wreath.jpg", venue: null, included: null });
     expect(o).not.toHaveProperty("enabled");
     expect(o.sessions).toEqual([
       { id: "today", date: "2026-09-08", start: "15:00", seats: 8, remaining: 8, bookable: false },
       { id: "sat", date: "2026-09-12", start: "18:00", seats: 2, remaining: 0, bookable: false },
     ]);
     expect(JSON.stringify(body)).not.toContain("x@example.com");
+  });
+  it("lists a host venue and the included list when the offer has them", async () => {
+    const venue = { name: "Quinnie's", address: { street: "834 Route 66", unit: "", city: "Hudson", state: "NY", zip: "12534" } };
+    const { fetch } = testApp(undefined, offersConfig([{ ...WREATH, venue, included: ["A base", "Snacks"] }]));
+    const { offers } = await (await fetch("/api/offers")).json() as any;
+    expect(offers[0].venue).toEqual(venue);
+    expect(offers[0].included).toEqual(["A base", "Snacks"]);
   });
   it("a cancelled booking frees its seat", async () => {
     await held("h3", "sat");
@@ -67,6 +74,12 @@ describe("POST /api/book", () => {
     const row = await env.DB.prepare("SELECT status, offer_id, session_id, customer_name, customer_phone, note, price_cents, stripe_session_id, hold_expires_at, seats FROM bookings WHERE id = ?").bind(c.orderId).first<any>();
     expect(row).toMatchObject({ status: "held", offer_id: WREATH.id, session_id: "sat", customer_name: "Jane Doe", customer_phone: "518-555-0100", note: "first wreath", price_cents: 8500, hold_expires_at: c.expiresAt + 120, seats: 1 });
     expect(row.stripe_session_id).toMatch(/^cs_/);
+  });
+  it("taxes a class at a host venue where the class meets, not at the studio", async () => {
+    const venue = { name: "Quinnie's", address: { street: "834 Route 66", unit: "", city: "Hudson", state: "NY", zip: "12534" } };
+    const { fetch, payments } = testApp(undefined, offersConfig([{ ...WREATH, venue }]));
+    expect((await post(fetch, good)).status).toBe(200);
+    expect(payments.created[0].taxAddress).toEqual(venue.address);
   });
   it("books a party of two as one booking: quantity 2 on the Stripe line, two seats taken, seats in the success url", async () => {
     const { fetch, payments } = testApp(undefined, offersConfig());
@@ -174,13 +187,13 @@ describe("GET /offers/:slug", () => {
     expect(body).toContain('id="book-form"');
     expect(body).toContain("Reserve my seat");
     expect(body).toContain("Refreshments will be provided");
-    expect(body).toContain("Hosted at Anthony's home studio in Albany. The address comes with your confirmation.");
+    expect(body).toContain(`<p class="where" id="where">Hosted at Anthony's home studio in Albany. The address comes with your confirmation.</p>`);
+    expect(body).toContain('<ul class="included" id="included">'); // offer.js swaps both for a host venue's own
     expect(body).toContain('src="offer.js"');
     expect(body).toContain('id="load-status"');
     expect(body).not.toContain("40 Manning");
     // the conversion pass: a call to action up top, what's included, the teacher, a cancellation line, a seats picker
     expect(body).toContain('<a class="btn btn-small" href="#booking">Pick a date</a>');
-    expect(body).toContain('<ul class="included">');
     expect(body).toContain("no experience is needed");
     expect(body).toContain('src="/assets/anthony.jpg"');
     expect(body).toContain("Anthony Demonia is the floral designer behind The Bull and Bloom.");

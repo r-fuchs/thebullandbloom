@@ -59,7 +59,7 @@ describe("worker", () => {
     expect(body).toContain("api('/prices', { method: 'PUT'");
   });
 
-  it("sends /offers/<slug> to the homepage while no class is on (the wreath class ended Oct 17 2026)", async () => {
+  it("sends a retired or unknown /offers/<slug> to the homepage (the autumn wreath class ended Oct 17 2026)", async () => {
     for (const path of ["/offers/wreath-and-sip", "/offers/anything-at-all"]) {
       const r = await SELF.fetch(`https://example.com${path}`, { redirect: "manual" });
       expect(r.status).toBe(302);
@@ -67,7 +67,23 @@ describe("worker", () => {
     }
   });
 
-  it("keeps the class page script ready for the next class", async () => {
+  it("serves the winter wreath class at /offers/winter-wreath with its share tags (Sun Dec 6 2026 at Quinnie's, Hudson)", async () => {
+    const r = await SELF.fetch("https://example.com/offers/winter-wreath");
+    expect(r.status).toBe(200);
+    const body = await r.text();
+    expect(body).toContain("<title>Winter Wreath Making — The Bull and Bloom</title>");
+    expect(body).toContain('<meta property="og:url" content="https://thebullandbloom.com/offers/winter-wreath">');
+    expect(body).toContain('<meta property="og:image" content="https://thebullandbloom.com/assets/winter-wreath.jpg">');
+    expect(body).toContain('id="book-form"');
+    const { offers } = await (await SELF.fetch("https://example.com/api/offers")).json() as any;
+    const o = offers.find((x: any) => x.slug === "winter-wreath");
+    expect(o).toMatchObject({ showOnHome: true, venue: { name: "Quinnie's", address: { city: "Hudson", state: "NY" } } });
+    expect(o.sessions).toEqual([expect.objectContaining({ date: "2026-12-06", start: "13:30", seats: 15 })]);
+    expect(o.priceCents).toBe(12500);
+    expect(o.included.some((t: string) => /no experience/.test(t))).toBe(true);
+  });
+
+  it("keeps the class page script rendering a host venue and its included list", async () => {
     const offerJs = await SELF.fetch("https://example.com/offers/offer.js");
     expect(offerJs.status).toBe(200);
     const offerJsText = await offerJs.text();
@@ -79,6 +95,8 @@ describe("worker", () => {
     expect(offerJsText).toContain("Only ' + left");
     expect(offerJsText).toContain("location.replace('/')");
     expect(offerJsText).not.toContain("#unavailable");
+    expect(offerJsText).toContain("offer.venue");
+    expect(offerJsText).toContain("offer.included");
   });
 
   it("shares the homepage with the logo (the wreath photo left with the class, Oct 18 2026)", async () => {

@@ -14,8 +14,9 @@ export function prettyPhone(e164: string): string {
 const firstNameOf = (name: string) => name.trim().split(/\s+/)[0];
 
 /**
- * Plan 7 §3.7, D50. The only place the street address reaches a customer. The cancellation line is
- * the §6 default (no refund promise either way) until Ryan and Anthony replace it.
+ * Plan 7 §3.7, D50. The only place the home studio's street address reaches a customer; a class at a
+ * host venue names that venue instead. The cancellation line is the §6 default (no refund promise
+ * either way) until Ryan and Anthony replace it.
  */
 export function bookingConfirmedEmail(booking: Booking, offer: Offer, session: OfferSession, cfg: StoreConfig): Mail {
   const length = humanDuration(offer.durationMinutes);
@@ -25,8 +26,8 @@ export function bookingConfirmedEmail(booking: Booking, offer: Offer, session: O
     "",
     `Thank you. ${party} at ${offer.name} ${booking.seats > 1 ? "are" : "is"} booked for ${longDate(session.date)} at ${humanTime(session.start)}.${length ? ` The class runs about ${length}.` : ""}`,
     "",
-    "Where: Anthony's home studio",
-    formatAddress(cfg.studio.address),
+    `Where: ${offer.venue ? offer.venue.name : "Anthony's home studio"}`,
+    formatAddress(offer.venue ? offer.venue.address : cfg.studio.address),
     "",
     "Everything is included, and you take home what you make. Refreshments will be provided.",
     "",

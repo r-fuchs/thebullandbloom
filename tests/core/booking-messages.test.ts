@@ -32,6 +32,14 @@ describe("booking messages (D50: home studio named, refreshments promised, nothi
     expect(m.text).not.toMatch(/wine|beer|cocktail|bring/i);
     expect(m.text.trim().endsWith("Anthony\nThe Bull and Bloom\nthebullandbloom.com")).toBe(true);
   });
+  it("a class at a host venue names the venue and its address in place of the home studio", () => {
+    const venue = { name: "Quinnie's", address: { street: "834 Route 66", unit: "", city: "Hudson", state: "NY", zip: "12534" } };
+    const m = bookingConfirmedEmail(booking, { ...WREATH, venue }, session, cfg);
+    expect(m.text).toContain("Where: Quinnie's\n834 Route 66, Hudson, NY 12534");
+    expect(m.text).not.toContain("home studio");
+    expect(m.text).not.toContain(cfg.studio.address.street);
+    expect(m.text).toContain("Refreshments will be provided.");
+  });
   it("customer email leaves out the length when the offer has none", () => {
     const m = bookingConfirmedEmail(booking, { ...WREATH, durationMinutes: 0 }, session, cfg);
     expect(m.text).toContain("at 6 pm.\n");

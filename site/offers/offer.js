@@ -80,6 +80,15 @@
     $('#tagline').textContent = offer.tagline;
     if (offer.image) { $('#image').onerror = function () { $('#photo').hidden = true; }; $('#image').src = '/' + offer.image; $('#image').alt = offer.imageAlt || ''; $('#photo').hidden = false; }
     $('#description').textContent = offer.description;
+    // A class away from the studio names its host and street; the studio keeps its address for the email (D50).
+    if (offer.venue) {
+      var v = offer.venue, a = v.address;
+      $('#where').textContent = 'Hosted at ' + v.name + ', ' + [a.street, a.unit, a.city + ', ' + a.state].filter(function (p) { return p; }).join(', ') + '.';
+    }
+    if (offer.included && offer.included.length) {
+      var ul = $('#included'); ul.innerHTML = '';
+      offer.included.forEach(function (t) { var li = document.createElement('li'); li.textContent = t; ul.appendChild(li); });
+    }
     var len = duration(offer.durationMinutes);
     $('#facts').textContent = money(offer.priceCents) + ' per seat' + (len ? ' · ' + len : '');
     $('#cta-price').textContent = money(offer.priceCents) + ' a seat' + (len ? ' · ' + len : '');
