@@ -67,18 +67,19 @@ describe("worker", () => {
     }
   });
 
-  it("serves the holiday wreath class at /offers/holiday-wreath with its share tags (Sun Dec 6 2026 at Quinnie's, Hudson)", async () => {
-    const r = await SELF.fetch("https://example.com/offers/holiday-wreath");
+  it("serves the winter wreath class at /offers/winter-wreath with its share tags (Sun Dec 6 2026 at Quinnie's, Hudson)", async () => {
+    const r = await SELF.fetch("https://example.com/offers/winter-wreath");
     expect(r.status).toBe(200);
     const body = await r.text();
-    expect(body).toContain("<title>Holiday Wreathmaking — The Bull and Bloom</title>");
-    expect(body).toContain('<meta property="og:url" content="https://thebullandbloom.com/offers/holiday-wreath">');
-    expect(body).toContain('<meta property="og:image" content="https://thebullandbloom.com/assets/');
+    expect(body).toContain("<title>Winter Wreath Making — The Bull and Bloom</title>");
+    expect(body).toContain('<meta property="og:url" content="https://thebullandbloom.com/offers/winter-wreath">');
+    expect(body).toContain('<meta property="og:image" content="https://thebullandbloom.com/assets/winter-wreath.jpg">');
     expect(body).toContain('id="book-form"');
     const { offers } = await (await SELF.fetch("https://example.com/api/offers")).json() as any;
-    const o = offers.find((x: any) => x.slug === "holiday-wreath");
+    const o = offers.find((x: any) => x.slug === "winter-wreath");
     expect(o).toMatchObject({ showOnHome: true, venue: { name: "Quinnie's", address: { city: "Hudson", state: "NY" } } });
-    expect(o.sessions).toEqual([expect.objectContaining({ date: "2026-12-06", seats: 15 })]);
+    expect(o.sessions).toEqual([expect.objectContaining({ date: "2026-12-06", start: "13:30", seats: 15 })]);
+    expect(o.priceCents).toBe(12500);
     expect(o.included.some((t: string) => /no experience/.test(t))).toBe(true);
   });
 

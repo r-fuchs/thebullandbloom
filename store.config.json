@@ -105,18 +105,18 @@
       ]
     },
     {
-      "id": "holiday-wreath-hudson-2026",
-      "slug": "holiday-wreath",
+      "id": "winter-wreath-hudson-2026",
+      "slug": "winter-wreath",
       "enabled": true,
       "showOnHome": true,
-      "name": "Holiday Wreathmaking",
-      "tagline": "A holiday wreathmaking class at Quinnie's in Hudson",
-      "description": "A 2-hour class at Quinnie's in Hudson, the Sunday after Thanksgiving weekend. You build a full holiday wreath from fresh evergreens and seasonal stems, with Anthony showing you each step as you go. Everything is included, and you take your wreath home.",
-      "image": "assets/wreath.jpg",
-      "imageAlt": "A large dried wreath of grapevine, poppy seed heads, hydrangea, grasses and deep red amaranth, leaning against a whitewashed wall",
+      "name": "Winter Wreath Making",
+      "tagline": "A winter wreath making class at Quinnie's in Hudson",
+      "description": "A 2-hour class at Quinnie's in Hudson on Sunday, December 6. You build a full winter wreath from fresh evergreens, juniper berries and pine cones, finished with a velvet ribbon, with Anthony showing you each step as you go. All materials are provided, and you take your wreath home.",
+      "image": "assets/winter-wreath.jpg",
+      "imageAlt": "A fresh evergreen wreath of cedar, fir and juniper with blue berries, two large pine cones and a red velvet bow, hanging on a dark grey door beneath a brass knocker",
       "imageWidth": 900,
       "imageHeight": 1200,
-      "priceCents": 10000,
+      "priceCents": 12500,
       "durationMinutes": 120,
       "bookingClosesHoursBefore": 24,
       "venue": {
@@ -130,16 +130,16 @@
         }
       },
       "included": [
-        "Everything you need: a wreath base and an armful of fresh evergreens and seasonal stems",
+        "All materials: a wreath base, an armful of fresh evergreens, pine cones and ribbon",
         "Anthony showing you each step, so no experience is needed",
         "Refreshments will be provided",
         "Your finished wreath to take home"
       ],
       "sessions": [
         {
-          "id": "2026-12-06-1400",
+          "id": "2026-12-06-1330",
           "date": "2026-12-06",
-          "start": "14:00",
+          "start": "13:30",
           "seats": 15
         }
       ]
