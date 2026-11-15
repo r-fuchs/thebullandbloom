@@ -78,7 +78,7 @@ describe("worker", () => {
     const { offers } = await (await SELF.fetch("https://example.com/api/offers")).json() as any;
     const o = offers.find((x: any) => x.slug === "winter-wreath");
     expect(o).toMatchObject({ showOnHome: true, venue: { name: "Quinnie's", address: { city: "Hudson", state: "NY" } } });
-    expect(o.sessions).toEqual([expect.objectContaining({ date: "2026-12-05", start: "16:00", seats: 15 })]);
+    expect(o.sessions).toEqual([expect.objectContaining({ date: "2026-12-05", start: "16:00", seats: 12 })]);
     expect(o.priceCents).toBe(12500);
     expect(o.included.some((t: string) => /no experience/.test(t))).toBe(true);
   });
