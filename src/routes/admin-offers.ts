@@ -24,7 +24,7 @@ export function registerOffersAdmin(r: App): void {
         .map((s) => {
           const rows = all.filter((b) => b.sessionId === s.id);
           return {
-            id: s.id, date: s.date, start: s.start, seats: s.seats,
+            id: s.id, date: s.date, start: s.start, seats: s.seats, venueName: s.venue?.name ?? null,
             // seat counts, not party counts: a booking of three is three of the eight
             paidCount: rows.filter((b) => b.status === "paid").reduce((n, b) => n + b.seats, 0),
             heldCount: rows.filter((b) => b.status === "held").reduce((n, b) => n + b.seats, 0),

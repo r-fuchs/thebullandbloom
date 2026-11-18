@@ -67,7 +67,7 @@ describe("worker", () => {
     }
   });
 
-  it("serves the winter wreath class at /offers/winter-wreath with its share tags (Sat Dec 5 2026 at Quinnie's, Hudson)", async () => {
+  it("serves the winter wreath class at /offers/winter-wreath with both dates on one page (Sat Dec 5 at Quinnie's, Hudson; Wed Dec 9 at Madison Pour House, Albany)", async () => {
     const r = await SELF.fetch("https://example.com/offers/winter-wreath");
     expect(r.status).toBe(200);
     const body = await r.text();
@@ -76,26 +76,21 @@ describe("worker", () => {
     expect(body).toContain('<meta property="og:image" content="https://thebullandbloom.com/assets/winter-wreath.jpg">');
     expect(body).toContain('id="book-form"');
     const { offers } = await (await SELF.fetch("https://example.com/api/offers")).json() as any;
-    const o = offers.find((x: any) => x.slug === "winter-wreath");
-    expect(o).toMatchObject({ showOnHome: true, venue: { name: "Quinnie's", address: { city: "Hudson", state: "NY" } } });
-    expect(o.sessions).toEqual([expect.objectContaining({ date: "2026-12-05", start: "16:00", seats: 12 })]);
-    expect(o.priceCents).toBe(12500);
+    expect(offers.filter((x: any) => /wreath/.test(x.slug)).map((x: any) => x.slug)).toEqual(["winter-wreath"]);
+    const o = offers[0];
+    expect(o).toMatchObject({ showOnHome: true, venue: null, priceCents: 12500 });
+    expect(o.sessions).toEqual([
+      expect.objectContaining({ date: "2026-12-05", start: "16:00", seats: 12, venue: { name: "Quinnie's", address: expect.objectContaining({ street: "834 NY-66", city: "Hudson", zip: "12534" }) } }),
+      expect.objectContaining({ date: "2026-12-09", start: "18:30", seats: 15, venue: { name: "Madison Pour House", address: expect.objectContaining({ street: "1110 Madison Ave", city: "Albany", zip: "12208" }) } }),
+    ]);
+    expect(o.description).toContain("Food and drinks will be available for purchase.");
     expect(o.included.some((t: string) => /no experience/.test(t))).toBe(true);
+    expect(o.included.join(" ")).not.toMatch(/refreshments/i);
   });
 
-  it("serves the Albany winter wreath class at /offers/winter-wreath-albany (Wed Dec 9 2026 at Madison Pour House)", async () => {
-    const r = await SELF.fetch("https://example.com/offers/winter-wreath-albany");
-    expect(r.status).toBe(200);
-    const body = await r.text();
-    expect(body).toContain('<meta property="og:url" content="https://thebullandbloom.com/offers/winter-wreath-albany">');
-    expect(body).toContain('id="book-form"');
-    const { offers } = await (await SELF.fetch("https://example.com/api/offers")).json() as any;
-    const o = offers.find((x: any) => x.slug === "winter-wreath-albany");
-    expect(o).toMatchObject({ showOnHome: true, venue: { name: "Madison Pour House", address: { street: "1110 Madison Ave", city: "Albany", state: "NY", zip: "12208" } } });
-    expect(o.sessions).toEqual([expect.objectContaining({ date: "2026-12-09", start: "18:30", seats: 15 })]);
-    expect(o.priceCents).toBe(12500);
-    expect(o.description).toContain("Food and drinks will be available for purchase.");
-    expect(o.included.join(" ")).not.toMatch(/refreshments/i);
+  it("sends the short-lived separate Albany address to the homepage, where the class card is", async () => {
+    const r = await SELF.fetch("https://example.com/offers/winter-wreath-albany", { redirect: "manual" });
+    expect(r.status).toBe(302);
   });
 
   it("keeps the class page script rendering a host venue and its included list", async () => {
@@ -111,6 +106,7 @@ describe("worker", () => {
     expect(offerJsText).toContain("location.replace('/')");
     expect(offerJsText).not.toContain("#unavailable");
     expect(offerJsText).toContain("offer.venue");
+    expect(offerJsText).toContain("s.venue");
     expect(offerJsText).toContain("offer.included");
   });
 

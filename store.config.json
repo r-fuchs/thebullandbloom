@@ -110,8 +110,8 @@
       "enabled": true,
       "showOnHome": true,
       "name": "Winter Wreath Making",
-      "tagline": "A winter wreath making class at Quinnie's in Hudson",
-      "description": "A 2-hour class at Quinnie's in Hudson on Saturday, December 5. You build a full winter wreath from fresh evergreens, juniper berries and pine cones, finished with a velvet ribbon, with Anthony showing you each step as you go. All materials are provided, and you take your wreath home. Food and drinks will be available for purchase.",
+      "tagline": "A winter wreath making class, in Hudson on December 5 and in Albany on December 9",
+      "description": "A 2-hour class with two dates to choose from: Saturday, December 5 at Quinnie's in Hudson, or Wednesday, December 9 at Madison Pour House in Albany. You build a full winter wreath from fresh evergreens, juniper berries and pine cones, finished with a velvet ribbon, with Anthony showing you each step as you go. All materials are provided, and you take your wreath home. Food and drinks will be available for purchase.",
       "image": "assets/winter-wreath.jpg",
       "imageAlt": "A fresh evergreen wreath of cedar, fir and juniper with blue berries, two large pine cones and a red velvet bow, hanging on a dark grey door beneath a brass knocker",
       "imageWidth": 900,
@@ -119,16 +119,6 @@
       "priceCents": 12500,
       "durationMinutes": 120,
       "bookingClosesHoursBefore": 24,
-      "venue": {
-        "name": "Quinnie's",
-        "address": {
-          "street": "834 NY-66",
-          "unit": "",
-          "city": "Hudson",
-          "state": "NY",
-          "zip": "12534"
-        }
-      },
       "included": [
         "All materials: a wreath base, an armful of fresh evergreens, pine cones and ribbon",
         "Anthony showing you each step, so no experience is needed",
@@ -139,46 +129,33 @@
           "id": "2026-12-05-1600",
           "date": "2026-12-05",
           "start": "16:00",
-          "seats": 12
-        }
-      ]
-    },
-    {
-      "id": "winter-wreath-albany-2026",
-      "slug": "winter-wreath-albany",
-      "enabled": true,
-      "showOnHome": true,
-      "name": "Winter Wreath Making",
-      "tagline": "A winter wreath making class at Madison Pour House in Albany",
-      "description": "A 2-hour class at Madison Pour House in Albany on Wednesday, December 9. You build a full winter wreath from fresh evergreens, juniper berries and pine cones, finished with a velvet ribbon, with Anthony showing you each step as you go. All materials are provided, and you take your wreath home. Food and drinks will be available for purchase.",
-      "image": "assets/winter-wreath.jpg",
-      "imageAlt": "A fresh evergreen wreath of cedar, fir and juniper with blue berries, two large pine cones and a red velvet bow, hanging on a dark grey door beneath a brass knocker",
-      "imageWidth": 900,
-      "imageHeight": 1200,
-      "priceCents": 12500,
-      "durationMinutes": 120,
-      "bookingClosesHoursBefore": 24,
-      "venue": {
-        "name": "Madison Pour House",
-        "address": {
-          "street": "1110 Madison Ave",
-          "unit": "",
-          "city": "Albany",
-          "state": "NY",
-          "zip": "12208"
-        }
-      },
-      "included": [
-        "All materials: a wreath base, an armful of fresh evergreens, pine cones and ribbon",
-        "Anthony showing you each step, so no experience is needed",
-        "Your finished wreath to take home"
-      ],
-      "sessions": [
+          "seats": 12,
+          "venue": {
+            "name": "Quinnie's",
+            "address": {
+              "street": "834 NY-66",
+              "unit": "",
+              "city": "Hudson",
+              "state": "NY",
+              "zip": "12534"
+            }
+          }
+        },
         {
           "id": "2026-12-09-1830",
           "date": "2026-12-09",
           "start": "18:30",
-          "seats": 15
+          "seats": 15,
+          "venue": {
+            "name": "Madison Pour House",
+            "address": {
+              "street": "1110 Madison Ave",
+              "unit": "",
+              "city": "Albany",
+              "state": "NY",
+              "zip": "12208"
+            }
+          }
         }
       ]
     }

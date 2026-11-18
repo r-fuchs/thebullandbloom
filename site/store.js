@@ -240,7 +240,7 @@
     cards.innerHTML = '';
     data.offers.forEach(function (o) {
       if (!o.showOnHome) return;
-      var next = o.sessions.filter(function (s) { return s.bookable; })[0];
+      var open = o.sessions.filter(function (s) { return s.bookable; }), next = open[0];
       if (!next) return;
       var card = document.createElement('article'); card.className = 'offer-card';
       card.innerHTML = '<img alt=""><div><h3></h3><p class="tagline"></p><p class="next"></p><a class="btn"></a></div>';
@@ -248,7 +248,18 @@
       img.src = o.image; img.alt = o.imageAlt || '';
       card.querySelector('h3').textContent = o.name;
       card.querySelector('.tagline').textContent = o.tagline;
-      card.querySelector('.next').textContent = 'Next: ' + shortDate(next.date) + ' · ' + hm12(next.start) + ' · ' + (next.remaining === 1 ? '1 seat left' : next.remaining + ' seats left');
+      var left = function (s) { return s.remaining === 1 ? '1 seat left' : s.remaining + ' seats left'; };
+      var nextLine = card.querySelector('.next');
+      if (open.some(function (s) { return s.venue; })) {
+        // One class at more than one place: a line per open date, naming the place.
+        open.forEach(function (s) {
+          var line = document.createElement('span'); line.style.display = 'block';
+          line.textContent = shortDate(s.date) + ' · ' + hm12(s.start) + (s.venue ? ' · ' + s.venue.name + ', ' + s.venue.address.city : '') + ' · ' + left(s);
+          nextLine.appendChild(line);
+        });
+      } else {
+        nextLine.textContent = 'Next: ' + shortDate(next.date) + ' · ' + hm12(next.start) + ' · ' + left(next);
+      }
       var a = card.querySelector('a'); a.href = '/offers/' + o.slug; a.textContent = 'Book a seat';
       cards.appendChild(card);
     });

@@ -34,6 +34,7 @@ legend{font-family:var(--display);font-size:1.1rem;font-weight:600;padding:0;mar
 .sessions input{position:absolute;opacity:0;width:1px;height:1px}
 .sessions label:has(input:checked){border-color:var(--sage-deep);background:var(--sage);font-weight:600}
 .sessions label:has(input:focus-visible){outline:2px solid var(--sage-deep);outline-offset:2px}
+.sessions label.at{display:flex;margin-right:0;border-radius:1rem}
 .sessions label.off{opacity:.45;cursor:not-allowed;text-decoration:line-through}
 .form{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem 2rem}
 .form label{display:flex;flex-direction:column;gap:.35rem;font-family:var(--display);font-size:1.1rem;font-weight:600;letter-spacing:.01em}
