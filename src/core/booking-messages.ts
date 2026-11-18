@@ -29,7 +29,10 @@ export function bookingConfirmedEmail(booking: Booking, offer: Offer, session: O
     `Where: ${offer.venue ? offer.venue.name : "Anthony's home studio"}`,
     formatAddress(offer.venue ? offer.venue.address : cfg.studio.address),
     "",
-    "Everything is included, and you take home what you make. Refreshments will be provided.",
+    // A host venue is a restaurant selling its own menu; only the home studio serves refreshments.
+    offer.venue
+      ? `All materials are included, and you take home what you make. Food and drinks will be available for purchase at ${offer.venue.name}.`
+      : "Everything is included, and you take home what you make. Refreshments will be provided.",
     "",
     `Questions or a change of plans? Just reply to this email, or call ${prettyPhone(cfg.studio.phone)}.`,
     "",

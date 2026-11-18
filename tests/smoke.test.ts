@@ -83,6 +83,21 @@ describe("worker", () => {
     expect(o.included.some((t: string) => /no experience/.test(t))).toBe(true);
   });
 
+  it("serves the Albany winter wreath class at /offers/winter-wreath-albany (Wed Dec 9 2026 at Madison Pour House)", async () => {
+    const r = await SELF.fetch("https://example.com/offers/winter-wreath-albany");
+    expect(r.status).toBe(200);
+    const body = await r.text();
+    expect(body).toContain('<meta property="og:url" content="https://thebullandbloom.com/offers/winter-wreath-albany">');
+    expect(body).toContain('id="book-form"');
+    const { offers } = await (await SELF.fetch("https://example.com/api/offers")).json() as any;
+    const o = offers.find((x: any) => x.slug === "winter-wreath-albany");
+    expect(o).toMatchObject({ showOnHome: true, venue: { name: "Madison Pour House", address: { street: "1110 Madison Ave", city: "Albany", state: "NY", zip: "12208" } } });
+    expect(o.sessions).toEqual([expect.objectContaining({ date: "2026-12-09", start: "18:30", seats: 15 })]);
+    expect(o.priceCents).toBe(12500);
+    expect(o.description).toContain("Food and drinks will be available for purchase.");
+    expect(o.included.join(" ")).not.toMatch(/refreshments/i);
+  });
+
   it("keeps the class page script rendering a host venue and its included list", async () => {
     const offerJs = await SELF.fetch("https://example.com/offers/offer.js");
     expect(offerJs.status).toBe(200);
