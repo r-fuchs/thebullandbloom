@@ -38,7 +38,8 @@ describe("booking messages (D50: home studio named, refreshments promised, nothi
     expect(m.text).toContain("Where: Quinnie's\n834 Route 66, Hudson, NY 12534");
     expect(m.text).not.toContain("home studio");
     expect(m.text).not.toContain(cfg.studio.address.street);
-    expect(m.text).toContain("Refreshments will be provided.");
+    expect(m.text).not.toMatch(/refreshments/i);
+    expect(m.text).toContain("Food and drinks will be available for purchase at Quinnie's.");
   });
   it("customer email leaves out the length when the offer has none", () => {
     const m = bookingConfirmedEmail(booking, { ...WREATH, durationMinutes: 0 }, session, cfg);
