@@ -1,5 +1,5 @@
 import type { Mail } from "../adapters/google";
-import type { Offer, OfferSession, StoreConfig } from "../config";
+import { venueOf, type Offer, type OfferSession, type StoreConfig } from "../config";
 import type { Booking } from "../store/bookings";
 import { formatAddress } from "./messages";
 import { humanDuration, humanTime, sessionLabel } from "./offers";
@@ -21,17 +21,18 @@ const firstNameOf = (name: string) => name.trim().split(/\s+/)[0];
 export function bookingConfirmedEmail(booking: Booking, offer: Offer, session: OfferSession, cfg: StoreConfig): Mail {
   const length = humanDuration(offer.durationMinutes);
   const party = booking.seats > 1 ? `Your ${booking.seats} seats` : "Your seat";
+  const venue = venueOf(offer, session);
   const lines = [
     `Hi ${firstNameOf(booking.customerName)},`,
     "",
     `Thank you. ${party} at ${offer.name} ${booking.seats > 1 ? "are" : "is"} booked for ${longDate(session.date)} at ${humanTime(session.start)}.${length ? ` The class runs about ${length}.` : ""}`,
     "",
-    `Where: ${offer.venue ? offer.venue.name : "Anthony's home studio"}`,
-    formatAddress(offer.venue ? offer.venue.address : cfg.studio.address),
+    `Where: ${venue ? venue.name : "Anthony's home studio"}`,
+    formatAddress(venue ? venue.address : cfg.studio.address),
     "",
     // A host venue is a restaurant selling its own menu; only the home studio serves refreshments.
-    offer.venue
-      ? `All materials are included, and you take home what you make. Food and drinks will be available for purchase at ${offer.venue.name}.`
+    venue
+      ? `All materials are included, and you take home what you make. Food and drinks will be available for purchase at ${venue.name}.`
       : "Everything is included, and you take home what you make. Refreshments will be provided.",
     "",
     `Questions or a change of plans? Just reply to this email, or call ${prettyPhone(cfg.studio.phone)}.`,
@@ -48,7 +49,7 @@ export function ownerBookingEmail(booking: Booking, offer: Offer, session: Offer
   const contact = booking.customerPhone ? `${booking.customerEmail} · ${booking.customerPhone}` : booking.customerEmail;
   const what = booking.seats > 1 ? `${booking.seats} seats at ${offer.name}` : offer.name;
   const lines = [
-    `${offer.name} · ${sessionLabel(session)} · ${taken} of ${session.seats} seats taken`,
+    `${offer.name} · ${sessionLabel(session)}${session.venue ? ` · ${session.venue.name}` : ""} · ${taken} of ${session.seats} seats taken`,
     "",
     booking.seats > 1 ? `${booking.customerName} · ${booking.seats} seats` : booking.customerName,
     contact,

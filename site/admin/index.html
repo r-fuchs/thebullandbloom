@@ -367,7 +367,7 @@
           var line = document.createElement('div'); line.style.marginTop = '.5rem';
           var taken = s.paidCount + s.heldCount;
           line.innerHTML = '<div><b></b></div>';
-          line.querySelector('b').textContent = human(s.date) + ', ' + hm12(s.start) + ' — ' + taken + ' of ' + s.seats + ' seats' + (s.heldCount ? ' (' + s.heldCount + ' paying now)' : '');
+          line.querySelector('b').textContent = human(s.date) + ', ' + hm12(s.start) + (s.venueName ? ' at ' + s.venueName : '') + ' — ' + taken + ' of ' + s.seats + ' seats' + (s.heldCount ? ' (' + s.heldCount + ' paying now)' : '');
           s.bookings.forEach(function (b) {
             if (b.status === 'cancelled') return;
             var row = document.createElement('div'); row.className = 'row'; row.style.margin = '.2rem 0 .2rem 1rem';

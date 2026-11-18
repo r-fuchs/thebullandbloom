@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { App } from "../app";
-import { offerById, offerBySlug, offersOf, type Offer } from "../config";
+import { offerById, offerBySlug, offersOf, venueOf, type Offer } from "../config";
 import { bookingBlocker, isBookable, seatsRemaining, sessionLabel, sessionStart } from "../core/offers";
 import { ymdIn } from "../core/time";
 import { attachSession, cancelBooking, cancelHeldById, countTaken, tryInsertHeldBooking } from "../store/bookings";
@@ -27,7 +27,7 @@ export function offerRoutes(): App {
         .sort((a, b) => sessionStart(a, clk.tz).getTime() - sessionStart(b, clk.tz).getTime())
         .map((s) => {
           const t = taken.get(s.id) ?? 0;
-          return { id: s.id, date: s.date, start: s.start, seats: s.seats, remaining: seatsRemaining(s.seats, t), bookable: isBookable(o, s, t, clk) };
+          return { id: s.id, date: s.date, start: s.start, seats: s.seats, remaining: seatsRemaining(s.seats, t), bookable: isBookable(o, s, t, clk), ...(s.venue ? { venue: s.venue } : {}) };
         });
       offers.push({
         id: o.id, slug: o.slug, name: o.name, tagline: o.tagline, description: o.description, image: o.image, imageAlt: o.imageAlt,
@@ -75,13 +75,13 @@ export function offerRoutes(): App {
     }
 
     const lineItems: CheckoutLineItem[] = [
-      { name: `${offer.name} — ${sessionLabel(session)}`, amountCents: offer.priceCents, quantity: seats, taxCategory: "workshop" },
+      { name: `${offer.name} — ${sessionLabel(session)}${session.venue ? `, ${session.venue.name}` : ""}`, amountCents: offer.priceCents, quantity: seats, taxCategory: "workshop" },
     ];
     let stripeSession;
     try {
       stripeSession = await payments.createCheckout({
         orderId: bookingId, customerEmail: cust.customer.email, customerName: cust.customer.name,
-        taxAddress: offer.venue?.address ?? config.studio.address, lineItems, // tax follows where the class meets
+        taxAddress: venueOf(offer, session)?.address ?? config.studio.address, lineItems, // tax follows where the class meets
         successUrl: `${c.env.SITE_URL}/thanks?booking=${bookingId}&offer=${offer.id}&seats=${seats}`,
         cancelUrl: `${c.env.SITE_URL}/offers/${offer.slug}?cancelled=${bookingId}`,
         expiresAt: stripeExpiresAt,

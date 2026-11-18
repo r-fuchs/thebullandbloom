@@ -175,6 +175,9 @@ describe("config", () => {
     expect(() => validateConfig(withOffer({ venue: { ...venue, name: " " } }))).toThrow(/venue\.name/);
     expect(() => validateConfig(withOffer({ venue: { ...venue, address: { ...venue.address, zip: "1253" } } }))).toThrow(/venue\.address\.zip/);
     expect(() => validateConfig(withOffer({ venue: { name: "Quinnie's" } }))).toThrow(/venue\.address\.street/);
+    const at = (v: unknown) => withOffer({ sessions: [{ id: "a", date: "2026-12-05", start: "16:00", seats: 12, venue: v }] });
+    expect(() => validateConfig(at(venue))).not.toThrow();
+    expect(() => validateConfig(at({ name: "Quinnie's" }))).toThrow(/session a venue\.address\.street/);
     expect(() => validateConfig(withOffer({ included: ["A wreath base", "Refreshments"] }))).not.toThrow();
     expect(() => validateConfig(withOffer({ included: "everything" }))).toThrow(/included/);
     expect(() => validateConfig(withOffer({ included: ["ok", ""] }))).toThrow(/included/);

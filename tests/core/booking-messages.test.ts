@@ -41,6 +41,16 @@ describe("booking messages (D50: home studio named, refreshments promised, nothi
     expect(m.text).not.toMatch(/refreshments/i);
     expect(m.text).toContain("Food and drinks will be available for purchase at Quinnie's.");
   });
+  it("a date with its own venue wins over the offer's, in the customer email and in Anthony's headcount", () => {
+    const hudson = { name: "Quinnie's", address: { street: "834 NY-66", unit: "", city: "Hudson", state: "NY", zip: "12534" } };
+    const albany = { name: "Madison Pour House", address: { street: "1110 Madison Ave", unit: "", city: "Albany", state: "NY", zip: "12208" } };
+    const m = bookingConfirmedEmail(booking, { ...WREATH, venue: hudson }, { ...session, venue: albany }, cfg);
+    expect(m.text).toContain("Where: Madison Pour House\n1110 Madison Ave, Albany, NY 12208");
+    expect(m.text).toContain("Food and drinks will be available for purchase at Madison Pour House.");
+    expect(m.text).not.toContain("Quinnie's");
+    const o = ownerBookingEmail(booking, WREATH, { ...session, venue: albany }, cfg, 1, "https://thebullandbloom.com");
+    expect(o.text.split("\n")[0]).toContain("· Madison Pour House ·");
+  });
   it("customer email leaves out the length when the offer has none", () => {
     const m = bookingConfirmedEmail(booking, { ...WREATH, durationMinutes: 0 }, session, cfg);
     expect(m.text).toContain("at 6 pm.\n");

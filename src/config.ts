@@ -10,7 +10,11 @@ export interface PostalAddress { street: string; unit: string; city: string; sta
 export interface DeliveryZone { name: string; feeCents: number; zips: string[] }
 
 /** One sitting of a class (Plan 7). `date` is YYYY-MM-DD and `start` is HH:MM in the studio timezone. */
-export interface OfferSession { id: string; date: string; start: string; seats: number }
+export interface OfferSession {
+  id: string; date: string; start: string; seats: number;
+  /** Where this sitting meets when one class runs at more than one place (Dec 2026: Hudson and Albany); absent = the offer's `venue`. */
+  venue?: OfferVenue;
+}
 /**
  * A bookable class or event sold by the seat (Plan 7, D47). `enabled` makes it bookable at all;
  * `showOnHome` puts the teaser card on the homepage (D49). The fields map one-to-one onto a Stripe
@@ -116,10 +120,7 @@ function validateOffers(offers: unknown): void {
     if (!Number.isInteger(o.durationMinutes) || o.durationMinutes < 0) throw new Error(`config: offer ${o.id} durationMinutes must be a non-negative integer`);
     if (o.bookingClosesHoursBefore === undefined) o.bookingClosesHoursBefore = 24;
     if (!Number.isInteger(o.bookingClosesHoursBefore) || o.bookingClosesHoursBefore < 0) throw new Error(`config: offer ${o.id} bookingClosesHoursBefore must be a non-negative integer`);
-    if (o.venue !== undefined) {
-      if (typeof o.venue?.name !== "string" || o.venue.name.trim() === "") throw new Error(`config: offer ${o.id} venue.name required`);
-      validateAddress(o.venue.address, `offer ${o.id} venue.address`);
-    }
+    if (o.venue !== undefined) validateVenue(o.venue, `offer ${o.id} venue`);
     if (o.included !== undefined && (!Array.isArray(o.included) || !o.included.every((x) => typeof x === "string" && x.trim() !== ""))) {
       throw new Error(`config: offer ${o.id} included must be a list of non-empty strings`);
     }
@@ -132,8 +133,14 @@ function validateOffers(offers: unknown): void {
       if (!ymdValid(s.date)) throw new Error(`config: offer ${o.id} session ${s.id} date must be YYYY-MM-DD`);
       if (!HM.test(s.start ?? "")) throw new Error(`config: offer ${o.id} session ${s.id} start must be HH:MM`);
       if (!Number.isInteger(s.seats) || s.seats <= 0) throw new Error(`config: offer ${o.id} session ${s.id} seats must be a positive integer`);
+      if (s.venue !== undefined) validateVenue(s.venue, `offer ${o.id} session ${s.id} venue`);
     }
   }
+}
+
+function validateVenue(v: OfferVenue, what: string): void {
+  if (typeof v?.name !== "string" || v.name.trim() === "") throw new Error(`config: ${what}.name required`);
+  validateAddress(v.address, `${what}.address`);
 }
 
 function validateAddress(a: PostalAddress | undefined, what: string): void {
@@ -233,6 +240,11 @@ export function sizeById(cfg: StoreConfig, id: string): Size | undefined {
 
 export function offersOf(cfg: StoreConfig): Offer[] {
   return cfg.offers ?? [];
+}
+
+/** Where a sitting meets: its own venue, else the offer's; undefined = Anthony's home studio. */
+export function venueOf(offer: Offer, session: OfferSession): OfferVenue | undefined {
+  return session.venue ?? offer.venue;
 }
 
 export function offerById(cfg: StoreConfig, id: string): Offer | undefined {

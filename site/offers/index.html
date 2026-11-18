@@ -16,41 +16,40 @@
   <a href="/#contact">Contact</a>
 </nav>
 <main class="wrap">
-  <p class="eyebrow">Current offer</p>
+  <p class="eyebrow">A class with The Bull and Bloom</p>
   <div id="loading"><p class="form-status" id="load-status" role="status" aria-live="polite">One moment…</p></div>
 
   <div id="offer" hidden>
     <h1 id="name"></h1>
     <p class="tagline" id="tagline"></p>
+    <p class="where" id="where">Hosted at Anthony's home studio in Albany. The address comes with your confirmation.</p>
     <p class="cta-line"><span id="cta-price"></span><a class="btn btn-small" href="#booking">Pick a date</a></p>
     <figure id="photo" hidden><img id="image" alt=""></figure>
     <p id="description"></p>
-    <p class="facts" id="facts"></p>
     <ul class="included" id="included">
       <li>Everything you need: a grapevine base and an armful of fresh and dried stems</li>
       <li>Anthony showing you each step, so no experience is needed</li>
       <li>Refreshments will be provided</li>
       <li>Your finished wreath to take home</li>
     </ul>
-    <p class="where" id="where">Hosted at Anthony's home studio in Albany. The address comes with your confirmation.</p>
     <div class="host">
       <img src="/assets/anthony.jpg" alt="Anthony Demonia" width="750" height="937">
       <p><b>Your teacher.</b> Anthony Demonia is the floral designer behind The Bull and Bloom. He works with what's in season, sources locally where he can, and keeps the palette honest. <a href="https://instagram.com/thebullandbloom">See recent work on Instagram</a>.</p>
     </div>
 
     <div id="booking">
-      <fieldset class="sessions" id="sessions"><legend>Pick a date</legend></fieldset>
+      <fieldset class="sessions" id="sessions"><legend id="sessions-legend">Pick a date</legend></fieldset>
       <form class="form" id="book-form" novalidate>
-        <label class="full seats-row">How many seats <span class="opt">(bringing a friend? book together)</span><select name="seats" id="seats"></select></label>
+        <label class="full seats-row">How many seats <span class="opt">(up to 6 on one booking)</span><select name="seats" id="seats"></select></label>
         <label>Name<input type="text" name="name" required autocomplete="name"></label>
         <label>Email<input type="email" name="email" required autocomplete="email"></label>
         <label>Phone <span class="opt">(optional)</span><input type="tel" name="phone" autocomplete="tel"></label>
-        <label class="full">Anything Anthony should know? <span class="opt">(optional)</span><textarea name="note" rows="3" maxlength="500"></textarea></label>
+        <details class="full note"><summary>Add a note for Anthony <span class="opt">(optional)</span></summary><textarea name="note" rows="3" maxlength="500" aria-label="A note for Anthony"></textarea></details>
         <div class="full">
-          <button class="btn" type="submit" id="book-btn" disabled>Reserve my seat</button>
-          <p class="form-note" id="total"></p>
-          <p class="form-status" role="status" aria-live="polite" id="status"></p>
           <p class="policy">Can't make it? Email <a href="mailto:anthony@thebullandbloom.com">anthony@thebullandbloom.com</a> at least 48 hours before and we'll move you to another date or refund you.</p>
+          <p class="form-note" id="total"></p>
+          <button class="btn" type="submit" id="book-btn">Continue to payment</button>
+          <p class="form-status" role="status" aria-live="polite" id="status"></p>
         </div>
       </form>
     </div>

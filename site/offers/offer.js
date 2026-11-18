@@ -48,26 +48,37 @@
     seatsSel.value = String(Math.min(keep, Math.max(1, max)));
   }
   function refreshTotal() {
-    var ok = !!(offer && chosenSession());
     var n = chosenSeats();
-    total.textContent = ok ? money(offer.priceCents * n) + (n === 1 ? ' for one seat' : ' for ' + n + ' seats') + ' · tax added at checkout' : '';
-    btn.disabled = !ok;
+    total.textContent = offer ? money(offer.priceCents * n) + (n === 1 ? ' for one seat' : ' for ' + n + ' seats') + ', plus sales tax. You pay by card on the next page.' : '';
   }
 
+  function own(o) { return o.sessions.some(function (s) { return s.venue; }); }
   function renderSessions() {
     sessionsBox.querySelectorAll('label').forEach(function (l) { l.remove(); });
     var open = offer.sessions.filter(function (s) { return s.bookable; });
     offer.sessions.forEach(function (s, i) {
       var lab = document.createElement('label');
       if (!s.bookable) lab.className = 'off';
-      lab.innerHTML = '<input type="radio" name="sessionId"><span></span>';
+      lab.innerHTML = s.venue ? '<input type="radio" name="sessionId"><span class="s-when"></span><span class="s-where"></span><span class="s-left"></span>' : '<input type="radio" name="sessionId"><span></span>';
       var inp = lab.querySelector('input'); inp.value = s.id; inp.disabled = !s.bookable;
       inp.setAttribute('form', 'book-form');
-      inp.checked = s.bookable && open[0] && open[0].id === s.id;
-      lab.querySelector('span').textContent = shortDate(s.date) + ' · ' + hm12(s.start) + ' · ' + seatsText(s);
-      inp.setAttribute('aria-label', shortDate(s.date) + ' at ' + hm12(s.start) + ', ' + seatsText(s));
+      // Dates in different towns: nobody is defaulted into the wrong one.
+      inp.checked = s.bookable && open[0] && open[0].id === s.id && (open.length === 1 || !s.venue);
+      // A class that meets at more than one place names the place on each date, one date to a row.
+      var at = s.venue ? s.venue.name + ', ' + s.venue.address.city : '';
+      if (at) lab.className = (lab.className ? lab.className + ' ' : '') + 'at';
+      if (s.venue) {
+        var va = s.venue.address;
+        lab.querySelector('.s-when').textContent = shortDate(s.date) + ' · ' + hm12(s.start);
+        lab.querySelector('.s-where').textContent = s.venue.name + ', ' + [va.street, va.unit, va.city].filter(function (p) { return p; }).join(', ');
+        lab.querySelector('.s-left').textContent = s.bookable && s.remaining === s.seats ? s.seats + ' seats' : seatsText(s);
+      } else {
+        lab.querySelector('span').textContent = shortDate(s.date) + ' · ' + hm12(s.start) + ' · ' + seatsText(s);
+      }
+      inp.setAttribute('aria-label', shortDate(s.date) + ' at ' + hm12(s.start) + (at ? ' at ' + at : '') + ', ' + seatsText(s));
       sessionsBox.appendChild(lab);
     });
+    $('#sessions-legend').textContent = own(offer) ? 'Pick your date and place' : 'Pick a date';
     $('#booking').hidden = open.length === 0;
     $('#no-dates').hidden = open.length > 0;
     refreshSeats();
@@ -81,16 +92,24 @@
     if (offer.image) { $('#image').onerror = function () { $('#photo').hidden = true; }; $('#image').src = '/' + offer.image; $('#image').alt = offer.imageAlt || ''; $('#photo').hidden = false; }
     $('#description').textContent = offer.description;
     // A class away from the studio names its host and street; the studio keeps its address for the email (D50).
-    if (offer.venue) {
-      var v = offer.venue, a = v.address;
-      $('#where').textContent = 'Hosted at ' + v.name + ', ' + [a.street, a.unit, a.city + ', ' + a.state].filter(function (p) { return p; }).join(', ') + '.';
+    function place(v) { var a = v.address; return v.name + ', ' + [a.street, a.unit, a.city + ', ' + a.state].filter(function (p) { return p; }).join(', '); }
+    if (own(offer)) {
+      // Each date has its own host: one line per date.
+      var where = $('#where'); where.textContent = '';
+      offer.sessions.forEach(function (s) {
+        var v = s.venue || offer.venue; if (!v) return;
+        var line = document.createElement('span'); line.style.display = 'block';
+        line.textContent = shortDate(s.date) + ', ' + hm12(s.start) + ' · ' + v.name + ', ' + v.address.city;
+        where.appendChild(line);
+      });
+    } else if (offer.venue) {
+      $('#where').textContent = 'Hosted at ' + place(offer.venue) + '.';
     }
     if (offer.included && offer.included.length) {
       var ul = $('#included'); ul.innerHTML = '';
       offer.included.forEach(function (t) { var li = document.createElement('li'); li.textContent = t; ul.appendChild(li); });
     }
     var len = duration(offer.durationMinutes);
-    $('#facts').textContent = money(offer.priceCents) + ' per seat' + (len ? ' · ' + len : '');
     $('#cta-price').textContent = money(offer.priceCents) + ' a seat' + (len ? ' · ' + len : '');
     renderSessions();
     $('#loading').hidden = true; $('#offer').hidden = false;
@@ -122,7 +141,7 @@
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     var f = new FormData(form);
-    if (!chosenSession()) { status.textContent = 'Pick a date.'; return; }
+    if (!chosenSession()) { status.textContent = 'Pick a date above first.'; sessionsBox.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     if (!form.reportValidity()) return;
     btn.disabled = true; status.textContent = 'One moment…';
     fetch('/api/book', {

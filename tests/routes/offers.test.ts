@@ -81,6 +81,17 @@ describe("POST /api/book", () => {
     expect((await post(fetch, good)).status).toBe(200);
     expect(payments.created[0].taxAddress).toEqual(venue.address);
   });
+  it("a date with its own venue is listed with it, taxed there and named on the Stripe line", async () => {
+    const albany = { name: "Madison Pour House", address: { street: "1110 Madison Ave", unit: "", city: "Albany", state: "NY", zip: "12208" } };
+    const offer = { ...WREATH, sessions: WREATH.sessions.map((s) => (s.id === "sat" ? { ...s, venue: albany } : s)) };
+    const { fetch, payments } = testApp(undefined, offersConfig([offer]));
+    const { offers } = await (await fetch("/api/offers")).json() as any;
+    expect(offers[0].sessions.find((s: any) => s.id === "sat").venue).toEqual(albany);
+    expect(offers[0].sessions.find((s: any) => s.id === "today")).not.toHaveProperty("venue");
+    expect((await post(fetch, good)).status).toBe(200);
+    expect(payments.created[0].taxAddress).toEqual(albany.address);
+    expect(payments.created[0].lineItems[0].name).toMatch(/, Madison Pour House$/);
+  });
   it("books a party of two as one booking: quantity 2 on the Stripe line, two seats taken, seats in the success url", async () => {
     const { fetch, payments } = testApp(undefined, offersConfig());
     const r = await post(fetch, { ...good, seats: 2 });
@@ -185,7 +196,7 @@ describe("GET /offers/:slug", () => {
     expect(r.status).toBe(200);
     const body = await r.text();
     expect(body).toContain('id="book-form"');
-    expect(body).toContain("Reserve my seat");
+    expect(body).toContain("Continue to payment");
     expect(body).toContain("Refreshments will be provided");
     expect(body).toContain(`<p class="where" id="where">Hosted at Anthony's home studio in Albany. The address comes with your confirmation.</p>`);
     expect(body).toContain('<ul class="included" id="included">'); // offer.js swaps both for a host venue's own
