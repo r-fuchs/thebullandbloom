@@ -83,7 +83,7 @@ describe("worker", () => {
       expect.objectContaining({ date: "2026-12-05", start: "16:00", seats: 12, venue: { name: "Quinnie's", address: expect.objectContaining({ street: "834 NY-66", city: "Hudson", zip: "12534" }) } }),
       expect.objectContaining({ date: "2026-12-09", start: "18:30", seats: 15, venue: { name: "Madison Pour House", address: expect.objectContaining({ street: "1110 Madison Ave", city: "Albany", zip: "12208" }) } }),
     ]);
-    expect(o.description).toContain("Food and drinks will be available for purchase.");
+    expect(o.included).toContain("Food and drinks available for purchase during the class");
     expect(o.included.some((t: string) => /no experience/.test(t))).toBe(true);
     expect(o.included.join(" ")).not.toMatch(/refreshments/i);
   });

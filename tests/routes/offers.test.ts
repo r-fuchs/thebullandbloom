@@ -196,7 +196,7 @@ describe("GET /offers/:slug", () => {
     expect(r.status).toBe(200);
     const body = await r.text();
     expect(body).toContain('id="book-form"');
-    expect(body).toContain("Reserve my seat");
+    expect(body).toContain("Continue to payment");
     expect(body).toContain("Refreshments will be provided");
     expect(body).toContain(`<p class="where" id="where">Hosted at Anthony's home studio in Albany. The address comes with your confirmation.</p>`);
     expect(body).toContain('<ul class="included" id="included">'); // offer.js swaps both for a host venue's own

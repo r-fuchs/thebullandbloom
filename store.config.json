@@ -110,8 +110,8 @@
       "enabled": true,
       "showOnHome": true,
       "name": "Winter Wreath Making",
-      "tagline": "A winter wreath making class, in Hudson on December 5 and in Albany on December 9",
-      "description": "A 2-hour class with two dates to choose from: Saturday, December 5 at Quinnie's in Hudson, or Wednesday, December 9 at Madison Pour House in Albany. You build a full winter wreath from fresh evergreens, juniper berries and pine cones, finished with a velvet ribbon, with Anthony showing you each step as you go. All materials are provided, and you take your wreath home. Food and drinks will be available for purchase.",
+      "tagline": "Make a fresh evergreen wreath and take it home. Dec 5 in Hudson or Dec 9 in Albany.",
+      "description": "You build a full wreath from fresh evergreens, juniper berries and pine cones, and finish it with a velvet ribbon. Anthony shows you each step as you go. The class runs about two hours, and you take your wreath home.",
       "image": "assets/winter-wreath.jpg",
       "imageAlt": "A fresh evergreen wreath of cedar, fir and juniper with blue berries, two large pine cones and a red velvet bow, hanging on a dark grey door beneath a brass knocker",
       "imageWidth": 900,
@@ -122,7 +122,8 @@
       "included": [
         "All materials: a wreath base, an armful of fresh evergreens, pine cones and ribbon",
         "Anthony showing you each step, so no experience is needed",
-        "Your finished wreath to take home"
+        "Your finished wreath to take home",
+        "Food and drinks available for purchase during the class"
       ],
       "sessions": [
         {

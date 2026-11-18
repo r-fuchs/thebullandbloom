@@ -84,7 +84,10 @@
   .offer-card:has(img[hidden]){grid-template-columns:1fr}
   .offer-card .next{font-family:var(--display);font-size:1.15rem;color:var(--sepia)}
   .offer-card .btn{margin-top:.75rem}
-  @media (max-width:40rem){.offer-card{grid-template-columns:1fr}}
+  @media (max-width:40rem){.offer-card{grid-template-columns:1fr}.offer-card img{order:2}}
+  .class-banner{margin:1.25rem auto 0;font-family:var(--display);font-size:1.15rem}
+  .class-banner a{display:inline-block;padding:.5rem 1.1rem;border:1px solid var(--sage-deep);border-radius:999px;background:var(--sage-soft);color:var(--ink);text-decoration:none}
+  .class-banner a:hover{background:var(--sage)}
   .plan-note{font-size:1.05rem;color:#5A4A3C;margin:0}
   .plan .btn{margin-top:1.25rem;align-self:flex-start}
   @media (max-width:40rem){.plan{grid-template-columns:1fr;padding:1.5rem}.plan-side{border-left:0;padding-left:0;border-top:1px solid var(--rule);padding-top:1.5rem}}
@@ -227,6 +230,8 @@
   </div>
   <p class="tag">Floral Design</p>
   <p class="lede">Fresh, hand-tied bouquets, delivered weekly. Made in Upstate New York.</p>
+  <!-- Filled by store.js only while a class with open dates is on the homepage; gone on its own when the class is over or switched off. -->
+  <p class="class-banner" id="offer-banner" hidden><a href=""></a></p>
 </header>
 
 <section class="strip" id="gallery" hidden aria-label="Recent work">
@@ -238,7 +243,7 @@
 
 <main class="wrap">
   <section id="offers" hidden>
-    <p class="eyebrow">At the studio</p>
+    <p class="eyebrow">Classes</p>
     <h2>Current offers</h2>
     <div class="offer-cards" id="offer-cards"></div>
   </section>

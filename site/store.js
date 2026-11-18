@@ -263,6 +263,16 @@
       var a = card.querySelector('a'); a.href = '/offers/' + o.slug; a.textContent = 'Book a seat';
       cards.appendChild(card);
     });
+    // The line under the logo: flyers send people to the bare address, so the class is named on the first screen.
+    var banner = $('#offer-banner'), first = data.offers.filter(function (o) { return o.showOnHome && o.sessions.some(function (s) { return s.bookable; }); })[0];
+    if (banner) {
+      banner.hidden = !first;
+      if (first) {
+        var when = first.sessions.filter(function (s) { return s.bookable; }).map(function (s) { return shortDate(s.date).replace(/^\S+ /, '') + (s.venue ? ' in ' + s.venue.address.city : ''); });
+        var link = banner.querySelector('a'); link.href = '/offers/' + first.slug;
+        link.textContent = first.name + ' class: ' + when.join(', ') + '. Book a seat';
+      }
+    }
     var any = cards.children.length > 0;
     section.hidden = !any;
     if (navLink) navLink.hidden = !any;
