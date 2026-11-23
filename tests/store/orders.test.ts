@@ -12,12 +12,20 @@ function fresh(date = "2026-09-10"): NewOrder {
     id: `o${n}`, date, sizeId: "bouquet", fulfillment: "pickup",
     customerName: "Pat", customerEmail: "pat@example.com", customerPhone: null, addressJson: null, note: null,
     bouquetCents: 8500, deliveryCents: 0, uberQuoteId: null,
-    presentation: "hand-tied", vaseCents: 0,
+    presentation: "hand-tied", vaseCents: 0, recipientName: null,
   };
 }
 const NOW = 1_800_000_000;
 
 describe("orders", () => {
+  it("keeps the recipient's name beside the buyer's, and null when there is none", async () => {
+    const gift = { ...fresh("2026-11-24"), customerName: "Keiana Reed", recipientName: "Tina Warren" };
+    const plain = fresh("2026-11-24");
+    await tryInsertHeldOrder(env.DB, gift, 5, NOW, NOW + 1800);
+    await tryInsertHeldOrder(env.DB, plain, 5, NOW, NOW + 1800);
+    expect(await getOrder(env.DB, gift.id)).toMatchObject({ customerName: "Keiana Reed", recipientName: "Tina Warren" });
+    expect((await getOrder(env.DB, plain.id))?.recipientName).toBeNull();
+  });
   it("inserts while under cap, refuses at cap", async () => {
     expect(await tryInsertHeldOrder(env.DB, fresh("2026-09-20"), 2, NOW, NOW + 1800)).toBe(true);
     expect(await tryInsertHeldOrder(env.DB, fresh("2026-09-20"), 2, NOW, NOW + 1800)).toBe(true);
@@ -89,7 +97,7 @@ describe("orders", () => {
       id: "ord-delivery", date: "2026-10-06", sizeId: "bouquet", fulfillment: "delivery",
       customerName: "Pat", customerEmail: "pat@example.com", customerPhone: "+15185550100",
       addressJson: JSON.stringify({ street: "5 Elm St", unit: "", city: "Hudson", state: "NY", zip: "12534", notes: "porch" }),
-      note: null, bouquetCents: 8500, deliveryCents: 1200, uberQuoteId: "dqt_abc",
+      note: null, bouquetCents: 8500, deliveryCents: 1200, uberQuoteId: "dqt_abc", recipientName: null,
       presentation: "hand-tied", vaseCents: 0,
     }, 4, 1000, 2000);
     expect(ok).toBe(true);

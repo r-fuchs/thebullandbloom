@@ -1,7 +1,8 @@
 // Outgoing email behind one interface (D55). The outbox drain depends on `Mailer` only;
 // ResendMailer and the test fake both satisfy it.
 
-export interface Mail { to: string; subject: string; text: string }
+/** `replyTo` overrides the store-wide reply-to for this one message (Anthony's copy of an order replies to the buyer). */
+export interface Mail { to: string; subject: string; text: string; replyTo?: string }
 
 export class MailerNotConfigured extends Error {
   constructor() { super("mailer: not configured"); this.name = "MailerNotConfigured"; }
@@ -31,7 +32,7 @@ export class ResendMailer implements Mailer {
     const r = await this.fetchFn(RESEND_URL, {
       method: "POST",
       headers: { authorization: `Bearer ${this.apiKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ from: this.from, to: [mail.to], reply_to: this.replyTo, subject: mail.subject, text: mail.text }),
+      body: JSON.stringify({ from: this.from, to: [mail.to], reply_to: mail.replyTo ?? this.replyTo, subject: mail.subject, text: mail.text }),
     });
     if (r.ok) return;
     const text = await r.text();

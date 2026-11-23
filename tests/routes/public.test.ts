@@ -252,6 +252,38 @@ describe("POST /api/checkout — delivery", () => {
     });
   });
 
+  it("stores who the delivery is for, separately from who is paying", async () => {
+    const { fetch, payments, uber } = testApp();
+    uber.quoteFee = 1350;
+    const body = await deliveryBody(fetch);
+    const r = await post(fetch, { ...body, delivery: { ...(body as any).delivery, recipientName: "  Tina Warren " } });
+    expect(r.status).toBe(200);
+    const c = payments.created[payments.created.length - 1];
+    const row = await env.DB.prepare("SELECT customer_name, recipient_name FROM orders WHERE id = ?").bind(c.orderId).first<any>();
+    expect(row).toEqual({ customer_name: "Pat Lee", recipient_name: "Tina Warren" });
+    await env.DB.prepare("DELETE FROM orders WHERE id = ?").bind(c.orderId).run(); // give the day's seat back to the tests below
+  });
+
+  it("leaves the recipient empty when the buyer names no one else", async () => {
+    const { fetch, payments, uber } = testApp();
+    uber.quoteFee = 1350;
+    const body = await deliveryBody(fetch);
+    const r = await post(fetch, { ...body, delivery: { ...(body as any).delivery, recipientName: "   " } });
+    expect(r.status).toBe(200);
+    const c = payments.created[payments.created.length - 1];
+    const row = await env.DB.prepare("SELECT recipient_name FROM orders WHERE id = ?").bind(c.orderId).first<any>();
+    expect(row.recipient_name).toBeNull();
+    await env.DB.prepare("DELETE FROM orders WHERE id = ?").bind(c.orderId).run();
+  });
+
+  it("refuses a recipient name longer than a name can be", async () => {
+    const { fetch, uber } = testApp();
+    uber.quoteFee = 1350;
+    const body = await deliveryBody(fetch);
+    const r = await post(fetch, { ...body, delivery: { ...(body as any).delivery, recipientName: "x".repeat(121) } });
+    expect(r.status).toBe(400);
+  });
+
   it("refuses a delivery order with no phone", async () => {
     const { fetch } = testApp();
     const body = await deliveryBody(fetch, { customer: { name: "Pat Lee", email: "pat@example.com" } });
