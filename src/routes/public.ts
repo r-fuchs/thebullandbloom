@@ -56,7 +56,7 @@ async function fallbackResponse(
   });
 }
 
-interface DeliveryBody { address: PostalAddress; notes?: string; quoteToken: string }
+interface DeliveryBody { address: PostalAddress; notes?: string; quoteToken: string; recipientName?: string }
 interface CheckoutBody {
   sizeId: string; date: string; fulfillment: "pickup" | "delivery"; presentation: Presentation;
   customer: { name: string; email: string; phone?: string }; note?: string;
@@ -96,7 +96,9 @@ function parseCheckout(raw: unknown): { ok: true; body: CheckoutBody } | { ok: f
     if (d.notes !== undefined && (typeof d.notes !== "string" || d.notes.length > 280)) return { ok: false, error: "delivery instructions must be 280 characters or fewer" };
     // Uber needs a number the courier can call; Plan 1 left the phone optional for pickup.
     if (normalizePhone(cust.customer.phone) === null) return { ok: false, error: "a phone number we can dial is required for delivery" };
-    delivery = { address: addr.address, notes: d.notes?.trim() || undefined, quoteToken: d.quoteToken };
+    // A gift: the buyer names who it is for. Blank means it is for the buyer.
+    if (d.recipientName !== undefined && (typeof d.recipientName !== "string" || d.recipientName.trim().length > 120)) return { ok: false, error: "recipient name must be 120 characters or fewer" };
+    delivery = { address: addr.address, notes: d.notes?.trim() || undefined, quoteToken: d.quoteToken, recipientName: d.recipientName?.trim() || undefined };
   }
 
   return { ok: true, body: {
@@ -276,6 +278,7 @@ export function publicRoutes(): App {
       customerName: body.customer.name, customerEmail: body.customer.email, customerPhone: phone,
       addressJson, note: body.note ?? null, bouquetCents: size.priceCents, deliveryCents,
       presentation: body.presentation, vaseCents, uberQuoteId,
+      recipientName: body.delivery?.recipientName ?? null,
     }, cap, nowSec, holdUntil);
     if (!inserted) return c.json({ error: "sold_out" }, 409);
 

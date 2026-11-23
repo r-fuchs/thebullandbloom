@@ -46,11 +46,24 @@ function shortId(order: Order): string { return order.id.slice(0, 8); }
 const inVase = (o: Order) => o.presentation === "vase";
 function adminLink(order: Order, siteUrl: string): string { return `${siteUrl}/admin/#${order.date}`; }
 
-/** Lines shared by the calendar description and Anthony's email: who, how to reach them, where, note, order link. */
+/** "Bouquet ($85.00) · vase ($20.00) · delivery ($13.50)": what was bought and what each part cost. */
+function priceLine(order: Order, size: string): string {
+  const parts = [`${size} (${dollars(order.bouquetCents)})`];
+  if (inVase(order)) parts.push(`vase (${dollars(order.vaseCents)})`);
+  parts.push(order.deliveryCents > 0 ? `${order.fulfillment} (${dollars(order.deliveryCents)})` : order.fulfillment);
+  return parts.join(" · ");
+}
+
+/**
+ * Lines shared by the calendar description and Anthony's email: who ordered and how to reach them,
+ * who it is for and where, note, order link. The buyer is labelled because on a gift the name at
+ * the door is someone else's, and Anthony needs to know which of the two to write to.
+ */
 function detailLines(order: Order, siteUrl: string): string[] {
-  const lines = [order.customerName, contactLine(order)];
+  const lines = [`Ordered by: ${order.customerName}`, contactLine(order)];
   const addr = deliveryAddressOf(order);
   if (addr) {
+    if (order.recipientName) lines.push(`For: ${order.recipientName}`);
     lines.push(formatAddress(addr));
     if (addr.notes) lines.push(`Where to leave it: ${addr.notes}`);
   }
@@ -65,11 +78,9 @@ export function orderEvent(order: Order, cfg: StoreConfig, siteUrl: string): New
   return {
     id: eventIdFor(order.id),
     date: order.date,
-    summary: `${size}${inVase(order) ? " · vase" : ""} · ${order.customerName} · ${order.fulfillment}${sub ? " (subscription)" : ""}`,
+    summary: `${size}${inVase(order) ? " · vase" : ""} · ${order.recipientName ?? order.customerName} · ${order.fulfillment}${sub ? " (subscription)" : ""}`,
     description: [
-      sub
-        ? `${size} · subscription · ${order.fulfillment}`
-        : `${size} (${dollars(order.bouquetCents)})${inVase(order) ? ` · vase (${dollars(order.vaseCents)})` : ""} · ${order.fulfillment}`,
+      sub ? `${size} · subscription · ${order.fulfillment}` : priceLine(order, size),
       ...detailLines(order, siteUrl),
     ].join("\n"),
   };
@@ -184,9 +195,11 @@ export function ownerEmail(order: Order, cfg: StoreConfig, siteUrl: string): Mai
   const size = sizeName(order, cfg);
   return {
     to: cfg.studio.ownerEmail,
+    // Reply goes to the buyer: the store-wide reply-to is Anthony's own address.
+    replyTo: order.customerEmail,
     subject: `New order: ${size}${inVase(order) ? " in a vase" : ""} · ${order.customerName} · ${humanDate(order.date)} (${order.fulfillment})`,
     text: [
-      `${size} (${dollars(order.bouquetCents)})${inVase(order) ? ` · vase (${dollars(order.vaseCents)})` : ""} · ${order.fulfillment} · ${longDate(order.date)}`,
+      `${priceLine(order, size)} · ${longDate(order.date)}`,
       "", ...detailLines(order, siteUrl),
     ].join("\n"),
   };

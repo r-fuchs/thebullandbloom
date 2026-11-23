@@ -215,7 +215,7 @@
     if (o.fulfillment !== 'delivery' || !o.addressJson) return '';
     var a; try { a = JSON.parse(o.addressJson); } catch (e) { return 'address unreadable'; }
     var parts = [a.street, a.unit, a.city + ', ' + a.state + ' ' + a.zip].filter(function (p) { return p && p !== ''; });
-    return parts.join(', ') + (a.notes ? ' — ' + a.notes : '');
+    return (o.recipientName ? 'For ' + o.recipientName + ' · ' : '') + parts.join(', ') + (a.notes ? ' — ' + a.notes : '');
   }
 
   function loadMonth() {

@@ -28,6 +28,12 @@ describe("ResendMailer", () => {
     });
   });
 
+  it("replies go to the message's own reply-to when it carries one", async () => {
+    const { fn, calls } = fakeFetch(200, { id: "em_1" });
+    await new ResendMailer("re_key", FROM, "shop@gmail.com", fn).send({ ...MAIL, replyTo: "buyer@example.com" });
+    expect(JSON.parse(calls[0].init.body as string).reply_to).toBe("buyer@example.com");
+  });
+
   it("throws with the status and the provider's message on a 4xx", async () => {
     const { fn } = fakeFetch(403, { name: "validation_error", message: "The domain is not verified" });
     await expect(new ResendMailer("re_key", FROM, "shop@gmail.com", fn).send(MAIL)).rejects.toThrow("resend 403: The domain is not verified");

@@ -45,7 +45,7 @@ export function registerDeliveryAdmin(r: App): void {
       name: "The Bull and Bloom", phone: config.studio.phone, businessName: "The Bull and Bloom",
       address: config.studio.address, notes: config.studio.pickupInstructions,
     };
-    const dropoff = { name: order.customerName, phone, address, notes: address.notes || undefined };
+    const dropoff = { name: order.recipientName ?? order.customerName, phone, address, notes: address.notes || undefined };
     // Day-of dispatch always re-quotes: the checkout quote is minutes-old at best (D8).
     const window = deliveryWindow(now, now);
     // Idempotency is keyed on the order and its previous attempt, not on the clock: two admin tabs

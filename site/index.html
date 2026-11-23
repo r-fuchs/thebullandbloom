@@ -286,6 +286,7 @@
       </fieldset>
       <div class="full" id="delivery-fields" hidden>
         <div class="form" style="max-width:none">
+          <label class="full">Recipient's name <span class="opt">(if it's a gift)</span><input type="text" name="recipientName" maxlength="120" autocomplete="off"></label>
           <label class="full">Street address<input type="text" name="street" autocomplete="address-line1"></label>
           <label>Apartment or unit <span class="opt">(optional)</span><input type="text" name="unit" autocomplete="address-line2"></label>
           <label>City<input type="text" name="city" autocomplete="address-level2"></label>
@@ -295,9 +296,9 @@
         </div>
         <p class="form-note" id="quote-note" role="status" aria-live="polite"></p>
       </div>
-      <label>Name<input type="text" name="name" required autocomplete="name"></label>
-      <label>Email<input type="email" name="email" required autocomplete="email"></label>
-      <label>Phone <span class="opt" id="phone-hint">(optional)</span><input type="tel" name="phone" autocomplete="tel"></label>
+      <label>Your name<input type="text" name="name" required autocomplete="name"></label>
+      <label>Your email<input type="email" name="email" required autocomplete="email"></label>
+      <label>Your phone <span class="opt" id="phone-hint">(optional)</span><input type="tel" name="phone" autocomplete="tel"></label>
       <label class="full">Anything for Anthony? <span class="opt">(colors you love, the occasion, a card message)</span><textarea name="note" rows="3" maxlength="500"></textarea></label>
       <div class="full"><button class="btn" type="submit" id="pay-btn" disabled>Continue to payment</button><p class="form-note" id="order-total"></p><p class="form-status" role="status" aria-live="polite" id="order-status"></p></div>
     </form>

@@ -436,6 +436,7 @@
       body.delivery = {
         address: { street: val('street'), unit: val('unit'), city: val('city'), state: val('state').toUpperCase(), zip: val('zip') },
         notes: val('deliveryNotes') || undefined,
+        recipientName: val('recipientName') || undefined,
         quoteToken: quote.token
       };
     }

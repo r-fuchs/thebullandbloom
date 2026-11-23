@@ -10,7 +10,7 @@ const order: Order = {
   fulfillment: "pickup", customerName: "Pat Smith", customerEmail: "pat@example.com", customerPhone: "518-555-0100",
   addressJson: null, note: "For my mother. Something soft.", stripeSessionId: "cs_1", stripePaymentIntent: "pi_1",
   bouquetCents: 8500, deliveryCents: 0, uberQuoteId: null, source: "one_time", holdExpiresAt: null, calendarEventId: null,
-  presentation: "hand-tied", vaseCents: 0, taxCents: 0, discountCents: 0,
+  presentation: "hand-tied", vaseCents: 0, taxCents: 0, discountCents: 0, recipientName: null,
 };
 
 describe("dollars", () => {
@@ -37,7 +37,7 @@ describe("orderEvent", () => {
       summary: "Bouquet · Pat Smith · pickup",
       description: [
         "Bouquet ($85.00) · pickup",
-        "Pat Smith",
+        "Ordered by: Pat Smith",
         "pat@example.com · 518-555-0100",
         "Note: For my mother. Something soft.",
         "",
@@ -49,7 +49,7 @@ describe("orderEvent", () => {
   it("omits the phone and note lines when absent and names unknown sizes by id", () => {
     const ev = orderEvent({ ...order, customerPhone: null, note: null, sizeId: "mystery", bouquetCents: 100 }, cfg, SITE);
     expect(ev.summary).toBe("mystery · Pat Smith · pickup");
-    expect(ev.description.split("\n").slice(0, 3)).toEqual(["mystery ($1.00) · pickup", "Pat Smith", "pat@example.com"]);
+    expect(ev.description.split("\n").slice(0, 3)).toEqual(["mystery ($1.00) · pickup", "Ordered by: Pat Smith", "pat@example.com"]);
     expect(ev.description).not.toContain("Note:");
   });
 });
@@ -101,13 +101,16 @@ describe("ownerEmail", () => {
     expect(m.text).toBe([
       "Bouquet ($85.00) · pickup · Wednesday, September 9",
       "",
-      "Pat Smith",
+      "Ordered by: Pat Smith",
       "pat@example.com · 518-555-0100",
       "Note: For my mother. Something soft.",
       "",
       "Order 7a1b2c3d · paid online",
       "https://thebullandbloom.com/admin/#2026-09-09",
     ].join("\n"));
+  });
+  it("sends Anthony's reply to the person who ordered, not back to the shop", () => {
+    expect(ownerEmail(order, cfg, SITE).replyTo).toBe("pat@example.com");
   });
 });
 
@@ -120,7 +123,7 @@ function deliveryOrder(over: Partial<Order> = {}): Order {
     customerPhone: "+15185550100", addressJson: JSON.stringify(ADDRESS), note: "for a birthday",
     stripeSessionId: "cs_1", stripePaymentIntent: "pi_1", bouquetCents: 8500, deliveryCents: 1350,
     uberQuoteId: "dqt_1", source: "one_time", holdExpiresAt: null, calendarEventId: null,
-    presentation: "hand-tied", vaseCents: 0, taxCents: 0, discountCents: 0, ...over,
+    presentation: "hand-tied", vaseCents: 0, taxCents: 0, discountCents: 0, recipientName: null, ...over,
   };
 }
 
@@ -169,6 +172,34 @@ describe("orderEvent and ownerEmail for a delivery order", () => {
   });
   it("puts the address in Anthony's copy too", () => {
     expect(ownerEmail(deliveryOrder(), cfg, "https://x.test").text).toContain("5 Elm Street, Apt 2, Hudson, NY 12534");
+  });
+  it("shows what the customer paid for delivery, in the email and on the calendar", () => {
+    expect(ownerEmail(deliveryOrder(), cfg, "https://x.test").text.split("\n")[0]).toBe("Bouquet ($85.00) · delivery ($13.50) · Wednesday, September 23");
+    expect(orderEvent(deliveryOrder(), cfg, "https://x.test").description.split("\n")[0]).toBe("Bouquet ($85.00) · delivery ($13.50)");
+  });
+  it("keeps the buyer and the person the flowers are for apart when the order is a gift", () => {
+    const gift = deliveryOrder({ recipientName: "Tina Warren" });
+    const m = ownerEmail(gift, cfg, "https://x.test");
+    expect(m.subject).toBe("New order: Bouquet · Pat Smith · Wed Sep 23 (delivery)");
+    expect(m.text).toBe([
+      "Bouquet ($85.00) · delivery ($13.50) · Wednesday, September 23",
+      "",
+      "Ordered by: Pat Smith",
+      "pat@example.com · +15185550100",
+      "For: Tina Warren",
+      "5 Elm Street, Apt 2, Hudson, NY 12534",
+      "Where to leave it: porch, behind the planter",
+      "Note: for a birthday",
+      "",
+      "Order 11111111 · paid online",
+      "https://x.test/admin/#2026-09-23",
+    ].join("\n"));
+  });
+  it("titles the calendar event with the recipient, since that is whose door it goes to", () => {
+    expect(orderEvent(deliveryOrder({ recipientName: "Tina Warren" }), cfg, "https://x.test").summary).toBe("Bouquet · Tina Warren · delivery");
+  });
+  it("has no For line when the buyer named no one else", () => {
+    expect(ownerEmail(deliveryOrder(), cfg, "https://x.test").text).not.toContain("For:");
   });
   it("adds nothing to a pickup order", () => {
     const e = orderEvent(deliveryOrder({ fulfillment: "pickup", addressJson: null, deliveryCents: 0 }), cfg, "https://x.test");

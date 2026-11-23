@@ -7,13 +7,13 @@ import { loadConfig } from "../../src/config";
 
 const ADDRESS = '{"street":"5 Elm Street","unit":"Apt 2","city":"Hudson","state":"NY","zip":"12534","notes":"porch"}';
 
-async function order(id: string, over: Partial<{ status: string; fulfillment: string; phone: string | null; address: string | null; deliveryCents: number; presentation: string; vaseCents: number }> = {}) {
-  const o = { status: "paid", fulfillment: "delivery", phone: "+15185550100", address: ADDRESS, deliveryCents: 1200, presentation: "hand-tied", vaseCents: 0, ...over };
+async function order(id: string, over: Partial<{ status: string; fulfillment: string; phone: string | null; address: string | null; deliveryCents: number; presentation: string; vaseCents: number; recipient: string | null }> = {}) {
+  const o = { status: "paid", fulfillment: "delivery", phone: "+15185550100", address: ADDRESS, deliveryCents: 1200, presentation: "hand-tied", vaseCents: 0, recipient: null, ...over };
   await env.DB.prepare(
     `INSERT OR REPLACE INTO orders (id, created_at, status, date, size_id, fulfillment, customer_name, customer_email,
-       customer_phone, address_json, bouquet_cents, delivery_cents, presentation, vase_cents)
-     VALUES (?, 1, ?, '2026-09-23', 'bouquet', ?, 'Pat Smith', 'pat@example.com', ?, ?, 8500, ?, ?, ?)`,
-  ).bind(id, o.status, o.fulfillment, o.phone, o.address, o.deliveryCents, o.presentation, o.vaseCents).run();
+       customer_phone, address_json, bouquet_cents, delivery_cents, presentation, vase_cents, recipient_name)
+     VALUES (?, 1, ?, '2026-09-23', 'bouquet', ?, 'Pat Smith', 'pat@example.com', ?, ?, 8500, ?, ?, ?, ?)`,
+  ).bind(id, o.status, o.fulfillment, o.phone, o.address, o.deliveryCents, o.presentation, o.vaseCents, o.recipient).run();
 }
 
 describe("POST /admin/api/orders/:id/dispatch", () => {
@@ -27,6 +27,16 @@ describe("POST /admin/api/orders/:id/dispatch", () => {
   it("refuses without a session", async () => {
     const { fetch } = testApp();
     expect((await fetch("/admin/api/orders/x/dispatch", { method: "POST" })).status).toBe(401);
+  });
+
+  it("gives the courier the recipient's name when the order is a gift, and the buyer's otherwise", async () => {
+    await order("g1", { recipient: "Tina Warren" });
+    await order("g2");
+    const { fetch, uber } = testApp(new Date("2026-09-23T15:00:00Z"));
+    const as = asAdmin(fetch);
+    expect((await as("/admin/api/orders/g1/dispatch", { method: "POST" })).status).toBe(200);
+    expect((await as("/admin/api/orders/g2/dispatch", { method: "POST" })).status).toBe(200);
+    expect(uber.created.map((d) => d.dropoff.name)).toEqual(["Tina Warren", "Pat Smith"]);
   });
 
   it("gets a fresh quote for right now, creates the delivery, stores it, and queues the tracking email", async () => {
